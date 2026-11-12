@@ -1,0 +1,116 @@
+# Runs on every push. One Mac machine does everything:
+#   1. Builds an unsigned Kinbir.ipa and attaches it to the run as a download.
+#   2. Runs the unit tests on the simulator.
+#   3. Runs the end-to-end UI tests on the simulator (the app's built-in mock server).
+# A second, small job checks the real Kinbir server still answers in the shape the app expects.
+# The .ipa is unsigned. SideStore signs it with your free Apple ID when you install it.
+name: CI
+
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ipa-and-test:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app (Release)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Kinbir.xcodeproj \
+            -scheme Kinbir \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Kinbir.xcarchive \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee build.log | xcbeautify || (grep -E "error:|warning: unre" build.log | head -80; tail -120 build.log; exit 1)
+
+      - name: Package Kinbir.ipa
+        run: |
+          APP=build/Kinbir.xcarchive/Products/Applications/Kinbir.app
+          test -d "$APP" || { echo "::error::Kinbir.app not found in archive"; exit 1; }
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry ../Kinbir.ipa Payload)
+          ls -lh build/Kinbir.ipa
+
+      - name: Upload Kinbir.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kinbir-build-${{ github.run_number }}
+          path: build/Kinbir.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Pick a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | startswith("iPhone"))] | last | .udid')
+          echo "Using simulator $UDID"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+
+      - name: Run unit tests on simulator
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Kinbir.xcodeproj \
+            -scheme Kinbir \
+            -destination "id=$SIM_UDID" \
+            | tee test.log | xcbeautify || (grep -E "error:|failed" test.log | head -80; tail -120 test.log; exit 1)
+
+      - name: Run end-to-end UI tests on simulator
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Kinbir.xcodeproj \
+            -scheme KinbirUITests \
+            -destination "id=$SIM_UDID" \
+            -resultBundlePath build/ui-tests.xcresult \
+            | tee uitest.log | xcbeautify || (grep -E "error:|failed|did not appear|never showed" uitest.log | head -80; tail -150 uitest.log; exit 1)
+
+      - name: Keep UI test results if something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results-${{ github.run_number }}
+          path: build/ui-tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  live-server-check:
+    # Free, public endpoints only. Never signs in, never spends credits.
+    # A failure here is a warning about the server, not about this build.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the real Kinbir server
+        run: python3 scripts/live_smoke.py

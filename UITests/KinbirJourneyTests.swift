@@ -1,0 +1,169 @@
+import XCTest
+
+/// End-to-end tests. They launch the real app with its built-in mock server
+/// (`-uiTestMock`) and drive the real screens, start to finish.
+final class KinbirJourneyTests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUp() {
+        continueAfterFailure = false
+        app = XCUIApplication()
+    }
+
+    // MARK: helpers
+
+    private func launch(_ extra: [String] = []) {
+        app.launchArguments = ["-uiTestMock"] + extra
+        app.launch()
+    }
+
+    /// Any element with this accessibility identifier, whatever its type.
+    private func el(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+
+    @discardableResult
+    private func waitFor(_ id: String, timeout: TimeInterval = 15,
+                         file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let element = el(id)
+        XCTAssertTrue(element.waitForExistence(timeout: timeout),
+                      "\(id) did not appear", file: file, line: line)
+        return element
+    }
+
+    private func waitForLabel(_ id: String, contains text: String, timeout: TimeInterval = 15,
+                              file: StaticString = #filePath, line: UInt = #line) {
+        let element = el(id)
+        let predicate = NSPredicate(format: "label CONTAINS %@", text)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let outcome = XCTWaiter().wait(for: [expectation], timeout: timeout)
+        XCTAssertEqual(outcome, .completed,
+                       "\(id) never showed \"\(text)\". It shows \"\(element.exists ? element.label : "nothing")\"",
+                       file: file, line: line)
+    }
+
+    private func signIn(code: String = "123456") {
+        waitFor("startButton").tap()
+        let email = waitFor("emailField")
+        email.tap()
+        email.typeText("tester@example.com")
+        waitFor("sendCodeButton").tap()
+        let field = waitFor("codeField")
+        field.tap()
+        field.typeText(code)
+        waitFor("verifyButton").tap()
+    }
+
+    private func typeScript(_ text: String) {
+        let editor = waitFor("scriptEditor")
+        editor.tap()
+        editor.typeText(text)
+        let done = el("keyboardDone")
+        if done.waitForExistence(timeout: 3) { done.tap() }
+    }
+
+    // MARK: tests
+
+    /// A new user goes from the welcome screen to a finished voiceover and signs out.
+    func testNewUserJourney() {
+        launch(["-mockNoVoice"])
+
+        // Welcome and the demo.
+        waitFor("welcomeHeading")
+        waitFor("demoPlayButton").tap()
+        waitFor("demoReady")
+
+        // Sign in.
+        signIn()
+
+        // No voice yet, so the app asks for one.
+        waitFor("cloneVoiceButton").tap()
+        waitFor("enrollHeading")
+        waitFor("enrollScript")
+        waitFor("sampleVideoButton").tap()
+        waitFor("enrollDoneHeading")
+        waitFor("enrollContinueButton").tap()
+
+        // Back on Create with a voice and the free credits.
+        waitForLabel("creditsPill", contains: "20")
+        waitFor("voiceLine")
+
+        // English in, Amharic script out.
+        typeScript("Coffee was first discovered in Ethiopia.")
+        waitForLabel("kindLabel", contains: "English")
+        waitForLabel("mainActionButton", contains: "Write Amharic script")
+        el("mainActionButton").tap()
+        waitForLabel("kindLabel", contains: "Amharic", timeout: 20)
+        waitForLabel("creditsPill", contains: "19")
+
+        // Make the voiceover.
+        waitForLabel("mainActionButton", contains: "Make voiceover")
+        el("mainActionButton").tap()
+        waitFor("resultHeading", timeout: 30)
+        waitFor("playButton")
+        waitFor("shareButton")
+
+        // Make another clears the script.
+        waitFor("makeAnotherButton").tap()
+        waitForLabel("kindLabel", contains: "Nothing yet")
+
+        // The Library lists it.
+        app.tabBars.buttons["Library"].tap()
+        waitFor("libraryHeading")
+        waitFor("libraryRow")
+
+        // Account shows the balance: 20 free, 1 for the script, 2.5 for the voiceover.
+        app.tabBars.buttons["Account"].tap()
+        waitFor("accountHeading")
+        waitForLabel("accountBalance", contains: "16.5")
+        waitForLabel("accountEmail", contains: "tester@example.com")
+
+        // Voices list.
+        waitFor("myVoicesRow").tap()
+        waitFor("voicesHeading")
+        waitFor("voiceRow-0")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Sign out returns to Welcome.
+        waitFor("signOutButton").tap()
+        waitFor("welcomeHeading")
+    }
+
+    /// An account that already has a voice lands straight on a usable Create screen.
+    func testReturningUserSeesCreateAndEmptyLibrary() {
+        launch()
+        signIn()
+        waitFor("mainActionButton")
+        waitFor("voiceLine")
+        XCTAssertFalse(el("cloneVoiceButton").exists, "an account with a voice must not be asked to clone")
+
+        app.tabBars.buttons["Library"].tap()
+        waitFor("libraryEmpty")
+
+        app.tabBars.buttons["Account"].tap()
+        waitFor("deleteAccountLink").tap()
+        waitFor("deleteHeading")
+        XCTAssertFalse(el("deleteConfirmButton").isEnabled,
+                       "deleting must stay disabled until the email is typed")
+    }
+
+    /// A wrong sign-in code shows the server's own sentence.
+    func testWrongCodeIsExplained() {
+        launch()
+        signIn(code: "000000")
+        waitForLabel("problemCard", contains: "not right")
+        waitFor("codeField")
+    }
+
+    /// With no credits the app says so plainly and offers nothing to buy in Build 1.
+    func testOutOfCreditsIsExplained() {
+        launch(["-mockNoCredits"])
+        signIn()
+        waitForLabel("creditsPill", contains: "0")
+        typeScript("Coffee was first discovered in Ethiopia.")
+        waitForLabel("mainActionButton", contains: "Write Amharic script")
+        el("mainActionButton").tap()
+        waitForLabel("problemCard", contains: "credits")
+        waitForLabel("problemCard", contains: "next build")
+    }
+}
