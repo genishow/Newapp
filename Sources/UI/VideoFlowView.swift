@@ -213,9 +213,9 @@ struct VideoFlowView: View {
             } label: {
                 Text(T("More options")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
                     .frame(minHeight: 44)
+                    .accessibilityIdentifier("setupMoreOptions")
             }
             .tint(Theme.black)
-            .accessibilityIdentifier("setupMoreOptions")
         }
     }
 
@@ -249,14 +249,18 @@ struct VideoFlowView: View {
     }
 
     /// The setup screen's one main button, with what it will cost in total.
+    private var setupTitle: String {
+        guard let estimate else { return T("Make my video") }
+        let price: String = Fmt.credits(estimate + 2)
+        return T("Make my video") + " · ≈ " + price + " " + T("credits")
+    }
+
     @ViewBuilder private var setupBar: some View {
         Button {
             auto = true
             Task { await startPlan() }
         } label: {
-            BusyLabel(title: estimate.map { T("Make my video") + " · ≈ " + Fmt.credits($0 + 2) + " " + T("credits") }
-                              ?? T("Make my video"),
-                      busy: starting && auto)
+            BusyLabel(title: setupTitle, busy: starting && auto)
         }
         .buttonStyle(PrimaryButtonStyle())
         .disabled(starting || working != nil || (source == .own && uploads.isEmpty))

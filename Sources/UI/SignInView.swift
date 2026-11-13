@@ -12,6 +12,12 @@ struct SignInView: View {
     @State private var canResendAt = Date.distantPast
     @State private var now = Date()
 
+    private var resendTitle: String {
+        guard now < canResendAt else { return T("Send a new code") }
+        let left: String = Fmt.clock(canResendAt.timeIntervalSince(now))
+        return T("Send a new code") + " (" + left + ")"
+    }
+
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -46,9 +52,7 @@ struct SignInView: View {
                     .accessibilityIdentifier("verifyButton")
 
                     HStack(spacing: 20) {
-                        Button(now < canResendAt
-                               ? T("Send a new code") + " (" + Fmt.clock(canResendAt.timeIntervalSince(now)) + ")"
-                               : T("Send a new code")) { Task { await sendCode() } }
+                        Button(resendTitle) { Task { await sendCode() } }
                             .buttonStyle(QuietButtonStyle())
                             .disabled(busy || now < canResendAt)
                             .opacity(now < canResendAt ? 0.4 : 1)

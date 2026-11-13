@@ -24,6 +24,7 @@ struct CreateView: View {
     @State private var showWriter = false
     @State private var showMore = false
     @State private var showCredits = false
+    @State private var keepProblem = false
     @StateObject private var recorder = SpeechRecorder()
     @FocusState private var editing: Bool
     /// The voiceover's language. It starts as the app's language and lives in More options.
@@ -134,7 +135,9 @@ struct CreateView: View {
         .onChange(of: text) { _, new in
             state.saveDraft(new)
             if new != draftText { draftId = nil }
-            problem = nil
+            // A failed rewrite puts the old text back, and the reason it failed must stay
+            // on screen.
+            if keepProblem { keepProblem = false } else { problem = nil }
         }
         .onChange(of: state.me) { _, me in seedVoice(from: me) }
         // A script is ready and a voice exists: wake the voice engine now, so the
@@ -359,6 +362,7 @@ struct CreateView: View {
             await state.refresh()
         } catch {
             work = .idle
+            keepProblem = text != old
             text = old
             problem = state.report(error)
         }
