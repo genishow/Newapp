@@ -8,7 +8,7 @@ enum Theme {
     static let white = Color.white
     static let muted = Color(red: 0x5A / 255.0, green: 0x5B / 255.0, blue: 0x66 / 255.0)
 
-    static let cardRadius: CGFloat = 24
+    static let cardRadius: CGFloat = 20
     static let controlRadius: CGFloat = 14
     static let margin: CGFloat = 20
     static let gap: CGFloat = 16

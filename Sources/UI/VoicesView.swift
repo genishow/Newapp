@@ -82,7 +82,7 @@ struct VoicesView: View {
 
     private func title(_ voice: VoiceSummary, index: Int) -> String {
         let name = (voice.name ?? "").trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? "Voice \(index + 1)" : name
+        return name.isEmpty ? Tf("Voice %@", "\(index + 1)") : name
     }
 
     private func row(_ voice: VoiceSummary, index: Int) -> some View {

@@ -20,7 +20,7 @@ struct APIError: Error, Equatable, LocalizedError {
         kind: .network, status: 0,
         message: "No connection. Check your internet and try again.")
 
-    static let buyingNote = "Buying credits inside the app arrives in the next build."
+    static let buyingNote = "Buying credits in the app is coming soon."
 
     /// Turns an HTTP failure into the sentence the user reads.
     /// `path` is the request path; `/auth/` answers keep their own 401 sentences

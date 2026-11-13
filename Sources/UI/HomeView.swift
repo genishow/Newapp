@@ -3,6 +3,8 @@ import SwiftUI
 /// Places a screen can lead to inside a tab.
 enum Route: Hashable {
     case job(String)
+    /// Fix words or sentences of this voiceover.
+    case fix(String)
     /// Make a video from this voiceover.
     case video(String)
     /// A video that is rendering or finished.
@@ -23,6 +25,7 @@ struct HomeView: View {
         bar.backgroundColor = UIColor.white
         UITabBar.appearance().standardAppearance = bar
         UITabBar.appearance().scrollEdgeAppearance = bar
+        BrandControls.apply()
     }
 
     var body: some View {
@@ -47,6 +50,8 @@ struct RouteDestinations: ViewModifier {
             switch route {
             case .job(let id):
                 JobView(jobId: id, onMakeAnother: onMakeAnother)
+            case .fix(let jobId):
+                FixView(jobId: jobId)
             case .video(let jobId):
                 VideoFlowView(jobId: jobId)
             case .videoJob(let id, let landscape):

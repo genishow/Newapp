@@ -28,7 +28,7 @@ struct AccountView: View {
                         Text(T("credits")).font(Theme.body).foregroundStyle(Theme.black)
                     }
                     if let tier = state.me?.tier, !tier.isEmpty {
-                        Pill(text: planName(tier) + " plan", fill: Theme.white)
+                        Pill(text: Tf("%@ plan", planName(tier)), fill: Theme.white)
                     }
                     Text(T("A one-minute voiceover is about 2.5 credits. ") + T(APIError.buyingNote))
                         .font(Theme.small).foregroundStyle(Theme.black)

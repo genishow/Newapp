@@ -1,4 +1,4 @@
-# Test checklist (Builds 1 to 6)
+# Test checklist (Builds 1 to 7)
 
 Things only you can check, because they need a real phone, real email and your real voice.
 Write down what happens for each, and screenshot anything odd.
@@ -116,6 +116,19 @@ Write down what happens for each, and screenshot anything odd.
 - Switch to **Change the words**, tap a sentence, change a word, save, and generate. Is the new audio right?
 - Open the Library. Is there anything that says expired or will not open?
 - Make a horizontal video. Do the pictures and the player look horizontal?
+
+## 13. One box, one button (Build 7)
+
+- Open Create. Is it clear what to do without reading anything twice?
+- Is the Amharic / English switch gone from the main screen?
+- Tap **Write it for me** and try each of the three choices.
+- Tap **More options**. Is everything you expect there?
+- Make a voiceover with too few credits, or with English text. Does the message appear right above the button?
+- On the voiceover, tap **Something sound wrong?** Is fixing easier on its own screen?
+- Tap **Make a video**, pick a shape, tap **Make my video**. Does the video come out with captions and music?
+- On the finished video, tap **Change shots and make it again**.
+- Does the app look calmer and more finished? What still looks rough? Screenshots help most.
+- Give it a new score out of 10.
 
 ## Do not test yet
 

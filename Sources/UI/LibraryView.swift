@@ -61,7 +61,7 @@ struct LibraryView: View {
 
     private func row(_ job: JobSummary) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text((job.preview ?? "").isEmpty ? "Voiceover" : (job.preview ?? ""))
+            Text((job.preview ?? "").isEmpty ? T("Voiceover") : (job.preview ?? ""))
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .lineSpacing(Theme.amharicLineSpacing)
                 .lineLimit(2)
@@ -81,7 +81,7 @@ struct LibraryView: View {
 
     private func videoRow(_ video: VideoSummary) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text((video.preview ?? "").isEmpty ? "Video" : (video.preview ?? ""))
+            Text((video.preview ?? "").isEmpty ? T("Video") : (video.preview ?? ""))
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .lineSpacing(Theme.amharicLineSpacing)
                 .lineLimit(2)

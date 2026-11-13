@@ -62,7 +62,10 @@ struct VideoFlowView: View {
     @State private var picking: Beat?
     @State private var tracks: [MusicTrack] = []
     @State private var musicId: String?
-    @State private var captions = false
+    /// On by default: captions are what make a short video look finished.
+    @State private var captions = true
+    @State private var showSetupOptions = false
+    @State private var showPresenter = false
     @State private var avatar = AvatarChoice()
     @State private var audioSec = 0.0
     @State private var starting = false
@@ -86,7 +89,12 @@ struct VideoFlowView: View {
                 case .shots:
                     shots
                 case .video(let id):
-                    VideoJobView(videoJobId: id, shape: shape)
+                    VideoJobView(videoJobId: id, shape: shape, onEditShots: planId == nil ? nil : {
+                        Task {
+                            await reloadPlan()
+                            stage = .shots
+                        }
+                    })
                 }
             }
             .page()
@@ -95,6 +103,29 @@ struct VideoFlowView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .onDisappear { musicPlayer.stop() }
+        .safeAreaInset(edge: .bottom) {
+            if stage == .setup {
+                BottomBar(problem: problem) { setupBar }
+            }
+        }
+        .sheet(isPresented: $showPresenter) {
+            NavigationStack {
+                ScrollView {
+                    AvatarCard(choice: $avatar, audioSec: audioSec, shape: shape).page()
+                }
+                .background(Theme.white)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(T("Done")) { showPresenter = false }
+                            .accessibilityIdentifier("presenterDone")
+                    }
+                }
+            }
+            .tint(Theme.black)
+            .environmentObject(state)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showClipPicker) {
             ClipPicker { urls in
                 showClipPicker = false
@@ -113,64 +144,123 @@ struct VideoFlowView: View {
     // MARK: setup
 
     private var setup: some View {
-        VStack(alignment: .leading, spacing: Theme.gap) {
+        VStack(alignment: .leading, spacing: 20) {
             Text(T("Make a video")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("videoSetupHeading")
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(T("Shape")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                Picker(T("Shape"), selection: $shape) {
-                    ForEach(Shape.allCases) { Text(T($0.title)).tag($0) }
+            // The one real choice: where the video will be watched.
+            HStack(spacing: 12) {
+                shapeTile(.portrait, title: T("Vertical"), detail: "TikTok · Reels · Shorts")
+                shapeTile(.landscape, title: T("Horizontal"), detail: "YouTube")
+            }
+
+            VStack(spacing: 0) {
+                Toggle(isOn: $captions) {
+                    Label(T("Captions"), systemImage: "captions.bubble")
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
                 }
-                .pickerStyle(.segmented)
-
-                Text(T("Footage")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                    .padding(.top, 6)
-                Picker(T("Footage"), selection: $source) {
-                    ForEach(FootageSource.allCases) { Text(T($0.title)).tag($0) }
+                .tint(Theme.black)
+                .frame(minHeight: 48)
+                Rectangle().fill(Theme.white).frame(height: 2)
+                HStack {
+                    Label(T("Music"), systemImage: "music.note")
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Spacer()
+                    Picker(T("Music"), selection: $musicId) {
+                        Text(T("None")).tag(String?.none)
+                        ForEach(tracks) { track in
+                            Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Theme.black)
                 }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("sourcePicker")
-                NoteText(text: sourceNote)
+                .frame(minHeight: 48)
             }
-            .card(fill: Theme.grey)
+            .card(fill: Theme.grey, padding: 14)
 
-            if source != .stock {
-                clipsCard
-            }
-
-            if let problem {
-                ProblemCard(message: problem)
-            }
-
-            Button {
-                auto = true
-                Task { await startPlan() }
+            DisclosureGroup(isExpanded: $showSetupOptions) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(T("Footage")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    Picker(T("Footage"), selection: $source) {
+                        ForEach(FootageSource.allCases) { Text(T($0.title)).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("sourcePicker")
+                    NoteText(text: sourceNote)
+                    if source != .stock {
+                        clipsCard
+                    }
+                    Button {
+                        showPresenter = true
+                    } label: {
+                        OptionRow(icon: "person.crop.square", title: T("Add yourself as presenter"),
+                                  value: avatar.enabled ? T("On") : T("Off"))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("presenterRow")
+                    Button {
+                        auto = false
+                        Task { await startPlan() }
+                    } label: {
+                        BusyLabel(title: T("Review the shots first"), busy: starting && !auto)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+                    .accessibilityIdentifier("planButton")
+                }
+                .padding(.top, 12)
             } label: {
-                BusyLabel(title: T("Make the video for me"), busy: starting && auto)
+                Text(T("More options")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .frame(minHeight: 44)
             }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
-            .accessibilityIdentifier("autoVideoButton")
-
-            NoteText(text: T("Kinbir plans the shots, finds the footage and makes the video in one go. You can still change any shot afterwards and make it again."))
-
-            Button {
-                auto = false
-                Task { await startPlan() }
-            } label: {
-                BusyLabel(title: T("Plan the shots"), busy: starting && !auto)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
-            .accessibilityIdentifier("planButton")
-
-            NoteText(text: T("Choose this to check every shot yourself before the video is made."))
-
-            if let estimate {
-                NoteText(text: Tf("Planning costs about %@ credits. Finding footage and changing shots is free. The finished video is 2 credits.", Fmt.credits(estimate)))
-            }
+            .tint(Theme.black)
+            .accessibilityIdentifier("setupMoreOptions")
         }
+    }
+
+    /// A tile drawn in the shape of the screen the video is for.
+    private func shapeTile(_ value: Shape, title: String, detail: String) -> some View {
+        let selected = shape == value
+        return Button {
+            Haptics.tap()
+            shape = value
+        } label: {
+            VStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Theme.black, lineWidth: 2)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(selected ? Theme.black.opacity(0.08) : Theme.white))
+                    .frame(width: value == .portrait ? 34 : 60, height: value == .portrait ? 60 : 34)
+                    .frame(height: 64)
+                Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .fill(selected ? Theme.lime : Theme.grey))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: selected ? 1.5 : 0))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("shape-" + value.rawValue)
+    }
+
+    /// The setup screen's one main button, with what it will cost in total.
+    @ViewBuilder private var setupBar: some View {
+        Button {
+            auto = true
+            Task { await startPlan() }
+        } label: {
+            BusyLabel(title: estimate.map { T("Make my video") + " · ≈ " + Fmt.credits($0 + 2) + " " + T("credits") }
+                              ?? T("Make my video"),
+                      busy: starting && auto)
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+        .accessibilityIdentifier("autoVideoButton")
     }
 
     private var sourceNote: String {
@@ -295,7 +385,15 @@ struct VideoFlowView: View {
 
             finishCard
 
-            AvatarCard(choice: $avatar, audioSec: audioSec, shape: shape)
+            Button {
+                showPresenter = true
+            } label: {
+                OptionRow(icon: "person.crop.square", title: T("Add yourself as presenter"),
+                          value: avatar.enabled ? T("On") : T("Off"))
+            }
+            .buttonStyle(.plain)
+            .disabled(working != nil)
+            .accessibilityIdentifier("presenterRowShots")
 
             if let problem {
                 ProblemCard(message: problem)
@@ -324,7 +422,7 @@ struct VideoFlowView: View {
                 Picker(T("Music"), selection: $musicId) {
                     Text(T("None")).tag(String?.none)
                     ForEach(tracks) { track in
-                        Text(track.title ?? "Track").tag(String?.some(track.trackId))
+                        Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
                     }
                 }
                 .pickerStyle(.menu)
@@ -355,6 +453,8 @@ struct VideoFlowView: View {
             audioSec = job.audioSec ?? 0
             uploads = (try? await state.api.uploads(jobId: jobId)) ?? []
             tracks = (try? await state.api.music()) ?? []
+            // A video with music feels finished, so the first track is chosen to start with.
+            if musicId == nil { musicId = tracks.first?.trackId }
             if let existing = job.brollPlanId {
                 planId = existing
                 await reloadPlan()
@@ -380,6 +480,7 @@ struct VideoFlowView: View {
             let submit = try await state.api.planFootage(jobId: jobId, shape: shape, source: source)
             // Saved at once: planning is paid for, so it must never be submitted twice.
             UserDefaults.standard.set(submit.jobId, forKey: planJobKey)
+            UserDefaults.standard.set(auto, forKey: planJobKey + ".auto")
             stage = .planning
         } catch {
             problem = state.report(error)
@@ -393,6 +494,7 @@ struct VideoFlowView: View {
             stage = .setup
             return
         }
+        auto = auto || UserDefaults.standard.bool(forKey: planJobKey + ".auto")
         var misses = 0
         while !Task.isCancelled {
             do {
@@ -407,8 +509,11 @@ struct VideoFlowView: View {
                     stage = .shots
                     if auto && emptyShots.isEmpty && !beats.isEmpty {
                         await makeVideo()
+                    } else if auto {
+                        problem = T("Some shots have no footage yet, so the video was not made. Add footage to them, then tap Make video.")
                     }
                     auto = false
+                    UserDefaults.standard.removeObject(forKey: planJobKey + ".auto")
                     return
                 }
                 if latest.status == "failed" {
@@ -493,7 +598,7 @@ struct VideoFlowView: View {
         problem = nil
         var done = 0
         for url in urls {
-            let label = "Uploading clip \(done + 1) of \(urls.count)"
+            let label = Tf("Uploading clip %@ of %@", "\(done + 1)", "\(urls.count)")
             working = label
             do {
                 let meta = try await state.api.uploadClip(fileURL: url, jobId: jobId) { fraction in
@@ -664,7 +769,7 @@ struct ShotSheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(T("Search with other words")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
-                        TextField(beat.query ?? "For example: coffee cup", text: $query)
+                        TextField(beat.query ?? T("For example: coffee cup"), text: $query)
                             .textInputAutocapitalization(.never)
                             .field()
                             .accessibilityIdentifier("shotQueryField")
@@ -688,7 +793,7 @@ struct ShotSheet: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "film").foregroundStyle(Theme.black)
-                                    Text(upload.name ?? "My clip").font(Theme.body)
+                                    Text(upload.name ?? T("My clip")).font(Theme.body)
                                         .foregroundStyle(Theme.black).lineLimit(1)
                                     Spacer()
                                     Text(Fmt.length(upload.duration)).font(Theme.small)

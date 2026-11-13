@@ -7,6 +7,8 @@ struct VideoJobView: View {
     let videoJobId: String
     /// Vertical or horizontal, when the caller already knows it.
     var shape: Shape?
+    /// Goes back to the shots, to change something and make the video again.
+    var onEditShots: (() -> Void)?
 
     @State private var status: AssembleStatus?
     @State private var problem: String?
@@ -24,11 +26,13 @@ struct VideoJobView: View {
                 done(status)
             } else if let status, status.status == "cancelled" {
                 Text(T("Stopped")).font(Theme.title).foregroundStyle(Theme.black)
-                NoteText(text: refundNote ?? "The video was stopped and the credits were returned.")
+                NoteText(text: refundNote ?? T("The video was stopped and the credits were returned."))
+                editShotsButton(primary: true)
             } else if let status, status.status == "failed" {
                 Text(T("This one did not work")).font(Theme.title).foregroundStyle(Theme.black)
                 ProblemCard(message: status.error.map(APIError.sentenceCase)
-                            ?? "The video could not be made. Your credits were returned.")
+                            ?? T("The video could not be made. Your credits were returned."))
+                editShotsButton(primary: true)
             } else {
                 rendering
             }
@@ -121,8 +125,23 @@ struct VideoJobView: View {
             if let problem {
                 ProblemCard(message: problem)
             }
-            NoteText(text: [Fmt.length(status.durationSec), "Kept for 48 hours. Save it if you need it later."]
+            editShotsButton(primary: false)
+
+            NoteText(text: [Fmt.length(status.durationSec), T("Kept for 48 hours. Save it if you need it later.")]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
+        }
+    }
+
+    @ViewBuilder private func editShotsButton(primary: Bool) -> some View {
+        if let onEditShots {
+            if primary {
+                Button(T("Back to the shots")) { onEditShots() }
+                    .buttonStyle(PrimaryButtonStyle())
+            } else {
+                Button(T("Change shots and make it again")) { onEditShots() }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("editShotsButton")
+            }
         }
     }
 

@@ -5,6 +5,12 @@ enum Lang: String, CaseIterable, Identifiable {
     case am, en
     var id: String { rawValue }
     var title: String { self == .am ? "Amharic" : "English" }
+
+    /// The voiceover language a new user starts with: the language they chose for the app.
+    /// UI tests always start in Amharic.
+    static var matchingInterface: Lang {
+        (UILanguage.current == .en && !Launch.isMock) ? .en : .am
+    }
 }
 
 /// How Kinbir should write or change a script.

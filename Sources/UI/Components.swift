@@ -2,10 +2,15 @@ import SwiftUI
 
 // MARK: card
 
-/// White, grey or lime fill, a 1 pt black border and a hard black shadow under it.
+/// A surface. Two kinds only, so screens stay calm:
+/// - lime is the one "hero" on a screen: black border and the hard brand shadow;
+/// - grey and white are flat groupings: no shadow, and white gets a hairline so it shows
+///   on the white page.
 struct CardModifier: ViewModifier {
-    var fill: Color = Theme.white
-    var padding: CGFloat = 18
+    var fill: Color = Theme.grey
+    var padding: CGFloat = 16
+
+    private var isHero: Bool { fill == Theme.lime }
 
     func body(content: Content) -> some View {
         content
@@ -13,16 +18,23 @@ struct CardModifier: ViewModifier {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                        .fill(Theme.black)
-                        .offset(y: Theme.shadowDrop)
+                    if isHero {
+                        RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                            .fill(Theme.black)
+                            .offset(y: Theme.shadowDrop)
+                    }
                     RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                         .fill(fill)
-                    RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                        .strokeBorder(Theme.black, lineWidth: 1)
+                    if isHero {
+                        RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                            .strokeBorder(Theme.black, lineWidth: 1)
+                    } else if fill == Theme.white {
+                        RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                            .strokeBorder(Theme.grey, lineWidth: 2)
+                    }
                 }
             )
-            .padding(.bottom, Theme.shadowDrop)
+            .padding(.bottom, isHero ? Theme.shadowDrop : 0)
     }
 }
 
@@ -64,21 +76,20 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Black, for the second action.
+/// The second action on a screen: white with a black outline.
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.button)
-            .foregroundStyle(Theme.white)
+            .foregroundStyle(isEnabled ? Theme.black : Theme.muted)
             .frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
-                    .fill(isEnabled ? Theme.black : Theme.muted)
-            )
-            .opacity(configuration.isPressed ? 0.8 : 1)
+            .background(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .fill(configuration.isPressed ? Theme.grey : Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .strokeBorder(isEnabled ? Theme.black : Theme.muted, lineWidth: 1.5))
             .contentShape(Rectangle())
     }
 }
@@ -326,5 +337,99 @@ struct StepList: View {
         .card(fill: Theme.grey)
         .onReceive(clock) { now = $0 }
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: build 7
+
+/// The main button of a screen, pinned above the tab bar so it is always in reach,
+/// with any problem shown right above it where the tap happened.
+struct BottomBar<Content: View>: View {
+    var problem: String?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if let problem {
+                ProblemCard(message: problem)
+            }
+            content
+        }
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(Theme.white.shadow(color: Theme.black.opacity(0.08), radius: 6, y: -2))
+    }
+}
+
+/// A tappable row with an icon, a title, an optional second line and a chevron.
+struct OptionRow: View {
+    let icon: String
+    let title: String
+    var detail: String?
+    var value: String?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.black)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Theme.white))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .multilineTextAlignment(.leading)
+                if let detail {
+                    Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 4)
+            if let value {
+                Text(value).font(Theme.small).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
+        }
+        .frame(minHeight: 44)
+        .card(fill: Theme.grey, padding: 12)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Bars that move while something is being made or played.
+struct Waveform: View {
+    var active = true
+    var bars = 24
+    var color: Color = Theme.black
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.12, paused: !active)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: 3) {
+                ForEach(0..<bars, id: \.self) { i in
+                    let wave = active ? abs(sin(t * 3.1 + Double(i) * 0.55)) * abs(sin(t * 1.3 + Double(i) * 0.21)) : 0.15
+                    Capsule().fill(color)
+                        .frame(width: 4, height: 8 + 34 * wave)
+                }
+            }
+            .frame(height: 44)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// System pickers, dressed in the brand: black selection, the Kinbir font.
+enum BrandControls {
+    static func apply() {
+        let segmented = UISegmentedControl.appearance()
+        segmented.selectedSegmentTintColor = UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 1)
+        segmented.backgroundColor = UIColor(red: 0xF3 / 255, green: 0xF3 / 255, blue: 0xF3 / 255, alpha: 1)
+        let font = UIFont(name: "SpaceGrotesk-Medium", size: 14) ?? .systemFont(ofSize: 14, weight: .medium)
+        segmented.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: font], for: .selected)
+        segmented.setTitleTextAttributes([
+            .foregroundColor: UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 1), .font: font,
+        ], for: .normal)
     }
 }

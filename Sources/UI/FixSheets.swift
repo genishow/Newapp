@@ -81,7 +81,7 @@ struct WordFixSheet: View {
                             }
                             .buttonStyle(QuietButtonStyle())
                         }
-                        .disabled(typed.count < 3)
+                        .disabled(typed.count < 2)
                     }
                     .card(fill: Theme.white, padding: 14)
 
@@ -101,7 +101,7 @@ struct WordFixSheet: View {
         .task { await open() }
         // A typed spelling is prepared after a short pause, so Listen is quick.
         .task(id: typed) {
-            guard typed.count >= 3 else { return }
+            guard typed.count >= 2 else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if Task.isCancelled { return }
             _ = try? await state.api.fixPreview(word: target.word, optionId: nil, custom: typed)

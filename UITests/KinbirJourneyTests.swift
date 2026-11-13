@@ -69,9 +69,22 @@ final class KinbirJourneyTests: XCTestCase {
 
     /// English text in, Amharic script out: the "English text" tab of step 1.
     private func writeAmharicScript() {
-        waitFor("tab-source").tap()
-        type("Coffee was first discovered in Ethiopia.", into: "sourceEditor")
+        waitFor("writeForMeButton").tap()
+        waitFor("writerHeading")
+        waitFor("writeChoice-source").tap()
+        let editor = waitFor("sourceEditor")
+        editor.tap()
+        editor.typeText("Coffee was first discovered in Ethiopia.")
+        let done = el("sheetKeyboardDone")
+        if done.waitForExistence(timeout: 3) { done.tap() }
         waitFor("writeButton").tap()
+    }
+
+    /// The step-by-step video path lives under More options on the setup screen.
+    private func planShotsMyself() {
+        waitFor("videoSetupHeading")
+        waitFor("setupMoreOptions").tap()
+        waitFor("planButton").tap()
     }
 
     // MARK: tests
@@ -171,8 +184,7 @@ final class KinbirJourneyTests: XCTestCase {
         makeVoiceover()
 
         waitFor("makeVideoLink").tap()
-        waitFor("videoSetupHeading")
-        waitFor("planButton").tap()
+        planShotsMyself()
 
         // Planning, then the stock search fills both shots.
         waitFor("shotsHeading", timeout: 30)
@@ -202,12 +214,15 @@ final class KinbirJourneyTests: XCTestCase {
         launch()
         signIn()
         makeVoiceover()
+        waitFor("fixLink").tap()
+        waitFor("fixScreenHeading")
         waitFor("word-0-0").tap()
         // The first reading plays by itself; choosing one only adds it to the list.
         waitFor("fixHeading")
         waitFor("fixUse-0").tap()
         waitFor("generateChangesButton").tap()
         waitFor("fixDoneNote", timeout: 20)
+        waitFor("fixBackButton").tap()
         waitFor("playButton")
     }
 
@@ -215,11 +230,13 @@ final class KinbirJourneyTests: XCTestCase {
     func testEnglishVoiceover() {
         launch()
         signIn()
+        waitFor("moreOptionsButton").tap()
         waitFor("languagePicker")
         app.buttons["English"].tap()
+        waitFor("englishCard")
+        waitFor("moreDone").tap()
         type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
         waitFor("scriptCounter")
-        waitFor("englishCard")
         el("voiceButton").tap()
         waitFor("resultHeading", timeout: 30)
     }
@@ -240,22 +257,38 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("saveRulesButton", contains: "Saved")
     }
 
+    /// One tap from a voiceover to a finished video, with captions and music by default.
+    func testOneTapVideo() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("makeVideoLink").tap()
+        waitFor("videoSetupHeading")
+        waitFor("shape-landscape").tap()
+        waitFor("autoVideoButton").tap()
+        waitFor("videoReadyHeading", timeout: 40)
+        waitFor("editShotsButton").tap()
+        waitFor("shotsHeading")
+    }
+
     /// A video with the presenter, delivered as a separate clip.
     func testVideoWithPresenter() {
         launch()
         signIn()
         makeVoiceover()
         waitFor("makeVideoLink").tap()
-        waitFor("planButton").tap()
+        planShotsMyself()
         waitFor("shotsHeading", timeout: 30)
 
         // Upload a photo, then switch the presenter on.
+        waitFor("presenterRowShots").tap()
         flip("avatarDeclare")
         waitFor("samplePhotoButton").tap()
         waitFor("avatarReady")
         flip("avatarToggle")
         waitFor("avatarQuote")
         app.buttons["Separate file"].tap()
+        waitFor("presenterDone").tap()
 
         waitFor("makeVideoButton").tap()
         waitFor("videoReadyHeading", timeout: 30)
@@ -269,7 +302,7 @@ final class KinbirJourneyTests: XCTestCase {
         makeVoiceover()
 
         waitFor("makeVideoLink").tap()
-        waitFor("planButton").tap()
+        planShotsMyself()
         waitFor("stockLimitCard", timeout: 30)
         XCTAssertFalse(el("makeVideoButton").isEnabled, "empty shots must block the video")
 
@@ -297,6 +330,6 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("creditsPill", contains: "0")
         writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
-        waitForLabel("problemCard", contains: "next build")
+        waitForLabel("problemCard", contains: "coming soon")
     }
 }
