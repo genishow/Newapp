@@ -47,12 +47,16 @@ The app is a thin client. All AI work happens on the existing Kinbir server at
 | Credit balance | Yes, read only |
 | Delete account | Yes |
 
-### Deliberately removed (compared with the website)
+### Change of plan, 2026-11-13
 
-- Footage, b-roll, video assembly, avatar, shorts, music, logo, graphics.
-- English voiceovers. English is accepted as **input** only.
-- Fix-a-word, speech-to-text input, script rules, pace and emphasis controls.
-- Stripe checkout and the billing portal.
+The owner decided the app should have everything the website has, added one part at a
+time. Build 2 adds footage, music and the finished video (section 5.10). Build 3 adds the
+avatar. Build 4 adds the voice extras: fix a word, speech input, script options and English
+voiceovers. Rule 1 below (Amharic output only) holds until Build 4.
+
+### Never in the app
+
+- Stripe checkout and the billing portal (Apple requires its own purchases, see section 9).
 - All admin and internal tools.
 
 ### Build 2 (needs a server update, see section 9)
@@ -240,6 +244,37 @@ The home of the app.
    - `approved`: "Your voice is ready." and the free credits granted, then back to Create.
    - `pending`: "Thanks. You will get an email when it is approved."
    - Any `advice` lines from the server are listed.
+
+### 5.10 Make a video (Build 2)
+
+Opened from a finished voiceover with "Make a video".
+
+1. **Setup.** Shape (Vertical 9:16 or Horizontal 16:9). Footage: Stock, Stock + mine, or
+   Only mine. With either "mine" choice the user adds clips first. The plan price comes
+   from `POST /broll/estimate`.
+2. **Plan.** `POST /broll/plan`, then `GET /jobs/{id}` every 3 seconds. The plan job id is
+   saved on the phone the moment it is returned, because planning is paid for and must
+   never be submitted twice.
+3. **Fill the shots.** Stock: `POST /broll/search` in slices until `remaining` is 0. Own
+   clips: `POST /broll/match`. Then `GET /broll/plan/{id}` for the full list.
+4. **Stock limit.** The server answers 200 with `retry_after`, or with nothing searched and
+   work remaining. The app waits once and tries again. If it is refused twice it shows
+   "Stock footage is not available right now" and asks the user to upload their own footage
+   for the empty shots. New clips are placed on the empty shots at once.
+5. **Shots.** Each shot shows its clip and the words it covers. Tapping a shot opens a
+   sheet: pick another clip (`/broll/choose`), search with other words (`/broll/search`
+   with `beat` and `query`), or use one of the user's clips (`/broll/use-upload`).
+6. **Own clips.** Up to 10 videos or photos at a time, sent to `POST /uploads/chunk` in
+   16 MB parts, in order, tagged with the voiceover's `job_id`.
+7. **Finish.** Music (`GET /music`, with a listen button) and a captions switch. "Make
+   video" is disabled until every shot has footage. `POST /assemble` at 1080p costs 2
+   credits and is charged once.
+8. **Video.** `GET /assemble/{id}` every 3 seconds, with Stop (credits returned). When
+   done: an in-app player on the 720p copy, and "Save or share video" which downloads
+   `video.mp4`. Videos are kept 48 hours and listed in the Library (`GET /videos`).
+
+Not in Build 2: split, merge and reorder shots, logo, on-screen graphics, uploading your own
+music, 4K and 8K.
 
 ### 5.9 Account tab
 

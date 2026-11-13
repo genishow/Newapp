@@ -23,6 +23,7 @@ final class MockAPI: KinbirAPI {
     private var jobPolls: [String: Int] = [:]
     private var demoPolls: [String: Int] = [:]
     private var counter = 0
+    let video = MockVideoState()
 
     init(scenario: Scenario = Scenario()) {
         if scenario.noVoice {
@@ -37,7 +38,7 @@ final class MockAPI: KinbirAPI {
         }
     }
 
-    private func pause() async {
+    func pause() async {
         try? await Task.sleep(nanoseconds: 120_000_000)
     }
 
@@ -192,7 +193,7 @@ final class MockAPI: KinbirAPI {
             let id = nextId("job")
             jobStore[id] = JobStatus(jobId: id, type: "generate", status: "queued", segmentsDone: 0,
                                  segmentsTotal: 2, error: nil, audioSec: nil, segments: [text],
-                                 creditsCharged: nil, creditsBalance: credits)
+                                 creditsCharged: nil, creditsBalance: credits, brollPlanId: nil)
             jobOrder.insert(id, at: 0)
             jobPolls[id] = 0
             return GenerateSubmit(jobId: id, status: "queued", segmentsTotal: 2,
@@ -316,4 +317,190 @@ enum ToneFile {
         try data().write(to: url, options: .atomic)
         return url
     }
+}
+
+// MARK: - footage, music and the finished video (pretend)
+
+/// Mutable state for the pretend footage flow. Kept apart so MockAPI's stored
+/// properties stay in one place.
+final class MockVideoState {
+    var beats: [Beat] = []
+    var searches = 0
+    var uploads: [UploadMeta] = []
+    var assemblePolls: [String: Int] = [:]
+    var videos: [VideoSummary] = []
+    var planPolls = 0
+    /// Set by the `-mockStockLimit` launch argument: stock search answers "not now".
+    var stockLimited = Launch.mockStockLimit
+}
+
+extension MockAPI {
+    private static func stockClip(_ id: Int) -> Candidate {
+        Candidate(clipId: id, poster: nil, previewLink: nil, link: nil, duration: 6,
+                  desc: "Stock clip \(id)", author: "Mock", ownUpload: false)
+    }
+
+    func footageEstimate(script: String) async throws -> Double {
+        await pause()
+        return 3
+    }
+
+    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit {
+        await pause()
+        video.planPolls = 0
+        video.searches = 0
+        video.beats = [
+            Beat(beat: 1, start: 0, end: 3, dur: 3, says: "ሰላም ለሁላችሁ።", mustShow: "people waving",
+                 query: "people waving", type: "talk", status: nil, candidates: nil, exhausted: nil),
+            Beat(beat: 2, start: 3, end: 6, dur: 3, says: "ይህ የአማርኛ ጽሑፍ ነው።", mustShow: "writing",
+                 query: "writing", type: "talk", status: nil, candidates: nil, exhausted: nil),
+        ]
+        return PlanSubmit(jobId: "job-mock-plan", status: "queued", creditsEstimated: 3)
+    }
+
+    func planJob(id: String) async throws -> PlanJob {
+        await pause()
+        video.planPolls += 1
+        guard video.planPolls >= 2 else { return PlanJob(status: "running", error: nil, result: nil) }
+        return PlanJob(status: "done", error: nil,
+                       result: PlanResult(planId: "bp-mock", beats: video.beats,
+                                          creditsCharged: 3, creditsBalance: nil))
+    }
+
+    func plan(id: String) async throws -> StoredPlan {
+        await pause()
+        return StoredPlan(planId: id, jobId: nil, orientation: "portrait", source: "stock",
+                          beats: video.beats)
+    }
+
+    func searchFootage(planId: String, shape: Shape?, beat: Int?,
+                       query: String?) async throws -> SearchResult {
+        await pause()
+        if video.stockLimited {
+            return SearchResult(searched: 0, remaining: video.beats.count, gaps: [],
+                                beats: video.beats, retryAfter: 1)
+        }
+        video.searches += 1
+        for i in video.beats.indices where beat == nil || video.beats[i].beat == beat {
+            let base = video.beats[i].beat * 100 + video.searches * 10
+            video.beats[i].candidates = [MockAPI.stockClip(base), MockAPI.stockClip(base + 1)]
+            video.beats[i].status = "ok"
+        }
+        return SearchResult(searched: video.beats.count, remaining: 0, gaps: [],
+                            beats: video.beats, retryAfter: nil)
+    }
+
+    func chooseClip(planId: String, beat: Int, clipId: Int) async throws {
+        await pause()
+        guard let i = video.beats.firstIndex(where: { $0.beat == beat }),
+              var list = video.beats[i].candidates,
+              let j = list.firstIndex(where: { $0.clipId == clipId }) else { return }
+        let picked = list.remove(at: j)
+        list.insert(picked, at: 0)
+        video.beats[i].candidates = list
+    }
+
+    func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult {
+        await pause()
+        guard !video.uploads.isEmpty else {
+            return MatchResult(matched: 0, pendingLabels: 0, beats: video.beats)
+        }
+        var placed = 0
+        for i in video.beats.indices where video.beats[i].chosen == nil {
+            video.beats[i].candidates = [Candidate(clipId: 9000 + i, poster: nil, previewLink: nil,
+                                                   link: nil, duration: 5, desc: "My clip",
+                                                   author: nil, ownUpload: true)]
+            video.beats[i].status = "ok"
+            placed += 1
+        }
+        return MatchResult(matched: placed, pendingLabels: 0, beats: video.beats)
+    }
+
+    func useUpload(planId: String, beat: Int, uploadId: String) async throws -> [Beat] {
+        await pause()
+        if let i = video.beats.firstIndex(where: { $0.beat == beat }) {
+            let mine = Candidate(clipId: 9500 + beat, poster: nil, previewLink: nil, link: nil,
+                                 duration: 5, desc: "My clip", author: nil, ownUpload: true)
+            video.beats[i].candidates = [mine] + (video.beats[i].candidates ?? [])
+            video.beats[i].status = "ok"
+        }
+        return video.beats
+    }
+
+    func uploads(jobId: String) async throws -> [UploadMeta] {
+        await pause()
+        return video.uploads
+    }
+
+    func uploadClip(fileURL: URL, jobId: String,
+                    onProgress: @escaping @MainActor (Double) -> Void) async throws -> UploadMeta {
+        await pause()
+        await onProgress(1)
+        let meta = UploadMeta(uploadId: "up-mock-\(video.uploads.count + 1).mov",
+                              name: "My clip \(video.uploads.count + 1)", kind: "video",
+                              duration: 5, labelStatus: "done")
+        video.uploads.append(meta)
+        return meta
+    }
+
+    func music() async throws -> [MusicTrack] {
+        await pause()
+        return [MusicTrack(trackId: "calm.mp3", kind: "kinbir", title: "Calm"),
+                MusicTrack(trackId: "bright.mp3", kind: "kinbir", title: "Bright")]
+    }
+
+    func musicAudio(trackId: String) async throws -> URL {
+        await pause()
+        return try ToneFile.write(name: "music-" + trackId)
+    }
+
+    func assemble(planId: String, shape: Shape, musicId: String?,
+                  captions: Bool) async throws -> AssembleSubmit {
+        await pause()
+        if video.beats.contains(where: { $0.isEmpty }) {
+            throw APIError(kind: .other, status: 409,
+                           message: "Some shots have no footage yet. Nothing was charged.")
+        }
+        let id = "vid-mock-\(video.videos.count + 1)"
+        video.assemblePolls[id] = 0
+        return AssembleSubmit(jobId: id, status: "queued", creditsCharged: 2)
+    }
+
+    func assembleStatus(id: String) async throws -> AssembleStatus {
+        await pause()
+        let polls = (video.assemblePolls[id] ?? 0) + 1
+        video.assemblePolls[id] = polls
+        guard polls >= 2 else {
+            return AssembleStatus(status: "running", filesDone: 1, filesTotal: 2, durationSec: nil,
+                                  error: nil, previewUrl: nil, streamUrl: nil, downloadUrl: nil)
+        }
+        if !video.videos.contains(where: { $0.videoJobId == id }) {
+            video.videos.insert(VideoSummary(videoJobId: id, planId: "bp-mock", jobId: nil,
+                                             orientation: "portrait", durationSec: 6,
+                                             finishedAt: "2026-11-12T10:05:00Z", preview: "ሰላም ለሁላችሁ።"),
+                                at: 0)
+        }
+        return AssembleStatus(status: "done", filesDone: 2, filesTotal: 2, durationSec: 6, error: nil,
+                              previewUrl: nil, streamUrl: nil,
+                              downloadUrl: "/assemble/\(id)/video.mp4")
+    }
+
+    func stopAssemble(id: String) async throws -> StopResult {
+        await pause()
+        return StopResult(status: "cancelled", creditsRefunded: 2)
+    }
+
+    func downloadVideo(id: String) async throws -> URL {
+        await pause()
+        let url = TempFiles.url(name: "kinbir-" + id, ext: "mp4")
+        try Data("mock video".utf8).write(to: url)
+        return url
+    }
+
+    func videos() async throws -> [VideoSummary] {
+        await pause()
+        return video.videos
+    }
+
+    func absoluteURL(_ path: String?) -> URL? { nil }
 }

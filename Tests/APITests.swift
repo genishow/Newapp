@@ -388,3 +388,132 @@ final class MockServerTests: XCTestCase {
         XCTAssertNotNil(state.notice)
     }
 }
+
+/// Footage, music and video: real answer shapes from the server code.
+final class VideoDecodingTests: XCTestCase {
+    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
+        try JSON.decoder.decode(T.self, from: Data(json.utf8))
+    }
+
+    func testPlanJobDone() throws {
+        let job = try decode(PlanJob.self, """
+        {"job_id":"job-p1","type":"broll_plan","status":"done",
+         "result":{"plan_id":"bp-1","timing":"measured","chunks":2,"audio_sec":6.2,
+           "beats":[{"beat":1,"chunk":0,"start":0,"end":3.1,"dur":3.1,"says":"ሰላም።",
+                     "must_show":"people waving","query":"people waving","fallback":"crowd"},
+                    {"beat":2,"chunk":1,"start":3.1,"end":6.2,"dur":3.1,"type":"gap",
+                     "must_show":"","query":"","fallback":""}],
+           "warnings":[],"cost_usd":0.11,"credits_estimated":3,"credits_charged":2.5,
+           "credits_adjustment":-0.5,"credits_balance":14.5}}
+        """)
+        XCTAssertEqual(job.status, "done")
+        XCTAssertEqual(job.result?.planId, "bp-1")
+        let beats = job.result?.beats ?? []
+        XCTAssertEqual(beats.count, 2)
+        XCTAssertTrue(beats[0].isEmpty, "a talk shot with no clip needs footage")
+        XCTAssertFalse(beats[1].needsFootage, "a music break needs none")
+        XCTAssertFalse(beats[1].isEmpty)
+    }
+
+    func testSearchResultWithClips() throws {
+        let r = try decode(SearchResult.self, """
+        {"plan_id":"bp-1","orientation":"portrait","searched":1,"gaps":[],"remaining":0,"note":"",
+         "beats":[{"beat":1,"start":0,"end":3,"dur":3,"status":"ok","must_show":"x","query":"x",
+           "candidates":[{"clip_id":123,"url":"https://www.pexels.com/video/123","duration":7,
+             "width":1080,"height":1920,"link":"https://cdn/x.mp4","preview_link":"https://cdn/p.mp4",
+             "poster":"https://images.pexels.com/1.jpg?w=420","matched":["wave"],"score":0.4,
+             "desc":"People waving","author":"A","author_url":"u","licence":"pexels","source":"pexels",
+             "via_query":"people waving"},
+            {"clip_id":9,"link":"/models/uploads/up-abc.mov","preview_link":"/models/uploads/up-abc.mov",
+             "poster":null,"own_upload":true,"clip_start":1.5,"kind":"video"}]}]}
+        """)
+        XCTAssertFalse(r.stockLimited)
+        let beat = try XCTUnwrap(r.beats?.first)
+        XCTAssertEqual(beat.chosen?.clipId, 123, "the clip in use is the first candidate")
+        XCTAssertNotNil(beat.chosen?.posterURL)
+        XCTAssertFalse(beat.isEmpty)
+        XCTAssertTrue(beat.candidates?[1].isOwn == true)
+        XCTAssertNil(beat.candidates?[1].posterURL)
+    }
+
+    func testStockLimitIsDetected() throws {
+        // The server still answers 200 when the stock library says "not now".
+        let limited = try decode(SearchResult.self, #"{"plan_id":"bp-1","searched":0,"gaps":[],"remaining":12,"beats":[],"retry_after":30}"#)
+        XCTAssertTrue(limited.stockLimited)
+        let stalled = try decode(SearchResult.self, #"{"plan_id":"bp-1","searched":0,"gaps":[],"remaining":5,"beats":[]}"#)
+        XCTAssertTrue(stalled.stockLimited)
+        let finished = try decode(SearchResult.self, #"{"plan_id":"bp-1","searched":0,"gaps":[2],"remaining":0,"beats":[]}"#)
+        XCTAssertFalse(finished.stockLimited)
+    }
+
+    func testAssembleStatusDone() throws {
+        let s = try decode(AssembleStatus.self, """
+        {"job_id":"vid-1","status":"done","files_done":8,"files_total":8,"bytes":1234,"duration_sec":61.0,
+         "quality":"1080p","download_url":"/assemble/vid-1/video.mp4",
+         "stream_url":"/assemble/vid-1/video.mp4?e=1&t=abc","preview_url":"/assemble/vid-1/preview.mp4?e=1&t=abc"}
+        """)
+        XCTAssertTrue(s.isDone)
+        XCTAssertTrue(s.isOver)
+        XCTAssertEqual(s.playPath, "/assemble/vid-1/preview.mp4?e=1&t=abc")
+        let running = try decode(AssembleStatus.self, #"{"status":"running","files_done":2,"files_total":8}"#)
+        XCTAssertFalse(running.isOver)
+    }
+
+    func testUploadsMusicAndVideos() throws {
+        let u = try decode(UploadList.self, #"{"uploads":[{"upload_id":"up-1.mov","name":"IMG_1.MOV","kind":"video","duration":12.5,"width":1080,"height":1920,"bytes":999,"owned":true,"job_id":"job-1","label_status":"pending"}]}"#)
+        XCTAssertEqual(u.uploads.first?.uploadId, "up-1.mov")
+        let m = try decode(MusicList.self, #"{"tracks":[{"track_id":"calm.mp3","kind":"kinbir","title":"Calm","bytes":10}],"note":""}"#)
+        XCTAssertEqual(m.tracks.first?.title, "Calm")
+        let v = try decode(VideoList.self, #"{"videos":[{"video_job_id":"vid-1","plan_id":"bp-1","job_id":"job-1","orientation":"portrait","duration_sec":61,"finished_at":"2026-11-12T10:00:00Z","avatar_file":false,"preview":"ሰላም"}],"total":1,"kept_hours":48}"#)
+        XCTAssertEqual(v.videos.first?.videoJobId, "vid-1")
+    }
+
+    func testAbsoluteURLs() {
+        let b = RequestBuilder(accessCode: { nil })
+        XCTAssertEqual(b.absolute("/assemble/v/preview.mp4?e=1&t=a")?.absoluteString,
+                       "https://api.kinbir.com/assemble/v/preview.mp4?e=1&t=a")
+        XCTAssertEqual(b.absolute("https://cdn.example.com/x.mp4")?.host, "cdn.example.com")
+        XCTAssertNil(b.absolute(nil))
+        XCTAssertNil(b.absolute(""))
+    }
+
+    func testClipRules() {
+        XCTAssertTrue(ClipRules.isAllowed(URL(fileURLWithPath: "/tmp/a.MOV")))
+        XCTAssertFalse(ClipRules.isAllowed(URL(fileURLWithPath: "/tmp/a.pdf")))
+        XCTAssertEqual(ClipRules.partCount(bytes: 1), 1)
+        XCTAssertEqual(ClipRules.partCount(bytes: ClipRules.chunkBytes), 1)
+        XCTAssertEqual(ClipRules.partCount(bytes: ClipRules.chunkBytes + 1), 2)
+    }
+
+    func testVideoJourneyOnTheMockServer() async throws {
+        let api = MockAPI()
+        _ = try await api.planFootage(jobId: "job-1", shape: .portrait, source: .stock)
+        var plan = try await api.planJob(id: "job-mock-plan")
+        XCTAssertEqual(plan.status, "running")
+        plan = try await api.planJob(id: "job-mock-plan")
+        let planId = try XCTUnwrap(plan.result?.planId)
+
+        do {
+            _ = try await api.assemble(planId: planId, shape: .portrait, musicId: nil, captions: false)
+            XCTFail("a video with empty shots must be refused")
+        } catch {}
+
+        let search = try await api.searchFootage(planId: planId, shape: .portrait, beat: nil, query: nil)
+        XCTAssertEqual(search.remaining, 0)
+        var beats = try await api.plan(id: planId).beats ?? []
+        XCTAssertTrue(beats.allSatisfy { !$0.isEmpty })
+
+        let second = try XCTUnwrap(beats[0].candidates?[1])
+        try await api.chooseClip(planId: planId, beat: 1, clipId: second.clipId)
+        beats = try await api.plan(id: planId).beats ?? []
+        XCTAssertEqual(beats[0].chosen?.clipId, second.clipId)
+
+        let submit = try await api.assemble(planId: planId, shape: .portrait, musicId: "calm.mp3", captions: true)
+        var status = try await api.assembleStatus(id: submit.jobId)
+        XCTAssertFalse(status.isOver)
+        status = try await api.assembleStatus(id: submit.jobId)
+        XCTAssertTrue(status.isDone)
+        let list = try await api.videos()
+        XCTAssertEqual(list.first?.videoJobId, submit.jobId)
+    }
+}

@@ -1,0 +1,175 @@
+import AVKit
+import SwiftUI
+
+/// One video: progress while it renders, then the player and Save.
+struct VideoJobView: View {
+    @EnvironmentObject private var state: AppState
+    let videoJobId: String
+
+    @State private var status: AssembleStatus?
+    @State private var problem: String?
+    @State private var attempt = 0
+    @State private var player: AVPlayer?
+    @State private var saving = false
+    @State private var stopping = false
+    @State private var shared: SharedFile?
+    @State private var refundNote: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            if let status, status.isDone {
+                done(status)
+            } else if let status, status.status == "cancelled" {
+                Text("Stopped").font(Theme.title).foregroundStyle(Theme.black)
+                NoteText(text: refundNote ?? "The video was stopped and the credits were returned.")
+            } else if let status, status.status == "failed" {
+                Text("This one did not work").font(Theme.title).foregroundStyle(Theme.black)
+                ProblemCard(message: status.error.map(APIError.sentenceCase)
+                            ?? "The video could not be made. Your credits were returned.")
+            } else {
+                rendering
+            }
+        }
+        .task(id: attempt) { await poll() }
+        .onDisappear { player?.pause() }
+        .sheet(item: $shared) { file in
+            ShareSheet(items: [file.url])
+        }
+    }
+
+    private var rendering: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text("Making your video").font(Theme.title).foregroundStyle(Theme.black)
+                .accessibilityIdentifier("videoProgressHeading")
+            VStack(alignment: .leading, spacing: 12) {
+                if problem == nil { ProgressView().tint(Theme.black) }
+                if let status, let total = status.filesTotal, total > 0 {
+                    Text("Clip \(min(status.filesDone ?? 0, total)) of \(total)")
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                }
+                NoteText(text: "This takes a few minutes. You can leave this screen. The video will be in your Library when it is ready.")
+            }
+            .card(fill: Theme.grey)
+
+            if let problem {
+                ProblemCard(message: problem)
+                Button("Check again") {
+                    self.problem = nil
+                    attempt += 1
+                }
+                .buttonStyle(SecondaryButtonStyle())
+            } else {
+                Button {
+                    Task { await stop() }
+                } label: {
+                    BusyLabel(title: "Stop and get the credits back", busy: stopping)
+                }
+                .buttonStyle(QuietButtonStyle())
+                .disabled(stopping)
+            }
+        }
+    }
+
+    private func done(_ status: AssembleStatus) -> some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text("Your video").font(Theme.title).foregroundStyle(Theme.black)
+                .accessibilityIdentifier("videoReadyHeading")
+
+            if let player {
+                VideoPlayer(player: player)
+                    .aspectRatio(9.0 / 16.0, contentMode: .fit)
+                    .frame(maxHeight: 420)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                        .strokeBorder(Theme.black, lineWidth: 1))
+            } else {
+                Text("The preview is not available here. Save the video to watch it.")
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .card(fill: Theme.lime)
+            }
+
+            Button {
+                Task { await save() }
+            } label: {
+                BusyLabel(title: saving ? "Downloading" : "Save or share video", busy: saving)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(saving)
+            .accessibilityIdentifier("saveVideoButton")
+
+            if let problem {
+                ProblemCard(message: problem)
+            }
+            NoteText(text: [Fmt.length(status.durationSec), "Kept for 48 hours. Save it if you need it later."]
+                .filter { !$0.isEmpty }.joined(separator: " · "))
+        }
+    }
+
+    private func poll() async {
+        var misses = 0
+        while !Task.isCancelled {
+            do {
+                let latest = try await state.api.assembleStatus(id: videoJobId)
+                status = latest
+                misses = 0
+                if latest.isOver {
+                    if latest.isDone, player == nil,
+                       let url = state.api.absoluteURL(latest.playPath) {
+                        player = AVPlayer(url: url)
+                    }
+                    await state.refresh()
+                    return
+                }
+            } catch {
+                if Task.isCancelled { return }
+                // The render is already paid for, so a dropped check is not the end.
+                misses += 1
+                if misses >= 4 {
+                    problem = state.report(error)
+                    return
+                }
+            }
+            try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
+        }
+    }
+
+    private func stop() async {
+        stopping = true
+        defer { stopping = false }
+        do {
+            let answer = try await state.api.stopAssemble(id: videoJobId)
+            if let back = answer.creditsRefunded, back > 0 {
+                refundNote = "The video was stopped. \(Fmt.credits(back)) credits were returned."
+            }
+            attempt += 1
+            await state.refresh()
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func save() async {
+        saving = true
+        problem = nil
+        defer { saving = false }
+        do {
+            let url = try await state.api.downloadVideo(id: videoJobId)
+            shared = SharedFile(url: url)
+        } catch {
+            problem = state.report(error)
+        }
+    }
+}
+
+/// A finished or running video opened from the Library.
+struct VideoJobScreen: View {
+    let videoJobId: String
+
+    var body: some View {
+        ScrollView {
+            VideoJobView(videoJobId: videoJobId).page()
+        }
+        .background(Theme.white)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

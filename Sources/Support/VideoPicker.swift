@@ -111,3 +111,53 @@ enum VideoFiles {
         return values?.fileSize ?? 0
     }
 }
+
+/// Chooses several of the user's own videos or photos to use as footage.
+struct ClipPicker: UIViewControllerRepresentable {
+    let onFinish: ([URL]) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .any(of: [.videos, .images])
+        config.selectionLimit = 10
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ controller: PHPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onFinish: ([URL]) -> Void
+        init(onFinish: @escaping ([URL]) -> Void) { self.onFinish = onFinish }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            let finish = onFinish
+            guard !results.isEmpty else {
+                finish([])
+                return
+            }
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var files: [URL] = []
+            for result in results {
+                let provider = result.itemProvider
+                let type = provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
+                    ? UTType.movie.identifier : UTType.image.identifier
+                group.enter()
+                provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
+                    // The file only exists inside this callback, so copy it now.
+                    if let url, let copy = VideoFiles.copyToTemp(url) {
+                        lock.lock()
+                        files.append(copy)
+                        lock.unlock()
+                    }
+                    group.leave()
+                }
+            }
+            group.notify(queue: .main) { finish(files) }
+        }
+    }
+}

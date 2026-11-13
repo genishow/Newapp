@@ -147,6 +147,69 @@ final class KinbirJourneyTests: XCTestCase {
                        "deleting must stay disabled until the email is typed")
     }
 
+    /// From a script to a finished video with stock footage.
+    private func makeVoiceover() {
+        typeScript("Coffee was first discovered in Ethiopia.")
+        waitForLabel("mainActionButton", contains: "Write Amharic script")
+        el("mainActionButton").tap()
+        waitForLabel("kindLabel", contains: "Amharic", timeout: 20)
+        waitForLabel("mainActionButton", contains: "Make voiceover")
+        el("mainActionButton").tap()
+        waitFor("resultHeading", timeout: 30)
+    }
+
+    func testVideoWithStockFootage() {
+        launch()
+        signIn()
+        makeVoiceover()
+
+        waitFor("makeVideoLink").tap()
+        waitFor("videoSetupHeading")
+        waitFor("planButton").tap()
+
+        // Planning, then the stock search fills both shots.
+        waitFor("shotsHeading", timeout: 30)
+        waitFor("shotRow-1")
+        waitFor("shotRow-2")
+
+        // Open a shot and pick the other clip.
+        el("shotRow-1").tap()
+        waitFor("shotSheetHeading")
+        waitFor("clip-1").tap()
+        waitFor("shotsHeading")
+
+        // Render.
+        let make = waitFor("makeVideoButton")
+        XCTAssertTrue(make.isEnabled, "with every shot filled the video can be made")
+        make.tap()
+        waitFor("videoReadyHeading", timeout: 30)
+        waitFor("saveVideoButton")
+
+        // The Library lists the video.
+        app.tabBars.buttons["Library"].tap()
+        waitFor("videoRow")
+    }
+
+    /// When stock footage is unavailable the app says so and own clips fill the shots.
+    func testStockLimitAsksForOwnFootage() {
+        launch(["-mockStockLimit"])
+        signIn()
+        makeVoiceover()
+
+        waitFor("makeVideoLink").tap()
+        waitFor("planButton").tap()
+        waitFor("stockLimitCard", timeout: 30)
+        XCTAssertFalse(el("makeVideoButton").isEnabled, "empty shots must block the video")
+
+        waitFor("addSampleClipButton").tap()
+        let predicate = NSPredicate(format: "isEnabled == true")
+        let ready = XCTNSPredicateExpectation(predicate: predicate, object: el("makeVideoButton"))
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 20), .completed,
+                       "own clips must fill the empty shots")
+        el("makeVideoButton").tap()
+        waitFor("videoReadyHeading", timeout: 30)
+    }
+
     /// A wrong sign-in code shows the server's own sentence.
     func testWrongCodeIsExplained() {
         launch()

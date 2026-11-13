@@ -7,6 +7,7 @@ enum Launch {
     static let isMock = args.contains("-uiTestMock")
     static let mockNoVoice = args.contains("-mockNoVoice")
     static let mockNoCredits = args.contains("-mockNoCredits")
+    static let mockStockLimit = args.contains("-mockStockLimit")
 
     /// How often the app asks the server about a running job.
     static var jobPollSeconds: Double { isMock ? 0.3 : 3.0 }

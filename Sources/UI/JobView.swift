@@ -129,6 +129,12 @@ struct JobView: View {
 
             NoteText(text: "Kept for 48 hours. Save it if you need it later.")
 
+            NavigationLink(value: Route.video(jobId)) {
+                Text(job.brollPlanId == nil ? "Make a video" : "Continue the video")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("makeVideoLink")
+
             if !job.scriptText.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {

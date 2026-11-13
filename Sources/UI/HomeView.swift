@@ -3,6 +3,10 @@ import SwiftUI
 /// Places a screen can lead to inside a tab.
 enum Route: Hashable {
     case job(String)
+    /// Make a video from this voiceover.
+    case video(String)
+    /// A video that is rendering or finished.
+    case videoJob(String)
     case voices
     case enroll
     case deleteAccount
@@ -42,6 +46,10 @@ struct RouteDestinations: ViewModifier {
             switch route {
             case .job(let id):
                 JobView(jobId: id, onMakeAnother: onMakeAnother)
+            case .video(let jobId):
+                VideoFlowView(jobId: jobId)
+            case .videoJob(let id):
+                VideoJobScreen(videoJobId: id)
             case .voices:
                 VoicesView()
             case .enroll:

@@ -36,6 +36,34 @@ protocol KinbirAPI: AnyObject {
     func demoGenerate(text: String) async throws -> DemoRef
     func demoStatus(id: String) async throws -> DemoRef
     func demoAudio(id: String) async throws -> URL
+
+    // Footage
+    func footageEstimate(script: String) async throws -> Double
+    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit
+    func planJob(id: String) async throws -> PlanJob
+    func plan(id: String) async throws -> StoredPlan
+    /// One slice of the stock search. Pass `beat` to search a single shot again.
+    func searchFootage(planId: String, shape: Shape?, beat: Int?, query: String?) async throws -> SearchResult
+    func chooseClip(planId: String, beat: Int, clipId: Int) async throws
+    /// Places the user's own clips on the shots.
+    func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult
+    func useUpload(planId: String, beat: Int, uploadId: String) async throws -> [Beat]
+    func uploads(jobId: String) async throws -> [UploadMeta]
+    func uploadClip(fileURL: URL, jobId: String,
+                    onProgress: @escaping @MainActor (Double) -> Void) async throws -> UploadMeta
+
+    // Music
+    func music() async throws -> [MusicTrack]
+    func musicAudio(trackId: String) async throws -> URL
+
+    // Finished video
+    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool) async throws -> AssembleSubmit
+    func assembleStatus(id: String) async throws -> AssembleStatus
+    func stopAssemble(id: String) async throws -> StopResult
+    func downloadVideo(id: String) async throws -> URL
+    func videos() async throws -> [VideoSummary]
+    /// The server answers with paths like "/assemble/x/preview.mp4?e=..". This makes them openable.
+    func absoluteURL(_ path: String?) -> URL?
 }
 
 /// Builds requests the way the server expects them. Pure, so it is unit-tested.
@@ -74,6 +102,12 @@ struct RequestBuilder {
         }
         req.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         return req
+    }
+
+    func absolute(_ path: String?) -> URL? {
+        guard let path, !path.isEmpty else { return nil }
+        if path.hasPrefix("http") { return URL(string: path) }
+        return URL(string: base.absoluteString + (path.hasPrefix("/") ? path : "/" + path))
     }
 
     func multipart(_ path: String, form: Multipart) -> URLRequest {

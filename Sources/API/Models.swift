@@ -123,6 +123,8 @@ struct JobStatus: Codable, Equatable {
     var segments: [String]?
     var creditsCharged: Double?
     var creditsBalance: Double?
+    /// The newest footage plan made from this voiceover, when there is one.
+    var brollPlanId: String?
 
     var isDone: Bool { status == "done" }
     var isFailed: Bool { status == "failed" }

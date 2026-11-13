@@ -1,4 +1,4 @@
-# Build 1 test checklist
+# Test checklist (Build 1 and Build 2)
 
 Things only you can check, because they need a real phone, real email and your real voice.
 Write down what happens for each, and screenshot anything odd.
@@ -55,7 +55,22 @@ Write down what happens for each, and screenshot anything odd.
 - Does anything look different from the Kinbir website colours?
 - Is anything confusing or more steps than it should be?
 
+## 8. Video (Build 2)
+
+- On a finished voiceover, tap **Make a video**. Keep Vertical and Stock. Tap **Plan the shots**.
+- How long does planning take? Do the shots appear with pictures?
+- Do the pictures match what the words say?
+- Tap a shot. Tap a different clip. Does the shot change?
+- In a shot, type other words and search. Do new clips appear?
+- Choose music and tap **Listen**. Do you hear it?
+- Tap **Make video**. How long until it is ready?
+- Does the video play in the app? Is the voice in sync with the clips?
+- Tap **Save or share video**, then **Save Video**. Is it in Photos?
+- Open **Library**. Is the video listed?
+- Make another video with **Only mine**. Add two or three of your own clips. Do they upload and appear on the shots?
+- If you ever see **Stock footage is not available right now**, add your own clips. Do the empty shots fill?
+
 ## Do not test yet
 
 - **Delete my account** really deletes it. Only try it with a throwaway email.
-- Buying credits is not in this build.
+- Buying credits is not in these builds.

@@ -4,6 +4,7 @@ import SwiftUI
 struct LibraryView: View {
     @EnvironmentObject private var state: AppState
     @State private var jobs: [JobSummary] = []
+    @State private var videos: [VideoSummary] = []
     @State private var loaded = false
     @State private var problem: String?
 
@@ -19,15 +20,28 @@ struct LibraryView: View {
 
                 if !loaded && problem == nil {
                     ProgressView().tint(Theme.black)
-                } else if jobs.isEmpty && problem == nil {
+                } else if jobs.isEmpty && videos.isEmpty && problem == nil {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Nothing here yet").font(Theme.heading).foregroundStyle(Theme.black)
-                        Text("Your voiceovers appear here for 48 hours.")
+                        Text("Your voiceovers and videos appear here for 48 hours.")
                             .font(Theme.body).foregroundStyle(Theme.muted)
                     }
                     .card(fill: Theme.grey)
                     .accessibilityIdentifier("libraryEmpty")
                 } else {
+                    if !videos.isEmpty {
+                        Text("Videos").font(Theme.heading).foregroundStyle(Theme.black)
+                        ForEach(videos) { video in
+                            NavigationLink(value: Route.videoJob(video.videoJobId)) {
+                                videoRow(video)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("videoRow")
+                        }
+                        if !jobs.isEmpty {
+                            Text("Voiceovers").font(Theme.heading).foregroundStyle(Theme.black)
+                        }
+                    }
                     ForEach(jobs) { job in
                         NavigationLink(value: Route.job(job.jobId)) {
                             row(job)
@@ -62,6 +76,23 @@ struct LibraryView: View {
         .card(fill: Theme.white, padding: 14)
     }
 
+    private func videoRow(_ video: VideoSummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text((video.preview ?? "").isEmpty ? "Video" : (video.preview ?? ""))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .lineSpacing(Theme.amharicLineSpacing)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            HStack(spacing: 8) {
+                Pill(text: video.orientation == "landscape" ? "Horizontal" : "Vertical")
+                Text([Fmt.length(video.durationSec), Fmt.ago(video.finishedAt)]
+                    .filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(Theme.small).foregroundStyle(Theme.muted)
+            }
+        }
+        .card(fill: Theme.white, padding: 14)
+    }
+
     private func statusLabel(_ status: String) -> String {
         switch status {
         case "done": return "Ready"
@@ -74,6 +105,7 @@ struct LibraryView: View {
     private func load() async {
         do {
             jobs = try await state.api.jobs()
+            videos = (try? await state.api.videos()) ?? []
             problem = nil
         } catch {
             if !Task.isCancelled { problem = state.report(error) }
