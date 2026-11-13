@@ -336,6 +336,8 @@ struct WordFixSheet: View {
     private func open() async {
         guard !loaded else { return }
         optionsFailed = nil
+        let api = state.api
+        Task { await api.warmEngine() }
         do {
             options = try await state.api.fixCandidates(word: target.word)
         } catch {
@@ -343,7 +345,6 @@ struct WordFixSheet: View {
         }
         loaded = true
         guard let first = options.first else { return }
-        let api = state.api
         let word = target.word
         for option in options.dropFirst() {
             let id = option.optionId

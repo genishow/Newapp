@@ -116,7 +116,15 @@ struct FixView: View {
             }
         .task {
             await load()
-            await state.api.warmEngine()
+            // The voice engine goes to sleep 2 minutes after its last use, and waking it
+            // takes over a minute. That is why one word could take so long. It is woken
+            // here, and kept awake for the first minutes on this screen, so the first
+            // word is quick. This stops when the screen is left.
+            for _ in 0..<5 {
+                await state.api.warmEngine()
+                try? await Task.sleep(nanoseconds: 95 * 1_000_000_000)
+                if Task.isCancelled { break }
+            }
         }
         .sheet(item: $fixingWord) { target in
             WordFixSheet(target: target, jobId: jobId, occurrences: occurrences(of: target.word),
