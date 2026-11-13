@@ -36,10 +36,6 @@ struct WelcomeView: View {
 
                     DemoCard()
 
-                    Button(T("Start free")) { showSignIn = true }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("startButton")
-
                     NoteText(text: T("Your first voiceovers are free. No card needed."))
 
                     HStack(spacing: 20) {
@@ -53,6 +49,13 @@ struct WelcomeView: View {
                 .page()
             }
             .background(Theme.white)
+            .safeAreaInset(edge: .bottom) {
+                BottomBar {
+                    Button(T("Start free")) { showSignIn = true }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("startButton")
+                }
+            }
             .navigationDestination(isPresented: $showSignIn) {
                 SignInView()
             }

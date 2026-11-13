@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import CoreText
 
 /// The Kinbir look. These five colours are the only ones in the app.
 enum Theme {
@@ -17,17 +19,40 @@ enum Theme {
     /// Ethiopic letters are taller than Latin ones and need more room between lines.
     static let amharicLineSpacing: CGFloat = 8
 
-// Space Grotesk, the Kinbir website's typeface, for Latin text. Amharic falls through to
-    // the system's Ethiopic face automatically. Sizes follow the user's text size setting.
+    // Space Grotesk, the Kinbir website's typeface, for Latin text, and Noto Sans Ethiopic in
+    // the same weight for Amharic, so Amharic headings look as strong as English ones.
+    // Sizes follow the phone's text size setting as it was when the app opened.
     static func font(_ size: CGFloat, _ weight: Font.Weight = .regular,
                      relativeTo style: Font.TextStyle = .body) -> Font {
-        let name: String
+        let suffix: String
         switch weight {
-        case .bold, .semibold, .heavy, .black: name = "SpaceGrotesk-Bold"
-        case .medium: name = "SpaceGrotesk-Medium"
-        default: name = "SpaceGrotesk-Regular"
+        case .bold, .semibold, .heavy, .black: suffix = "Bold"
+        case .medium: suffix = "Medium"
+        default: suffix = "Regular"
         }
-        return Font.custom(name, size: size, relativeTo: style)
+        guard let latin = UIFont(name: "SpaceGrotesk-" + suffix, size: size) else {
+            return Font.system(size: size, weight: weight)
+        }
+        let ethiopic = UIFontDescriptor(fontAttributes: [.name: "NotoSansEthiopic-" + suffix])
+        let descriptor = latin.fontDescriptor.addingAttributes([.cascadeList: [ethiopic]])
+        let combined = UIFont(descriptor: descriptor, size: size)
+        return Font(UIFontMetrics(forTextStyle: uiStyle(style)).scaledFont(for: combined) as CTFont)
+    }
+
+    private static func uiStyle(_ style: Font.TextStyle) -> UIFont.TextStyle {
+        switch style {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        default: return .body
+        }
     }
 
     static let title = font(30, .medium, relativeTo: .title)

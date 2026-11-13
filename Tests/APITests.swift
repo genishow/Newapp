@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import Kinbir
 
 final class RequestBuilderTests: XCTestCase {
@@ -365,6 +368,7 @@ final class MockServerTests: XCTestCase {
         }
     }
 
+    #if canImport(SwiftUI)
     @MainActor
     func testAppStateSignInAndForcedSignOut() async {
         let store = MemoryCodeStore()
@@ -387,6 +391,7 @@ final class MockServerTests: XCTestCase {
         XCTAssertNil(store.load())
         XCTAssertNotNil(state.notice)
     }
+    #endif
 }
 
 /// Footage, music and video: real answer shapes from the server code.

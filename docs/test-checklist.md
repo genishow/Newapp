@@ -130,6 +130,15 @@ Write down what happens for each, and screenshot anything odd.
 - Does the app look calmer and more finished? What still looks rough? Screenshots help most.
 - Give it a new score out of 10.
 
+## 14. Polish (Build 8)
+
+- Do Amharic headings and buttons now look as bold as the English ones?
+- On Create, tap the credits number at the top. Does it explain what things cost?
+- Open the Library when it is empty, and when it has items. Does it look finished?
+- On the first screen, is **Start free** always visible at the bottom without scrolling?
+- When you wait for a sign-in code, does **Send a new code** count down?
+- Give it a new score out of 10.
+
 ## Do not test yet
 
 - **Delete my account** really deletes it. Only try it with a throwaway email.

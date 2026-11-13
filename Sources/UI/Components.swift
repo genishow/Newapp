@@ -433,3 +433,88 @@ enum BrandControls {
         ], for: .normal)
     }
 }
+
+/// A friendly picture and one line for a screen with nothing on it yet.
+struct EmptyState: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Theme.lime).frame(width: 88, height: 88)
+                Circle().strokeBorder(Theme.black, lineWidth: 1).frame(width: 88, height: 88)
+                Image(systemName: icon).font(.system(size: 34, weight: .medium)).foregroundStyle(Theme.black)
+            }
+            Text(title).font(Theme.heading).foregroundStyle(Theme.black)
+            Text(detail).font(Theme.body).foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// What credits are and what things cost, in one place, so the screens do not have to
+/// repeat it in small print.
+struct CreditsSheet: View {
+    let balance: Double
+    let onClose: () -> Void
+
+    private static let prices: [(icon: String, what: String, cost: String)] = [
+        ("waveform", "A one-minute voiceover", "≈ 2.5"),
+        ("sparkles", "Kinbir writes or changes a script", "≈ 1"),
+        ("wand.and.stars", "Fixing words, all together", "1.5"),
+        ("film", "A finished video", "≈ 5"),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(T("Your credits")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        Text(Fmt.credits(balance)).font(Theme.font(44, .medium, relativeTo: .largeTitle))
+                            .foregroundStyle(Theme.black)
+                            .accessibilityIdentifier("creditsSheetBalance")
+                    }
+                    .card(fill: Theme.lime)
+
+                    Text(T("What things cost")).font(Theme.heading).foregroundStyle(Theme.black)
+                    VStack(spacing: 0) {
+                        ForEach(Array(CreditsSheet.prices.enumerated()), id: \.offset) { index, row in
+                            HStack(spacing: 12) {
+                                Image(systemName: row.icon).font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(Theme.black).frame(width: 28)
+                                Text(T(row.what)).font(Theme.body).foregroundStyle(Theme.black)
+                                Spacer()
+                                Text(row.cost).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                            }
+                            .frame(minHeight: 48)
+                            if index < CreditsSheet.prices.count - 1 {
+                                Rectangle().fill(Theme.white).frame(height: 2)
+                            }
+                        }
+                    }
+                    .card(fill: Theme.grey, padding: 14)
+
+                    Text(T("Free: listening, finding footage, changing shots, and speaking your script. You always see the price on the button before you spend. If something fails, the credits come back."))
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(T(APIError.buyingNote)).font(Theme.small).foregroundStyle(Theme.muted)
+                }
+                .page()
+            }
+            .background(Theme.white)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(T("Done")) { onClose() }.accessibilityIdentifier("creditsDone")
+                }
+            }
+        }
+        .tint(Theme.black)
+    }
+}

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking   // URLRequest lives here when the logic tests run on Linux
+#endif
 
 /// Everything the app asks of the Kinbir server. `LiveAPI` talks to api.kinbir.com;
 /// `MockAPI` answers from memory for the end-to-end UI tests.

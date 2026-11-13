@@ -370,5 +370,13 @@ enum Amharic {
         "What will you say?": "ምን ማለት ይፈልጋሉ?", "Write it for me": "ጻፍልኝ",
         "Writing your script": "ስክሪፕትዎ እየተጻፈ ነው", "Your changes": "ለውጦችዎ",
         "Tips": "ምክሮች",
+        // Build 8
+        "Your credits": "ክሬዲቶችዎ", "What things cost": "ዋጋዎች",
+        "A one-minute voiceover": "የአንድ ደቂቃ ትረካ",
+        "Kinbir writes or changes a script": "ቅንብር ስክሪፕት ሲጽፍ ወይም ሲቀይር",
+        "Fixing words, all together": "ቃላትን ማስተካከል፣ ሁሉም በአንድ ላይ",
+        "A finished video": "የተጠናቀቀ ቪዲዮ",
+        "Free: listening, finding footage, changing shots, and speaking your script. You always see the price on the button before you spend. If something fails, the credits come back.":
+            "ነፃ፦ ማዳመጥ፣ ቪዲዮ መፈለግ፣ ትዕይንት መቀየር እና ስክሪፕትዎን በድምፅ መናገር። ከመክፈልዎ በፊት ዋጋውን ሁልጊዜ በቁልፉ ላይ ያያሉ። የሆነ ነገር ካልሰራ ክሬዲቶቹ ይመለሳሉ።",
     ]
 }

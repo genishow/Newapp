@@ -23,6 +23,7 @@ struct CreateView: View {
     @State private var recent: [SavedScript] = []
     @State private var showWriter = false
     @State private var showMore = false
+    @State private var showCredits = false
     @StateObject private var recorder = SpeechRecorder()
     @FocusState private var editing: Bool
     /// The voiceover's language. It starts as the app's language and lives in More options.
@@ -113,6 +114,11 @@ struct CreateView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showCredits) {
+            CreditsSheet(balance: state.balance) { showCredits = false }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showMore) {
             MoreOptionsSheet(languageRaw: $languageRaw, voice: $voice, hasScript: !script.isEmpty,
                              amharicVoice: state.activeVoice?.isAmharic == true,
@@ -149,8 +155,13 @@ struct CreateView: View {
             LogoMark(size: 36)
             Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
             Spacer()
-            Pill(text: Fmt.credits(state.balance) + " " + T("credits"))
-                .accessibilityIdentifier("creditsPill")
+            Button {
+                showCredits = true
+            } label: {
+                Pill(text: Fmt.credits(state.balance) + " " + T("credits"))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("creditsPill")
         }
     }
 

@@ -46,7 +46,9 @@ struct SignInView: View {
                     .accessibilityIdentifier("verifyButton")
 
                     HStack(spacing: 20) {
-                        Button(T("Send a new code")) { Task { await sendCode() } }
+                        Button(now < canResendAt
+                               ? T("Send a new code") + " (" + Fmt.clock(canResendAt.timeIntervalSince(now)) + ")"
+                               : T("Send a new code")) { Task { await sendCode() } }
                             .buttonStyle(QuietButtonStyle())
                             .disabled(busy || now < canResendAt)
                             .opacity(now < canResendAt ? 0.4 : 1)

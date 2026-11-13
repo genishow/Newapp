@@ -28,7 +28,18 @@ final class KinbirJourneyTests: XCTestCase {
         let element = el(id)
         XCTAssertTrue(element.waitForExistence(timeout: timeout),
                       "\(id) did not appear", file: file, line: line)
+        // Every screen has a heading, so this keeps one picture of each screen in the results.
+        if id.hasSuffix("Heading") { snap(id) }
         return element
+    }
+
+    /// Keeps a picture of the screen in the test results, so the screens can be looked at
+    /// after a run without a phone.
+    private func snap(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func waitForLabel(_ id: String, contains text: String, timeout: TimeInterval = 15,
@@ -159,9 +170,16 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("voiceButton")
         waitFor("voiceLine")
         XCTAssertFalse(el("cloneVoiceButton").exists, "an account with a voice must not be asked to clone")
+        snap("create")
+
+        el("creditsPill").tap()
+        waitFor("creditsSheetBalance")
+        snap("credits")
+        el("creditsDone").tap()
 
         app.tabBars.buttons["Library"].tap()
         waitFor("libraryEmpty")
+        snap("libraryEmpty")
 
         app.tabBars.buttons["Account"].tap()
         waitFor("deleteAccountLink").tap()

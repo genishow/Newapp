@@ -21,13 +21,9 @@ struct LibraryView: View {
                 if !loaded && problem == nil {
                     ProgressView().tint(Theme.black)
                 } else if jobs.isEmpty && videos.isEmpty && problem == nil {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(T("Nothing here yet")).font(Theme.heading).foregroundStyle(Theme.black)
-                        Text(T("Your voiceovers and videos appear here for 48 hours."))
-                            .font(Theme.body).foregroundStyle(Theme.muted)
-                    }
-                    .card(fill: Theme.grey)
-                    .accessibilityIdentifier("libraryEmpty")
+                    EmptyState(icon: "square.stack", title: T("Nothing here yet"),
+                               detail: T("Your voiceovers and videos appear here for 48 hours."))
+                        .accessibilityIdentifier("libraryEmpty")
                 } else {
                     if !videos.isEmpty {
                         Text(T("Videos")).font(Theme.heading).foregroundStyle(Theme.black)
@@ -59,7 +55,17 @@ struct LibraryView: View {
         .task { await load() }
     }
 
+    private func rowIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.black)
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(Theme.lime))
+            .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
+    }
+
     private func row(_ job: JobSummary) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+        rowIcon(job.status == "done" ? "play.fill" : "waveform")
         VStack(alignment: .leading, spacing: 8) {
             Text((job.preview ?? "").isEmpty ? T("Voiceover") : (job.preview ?? ""))
                 .font(Theme.body).foregroundStyle(Theme.black)
@@ -76,10 +82,14 @@ struct LibraryView: View {
                     .font(Theme.small).foregroundStyle(Theme.muted)
             }
         }
+        Spacer(minLength: 0)
+        }
         .card(fill: Theme.white, padding: 14)
     }
 
     private func videoRow(_ video: VideoSummary) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+        rowIcon("film")
         VStack(alignment: .leading, spacing: 8) {
             Text((video.preview ?? "").isEmpty ? T("Video") : (video.preview ?? ""))
                 .font(Theme.body).foregroundStyle(Theme.black)
@@ -95,6 +105,8 @@ struct LibraryView: View {
                     .filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(Theme.small).foregroundStyle(Theme.muted)
             }
+        }
+        Spacer(minLength: 0)
         }
         .card(fill: Theme.white, padding: 14)
     }
