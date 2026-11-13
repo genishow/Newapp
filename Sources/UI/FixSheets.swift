@@ -35,6 +35,8 @@ struct WordFixSheet: View {
 
     private enum Way { case none, type, say }
     @State private var way: Way = .none
+    /// Prepares the other readings in the background, one after another.
+    @State private var preload: Task<Void, Never>?
 
     private func otherWay(_ value: Way, icon: String, title: String) -> some View {
         Button {
@@ -124,6 +126,7 @@ struct WordFixSheet: View {
         // typing put half-typed words in line ahead of the finished one, which made the wait
         // longer and could cost a credit each.
         .onDisappear {
+            preload?.cancel()
             player.stop()
             _ = recorder.stop()
         }
@@ -345,12 +348,27 @@ struct WordFixSheet: View {
         }
         loaded = true
         guard let first = options.first else { return }
-        let word = target.word
-        for option in options.dropFirst() {
-            let id = option.optionId
-            Task { _ = try? await api.fixPreview(word: word, optionId: id, custom: nil) }
-        }
         await hear(key: "o:\(first.optionId)", optionId: first.optionId, custom: nil)
+        // The other readings are prepared one at a time, after the first has played.
+        // Asking for all of them at once made the server start a second, cold voice engine
+        // for the extra requests, and that one takes over a minute to wake.
+        let word = target.word
+        let rest = Array(options.dropFirst())
+        preload?.cancel()
+        preload = Task {
+            for option in rest {
+                if Task.isCancelled { return }
+                guard var preview = try? await api.fixPreview(word: word, optionId: option.optionId,
+                                                              custom: nil) else { continue }
+                var tries = 0
+                while !preview.isDone && !preview.isFailed && tries < 45 && !Task.isCancelled {
+                    tries += 1
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard let next = try? await api.fixPreviewStatus(id: preview.previewId) else { break }
+                    preview = next
+                }
+            }
+        }
     }
 
     private func hear(key: String, optionId: Int?, custom: String?) async {
