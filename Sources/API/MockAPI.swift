@@ -361,6 +361,10 @@ extension MockAPI {
         return rules
     }
 
+    func dictationAddress() -> (base: URL, accessCode: String)? { nil }
+
+    func warmDictation() async {}
+
     func transcribe(audioURL: URL) async throws -> String {
         await pause()
         return "ሰላም ለሁላችሁ።"

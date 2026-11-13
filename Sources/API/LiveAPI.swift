@@ -456,13 +456,24 @@ extension LiveAPI {
                          builder.post("/account/script-rules", body: ["rules": rules])).scriptRules ?? rules
     }
 
+    func dictationAddress() -> (base: URL, accessCode: String)? {
+        guard let code = builder.accessCode() else { return nil }
+        return (builder.base, code)
+    }
+
+    func warmDictation() async {
+        _ = try? await send(builder.post("/transcribe/warm", body: [:]))
+    }
+
     func transcribe(audioURL: URL) async throws -> String {
         guard let data = try? Data(contentsOf: audioURL), !data.isEmpty else {
             throw APIError(kind: .other, status: 0, message: "The recording could not be read. Try again.")
         }
         var form = Multipart()
         form.addField(name: "access_code", value: builder.accessCode() ?? "")
-        form.addFile(name: "audio", filename: "speech.m4a", mimeType: "audio/mp4", data: data)
+        let wav = audioURL.pathExtension.lowercased() == "wav"
+        form.addFile(name: "audio", filename: wav ? "speech.wav" : "speech.m4a",
+                     mimeType: wav ? "audio/wav" : "audio/mp4", data: data)
         return try await decode(TranscribeResult.self,
                                 builder.multipart("/transcribe/live", form: form)).text ?? ""
     }

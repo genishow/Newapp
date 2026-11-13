@@ -28,7 +28,10 @@ struct CreateView: View {
     @State private var keepProblem = false
     @AppStorage("kinbir.ethOn") private var ethOn = false
     @State private var fidelOpen = false
-    @StateObject private var recorder = SpeechRecorder()
+    @State private var dictation = LiveDictation()
+    /// The script as it was before speaking began, and what has been heard since.
+    @State private var spokenBase = ""
+    @State private var spokenLive = ""
     @FocusState private var editing: Bool
     /// The voiceover's language. It starts as the app's language and lives in More options.
     @AppStorage("kinbir.language") private var languageRaw = ""
@@ -238,7 +241,8 @@ struct CreateView: View {
                     .focused($editing)
                     .autocorrectionDisabled(ethOn)
                     .textInputAutocapitalization(ethOn ? .never : .sentences)
-                    .disabled(work == .writing || work == .transcribing || work == .fetching)
+                    .disabled(work == .writing || work == .transcribing || work == .fetching
+                              || work == .listening)
                     .accessibilityIdentifier("scriptEditor")
             }
 
@@ -276,8 +280,8 @@ struct CreateView: View {
 
     private var statusLine: String? {
         switch work {
-        case .listening: return T("Listening. Speak in Amharic, then tap Stop.")
-        case .transcribing: return T("Turning your words into text.")
+        case .listening: return T("Keep talking, words appear as you go. Tap Stop when done.")
+        case .transcribing: return T("Finishing…")
         case .writing: return T("Writing your script")
         case .fetching: return T("Getting the article")
         case .idle, .starting: return nil
@@ -474,34 +478,60 @@ struct CreateView: View {
         }
     }
 
+    /// Speak to type, the website's way: the words appear in the box while you talk.
     private func toggleSpeech() async {
         problem = nil
         if work == .listening {
-            guard let file = recorder.stop() else {
-                work = .idle
-                return
-            }
             work = .transcribing
             defer { work = .idle }
-            do {
-                let heard = try await state.api.transcribe(audioURL: file)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if heard.isEmpty {
-                    problem = T("Nothing was heard. Try again a little closer to the phone.")
-                } else {
-                    text = text.isEmpty ? heard : text + " " + heard
+            let final = await dictation.stop()
+            if let final, !final.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                showSpoken(final)
+                return
+            }
+            // The live socket was not there (or gave nothing): send the whole take once.
+            if final == nil, let file = dictation.takeFile() {
+                do {
+                    let heard = try await state.api.transcribe(audioURL: file)
+                    if !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        showSpoken(heard)
+                        return
+                    }
+                } catch {
+                    problem = state.report(error)
+                    return
                 }
-            } catch {
-                problem = state.report(error)
+            }
+            if spokenLive.isEmpty {
+                problem = T("Could not hear any words. Try again closer to the mic.")
             }
             return
         }
         editing = false
-        if await recorder.start() {
+        spokenBase = text
+        spokenLive = ""
+        dictation.onPartial = { partial in
+            guard work == .listening else { return }
+            showSpoken(partial)
+        }
+        let address = state.api.dictationAddress()
+        Task { await state.api.warmDictation() }
+        if await dictation.start(base: address?.base ?? RequestBuilder.defaultBase,
+                                 accessCode: address?.accessCode ?? "") {
             work = .listening
         } else {
             problem = T("Kinbir needs the microphone to hear you. Allow it in Settings, then try again.")
         }
+    }
+
+    /// Puts what has been heard so far after the text that was there before speaking.
+    /// Each update replaces the last one, so words can still be corrected as you go.
+    private func showSpoken(_ heard: String) {
+        let words = heard.trimmingCharacters(in: .whitespacesAndNewlines)
+        spokenLive = words
+        let before = spokenBase
+        let gap = before.isEmpty || before.last?.isWhitespace == true ? "" : " "
+        text = before + gap + words
     }
 }
 

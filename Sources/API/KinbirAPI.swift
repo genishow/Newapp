@@ -29,6 +29,11 @@ protocol KinbirAPI: AnyObject {
     func rewrite(text: String, options: ScriptOptions,
                  onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult
     func saveScriptRules(_ rules: String) async throws -> String
+    /// Where live dictation connects, and the credential it sends as its first message.
+    /// Nil when there is no live server (the UI tests).
+    func dictationAddress() -> (base: URL, accessCode: String)?
+    /// Wakes the speech model so the first words come back sooner. Free.
+    func warmDictation() async
     /// Spoken Amharic to text. Free.
     func transcribe(audioURL: URL) async throws -> String
 
