@@ -26,6 +26,8 @@ struct CreateView: View {
     @State private var showCredits = false
     @AppStorage("kinbir.recentOpen") private var recentOpen = true
     @State private var keepProblem = false
+    @AppStorage("kinbir.ethOn") private var ethOn = false
+    @State private var fidelOpen = false
     @StateObject private var recorder = SpeechRecorder()
     @FocusState private var editing: Bool
     /// The voiceover's language. It starts as the app's language and lives in More options.
@@ -50,27 +52,41 @@ struct CreateView: View {
 
                 Text(T("What will you say?")).screenTitle(amharic: A("What will you say?"))
 
-                editorCard
-
-                VStack(spacing: 10) {
+                // The website's control row, above the box: type in Amharic, speak, the
+                // letter pad, and Write it for me.
+                ChipRow {
                     if language == .am {
-                        helper(icon: work == .listening ? "stop.fill" : "mic.fill",
-                               title: work == .listening ? T("Stop listening") : T("Speak instead of typing"),
-                               detail: work == .listening ? T("Kinbir is typing what you say.")
-                                                           : T("Talk in Amharic. Kinbir types it for you."),
-                               active: work == .listening,
-                               id: "speakButton") {
+                        tool(icon: "keyboard", title: "አማርኛ " + (ethOn ? "ON" : "OFF"), active: ethOn,
+                             id: "ethToggle") {
+                            ethOn.toggle()
+                        }
+                        tool(icon: work == .listening ? "stop.fill" : "mic.fill",
+                             title: work == .listening ? T("Stop") : T("Speak to type"),
+                             active: work == .listening, id: "speakButton") {
                             Task { await toggleSpeech() }
                         }
                         .disabled(busy && work != .listening)
+                        tool(icon: nil, title: "ፊደል " + (fidelOpen ? "▴" : "▾"), active: fidelOpen,
+                             id: "fidelTab") {
+                            fidelOpen.toggle()
+                        }
                     }
-                    helper(icon: "sparkles", title: T("Write it for me"),
-                           detail: T("From an idea, English text or a link."),
-                           active: false, id: "writeForMeButton") {
+                    tool(icon: "sparkles", title: T("Write it for me"), active: false,
+                         id: "writeForMeButton") {
                         editing = false
                         showWriter = true
                     }
                     .disabled(busy)
+                }
+
+                if ethOn && language == .am {
+                    NoteText(text: "selam → ሰላም  ·  se → ሰ  ·  :: → ።")
+                }
+
+                editorCard
+
+                if fidelOpen && language == .am {
+                    fidelPad
                 }
 
                 if !needsVoice {
@@ -99,6 +115,8 @@ struct CreateView: View {
             }
             .page()
         }
+        // One point of padding keeps the scrolling page from sliding under the clock.
+        .padding(.top, 1)
         .background(Theme.white)
         .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
@@ -138,7 +156,16 @@ struct CreateView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .onChange(of: text) { _, new in
+        .onChange(of: text) { old, new in
+            // Type-to-Amharic: one Latin letter typed at the end becomes Ethiopic.
+            if ethOn, language == .am, work == .idle, new.count == old.count + 1, new.hasPrefix(old),
+               let typed = new.last {
+                let turned = Ethiopic.type(old, typed: typed)
+                if turned != new {
+                    text = turned
+                    return
+                }
+            }
             state.saveDraft(new)
             if new != draftText { draftId = nil }
             // A failed rewrite puts the old text back, and the reason it failed must stay
@@ -209,6 +236,8 @@ struct CreateView: View {
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 190)
                     .focused($editing)
+                    .autocorrectionDisabled(ethOn)
+                    .textInputAutocapitalization(ethOn ? .never : .sentences)
                     .disabled(work == .writing || work == .transcribing || work == .fetching)
                     .accessibilityIdentifier("scriptEditor")
             }
@@ -255,39 +284,50 @@ struct CreateView: View {
         }
     }
 
-    /// A way to fill the script box without typing: a round icon, what it does, and one
-    /// plain line about it. It turns lime while it is working.
-    private func helper(icon: String, title: String, detail: String, active: Bool, id: String,
-                        action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(active ? Theme.lime : Theme.black)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(active ? Theme.black : Theme.lime))
-                    .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                    Text(detail).font(Theme.small).foregroundStyle(active ? Theme.black : Theme.muted)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
+    /// A small control above the script box. It turns lime while it is on.
+    private func tool(icon: String?, title: String, active: Bool, id: String,
+                      action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon).font(.system(size: 14, weight: .bold))
                 }
-                Spacer(minLength: 0)
-                if active {
-                    Waveform(bars: 6)
-                }
+                Text(title).font(Theme.smallMedium).lineLimit(1)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(active ? Theme.lime : Theme.white))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(Theme.black, lineWidth: 1.5))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            .foregroundStyle(Theme.black)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(Capsule().fill(active ? Theme.lime : Theme.white))
+            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1.5))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+
+    /// The website's letter pad: tap a letter to add it to the script.
+    private var fidelPad: some View {
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
+                ForEach(Array(Ethiopic.padLetters.enumerated()), id: \.offset) { _, letter in
+                    Button {
+                        text += letter
+                    } label: {
+                        Text(letter).font(Theme.body).foregroundStyle(Theme.black)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.white))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(10)
+        }
+        .frame(height: 230)
+        .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).fill(Theme.grey))
+        .accessibilityIdentifier("fidelPad")
     }
 
     /// The one lime button, always in reach. It says what it will do and what it costs.

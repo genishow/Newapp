@@ -160,3 +160,27 @@ final class InterfaceLanguageTests: XCTestCase {
         XCTAssertEqual(options.fields["mode"] as? String, "refine", "a change request wins over an idea")
     }
 }
+
+final class EthiopicTypingTests: XCTestCase {
+    func testTypingLatinGivesAmharicLikeTheWebsite() {
+        XCTAssertEqual(Ethiopic.type("s"), "ስ")
+        XCTAssertEqual(Ethiopic.type("se"), "ሰ")
+        XCTAssertEqual(Ethiopic.type("selam"), "ሰላም")
+        XCTAssertEqual(Ethiopic.type("see"), "ሴ")
+        XCTAssertEqual(Ethiopic.type("sh"), "ሽ")
+        XCTAssertEqual(Ethiopic.type("qua"), "ቋ")
+        XCTAssertEqual(Ethiopic.type("Te"), "ጠ")
+        XCTAssertEqual(Ethiopic.type("a"), "አ")
+        XCTAssertEqual(Ethiopic.type("bunna"), "ቡንና")
+        XCTAssertEqual(Ethiopic.type("::"), "።")
+        XCTAssertEqual(Ethiopic.type(",,"), "፣")
+        XCTAssertEqual(Ethiopic.type("ሰላም", typed: " "), "ሰላም ")
+        XCTAssertEqual(Ethiopic.type("ሰላም", typed: "7"), "ሰላም7")
+    }
+
+    func testLetterPadHasEveryFamily() {
+        XCTAssertEqual(Ethiopic.padLetters.count, 7 + 34 * 7)
+        XCTAssertEqual(Ethiopic.padLetters[7], "ሀ")
+        XCTAssertTrue(Ethiopic.padLetters.contains("ፐ"))
+    }
+}
