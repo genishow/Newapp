@@ -267,6 +267,25 @@ struct CreateView: View {
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("undoButton")
                 }
+                // The keyboard's own Done bar does not always show on this screen, so there is
+                // a clear way to put the keyboard away right in the box.
+                if editing {
+                    Button {
+                        editing = false
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                            Text(T("Done"))
+                        }
+                        .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 40)
+                        .background(Capsule().fill(Theme.lime))
+                        .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("hideKeyboardButton")
+                }
                 if !text.isEmpty && !busy {
                     Button(T("Clear")) {
                         beforeRewrite = text
