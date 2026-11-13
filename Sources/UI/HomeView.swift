@@ -10,6 +10,7 @@ enum Route: Hashable {
     case voices
     case enroll
     case deleteAccount
+    case scriptRules
 }
 
 /// The signed-in app: Create, Library, Account.
@@ -56,6 +57,8 @@ struct RouteDestinations: ViewModifier {
                 EnrollView()
             case .deleteAccount:
                 DeleteAccountView()
+            case .scriptRules:
+                ScriptRulesView()
             }
         }
     }

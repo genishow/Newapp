@@ -15,16 +15,32 @@ protocol KinbirAPI: AnyObject {
     func activateVoice(id: String) async throws
     func renameVoice(id: String, name: String) async throws
     func deleteVoice(id: String) async throws
-    func enrollScript() async throws -> String
-    func enroll(videoURL: URL) async throws -> EnrollResult
+    func enrollScript(language: Lang) async throws -> String
+    func enroll(videoURL: URL, language: Lang) async throws -> EnrollResult
+    /// A short sample of this voice, as a local file. Free.
+    func voicePreview(voiceId: String) async throws -> URL
 
     // Script
     func extract(url: String) async throws -> ExtractResult
-    func rewriteEstimate(text: String) async throws -> Double
-    func rewrite(text: String, onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult
+    func rewriteEstimate(text: String, options: ScriptOptions) async throws -> Double
+    func rewrite(text: String, options: ScriptOptions,
+                 onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult
+    func saveScriptRules(_ rules: String) async throws -> String
+    /// Spoken Amharic to text. Free.
+    func transcribe(audioURL: URL) async throws -> String
 
     // Voiceover
-    func generate(text: String, draftId: String?) async throws -> GenerateSubmit
+    func generate(text: String, draftId: String?, voice: VoiceOptions) async throws -> GenerateSubmit
+    /// English only, free: changes how strongly pauses are read.
+    func setEmphasis(jobId: String, emphasis: String) async throws
+
+    // Fix a word
+    func fixCandidates(word: String) async throws -> [FixOption]
+    func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview
+    func fixPreviewStatus(id: String) async throws -> FixPreview
+    func fixPreviewAudio(id: String) async throws -> URL
+    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch
+    func fixStatus(jobId: String, batchId: String) async throws -> FixBatch
     func jobs() async throws -> [JobSummary]
     func job(id: String) async throws -> JobStatus
     /// Small copy for the in-app player. Returns a local file.
@@ -74,6 +90,24 @@ protocol KinbirAPI: AnyObject {
     func downloadAvatarClip(videoJobId: String) async throws -> URL
     /// The server answers with paths like "/assemble/x/preview.mp4?e=..". This makes them openable.
     func absoluteURL(_ path: String?) -> URL?
+}
+
+/// The Amharic-only calls from Build 1, kept so simple callers stay simple.
+extension KinbirAPI {
+    func enrollScript() async throws -> String { try await enrollScript(language: .am) }
+    func enroll(videoURL: URL) async throws -> EnrollResult {
+        try await enroll(videoURL: videoURL, language: .am)
+    }
+    func rewriteEstimate(text: String) async throws -> Double {
+        try await rewriteEstimate(text: text, options: ScriptOptions())
+    }
+    func rewrite(text: String,
+                 onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult {
+        try await rewrite(text: text, options: ScriptOptions(), onDelta: onDelta)
+    }
+    func generate(text: String, draftId: String?) async throws -> GenerateSubmit {
+        try await generate(text: text, draftId: draftId, voice: VoiceOptions())
+    }
 }
 
 /// Builds requests the way the server expects them. Pure, so it is unit-tested.

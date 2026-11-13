@@ -16,7 +16,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push waits for the running build to finish, so no result is thrown away.
+  cancel-in-progress: false
 
 jobs:
   build-ipa-and-test:

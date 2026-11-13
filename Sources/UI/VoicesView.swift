@@ -8,10 +8,12 @@ struct VoicesView: View {
     @State private var renaming: VoiceSummary?
     @State private var newName = ""
     @State private var deleting: VoiceSummary?
+    @StateObject private var player = AudioPlayer()
+    @State private var listeningId: String?
 
     private let maxVoices = 5
 
-    private var voices: [VoiceSummary] { state.me?.amharicVoices ?? [] }
+    private var voices: [VoiceSummary] { state.me?.allVoices ?? [] }
     private var activeId: String? { state.activeVoice?.voiceId }
 
     var body: some View {
@@ -52,6 +54,7 @@ struct VoicesView: View {
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
         .task { await state.refresh() }
+        .onDisappear { player.stop() }
         .alert("Rename voice", isPresented: Binding(
             get: { renaming != nil },
             set: { if !$0 { renaming = nil } })
@@ -95,7 +98,7 @@ struct VoicesView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title(voice, index: index))
                             .font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
-                        Text(isActive ? "In use" : "Tap to use")
+                        Text((isActive ? "In use" : "Tap to use") + (voice.isAmharic ? " · Amharic" : " · English"))
                             .font(Theme.small).foregroundStyle(isActive ? Theme.black : Theme.muted)
                     }
                     Spacer()
@@ -109,6 +112,9 @@ struct VoicesView: View {
             .accessibilityIdentifier("voiceRow-\(index)")
 
             Menu {
+                Button(listeningId == voice.voiceId ? "Preparing the sample" : "Listen to a sample") {
+                    Task { await listen(voice) }
+                }
                 Button("Rename") {
                     newName = voice.name ?? ""
                     renaming = voice
@@ -125,6 +131,19 @@ struct VoicesView: View {
             .accessibilityIdentifier("voiceMenu-\(index)")
         }
         .card(fill: isActive ? Theme.lime : Theme.white, padding: 14)
+    }
+
+    private func listen(_ voice: VoiceSummary) async {
+        guard listeningId == nil else { return }
+        listeningId = voice.voiceId
+        problem = nil
+        defer { listeningId = nil }
+        do {
+            let url = try await state.api.voicePreview(voiceId: voice.voiceId)
+            if player.load(url: url) { player.toggle() }
+        } catch {
+            problem = state.report(error)
+        }
     }
 
     private func activate(_ voice: VoiceSummary) async {

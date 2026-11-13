@@ -38,6 +38,9 @@ struct AccountView: View {
                     NavigationLink(value: Route.voices) { rowLabel("My voices") }
                         .accessibilityIdentifier("myVoicesRow")
                     divider
+                    NavigationLink(value: Route.scriptRules) { rowLabel("Script rules") }
+                        .accessibilityIdentifier("scriptRulesRow")
+                    divider
                     Link(destination: URL(string: "https://kinbir.com/privacy")!) { rowLabel("Privacy") }
                     divider
                     Link(destination: URL(string: "https://kinbir.com/terms")!) { rowLabel("Terms") }

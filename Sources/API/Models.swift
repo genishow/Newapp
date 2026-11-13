@@ -24,9 +24,16 @@ struct WhoAmI: Codable, Equatable {
     var tier: String?
     var hasPaid: Bool?
     var trialMaxChars: Int?
+    /// Standing instructions applied to every script Kinbir writes.
+    var scriptRules: String?
+    var scriptRulesDefault: String?
+    /// The English speed and emphasis used last, to preselect.
+    var enPace: String?
+    var enEmphasis: String?
 
     var amharicVoices: [VoiceSummary] { (voices ?? []).filter { $0.isAmharic } }
-    var hasVoice: Bool { !amharicVoices.isEmpty }
+    var allVoices: [VoiceSummary] { voices ?? [] }
+    var hasVoice: Bool { !allVoices.isEmpty }
     var balance: Double { creditsBalance ?? 0 }
 }
 
@@ -50,6 +57,7 @@ struct AuthResult: Codable, Equatable {
 
 struct EnrollScript: Codable, Equatable {
     var personal: String?
+    var personalEn: String?
     var enrollText: String?
 
     var text: String { personal ?? enrollText ?? "" }
@@ -125,7 +133,12 @@ struct JobStatus: Codable, Equatable {
     var creditsBalance: Double?
     /// The newest footage plan made from this voiceover, when there is one.
     var brollPlanId: String?
+    /// Absent means Amharic.
+    var language: String?
+    var emphasis: String?
+    var fixedWords: [String]?
 
+    var isEnglish: Bool { language == "en" }
     var isDone: Bool { status == "done" }
     var isFailed: Bool { status == "failed" }
     var isRunning: Bool { status == "running" }

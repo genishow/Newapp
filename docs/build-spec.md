@@ -69,8 +69,8 @@ voiceovers. Rule 1 below (Amharic output only) holds until Build 4.
 
 ## 2. Rules that must not be broken
 
-1. Amharic output only. Every `/generate` and `/rewrite` call uses the server default
-   language (`am`); the app never sends `language: "en"`.
+1. Amharic is the default. `language: "en"` is sent only for a project the user switched
+   to English (Build 4).
 2. Light appearance only, matching the Kinbir landing page.
 3. Only the five brand colours in section 4. No gradients. No soft shadows.
 4. The access code is the only credential. It lives in the Keychain, never in
@@ -275,6 +275,47 @@ Opened from a finished voiceover with "Make a video".
 
 Not in Build 2: split, merge and reorder shots, logo, on-screen graphics, uploading your own
 music, 4K and 8K.
+
+### 5.11 The presenter (Build 3)
+
+A card on the shots screen, under music.
+
+- One photo per account. The user switches on "This is a photo of me", then chooses a
+  photo. It is scaled to 2048 px and sent as jpg to `POST /avatar/photo` with `owned=true`.
+  `GET /avatar` says whether a verified photo exists. "Remove" calls `DELETE /avatar/photo`.
+- With a photo saved: a switch to use the presenter in this video, then "For the whole
+  video", or "At the start" and "At the end" with 5, 8, 10 or 14 seconds each, and
+  "In the video" or "Separate file".
+- The choice travels inside `POST /assemble` as `avatar`.
+- The card shows "about N credits" using the server's own formula. Full frame, when the
+  photo and the video have the same shape, costs four times the side panel.
+- On the finished video: "Save the presenter clip" when it was delivered separately, and
+  the server's sentence when an appearance was dropped.
+
+Not in Build 3: presenter appearances in the middle of the video.
+
+### 5.12 Voice extras (Build 4)
+
+- **Language.** An Amharic or English switch at the top of Create, remembered on the phone.
+  In an English project English text is the script and is read as it is, with reading
+  speed (slow, normal, fast) and emphasis (none, punchy, strong). Speech input is hidden.
+- **Script length.** A menu from 15 seconds to 10 minutes when Kinbir writes the script.
+  The server accepts 15 to 600 seconds.
+- **Change the script.** A box under the main button: "Tell Kinbir what to change". Sends
+  `mode: refine` with the instruction. Undo brings the old script back.
+- **Speak.** Amharic only. Records m4a and sends it to `POST /transcribe/live`. Free.
+- **Fix a word.** On an Amharic result every word is tappable. The sheet lists other
+  readings (`/fix-word/candidates`), plays them (`/fix-word/preview`), takes a typed
+  spelling, and can read the whole sentence again. Using a fix is `POST /fix-word/apply`
+  (1.5 credits), polled every 2 seconds, then the audio is loaded again.
+- **Emphasis afterwards.** On an English result, free: `POST /jobs/{id}/emphasis`.
+- **Voices.** All voices are listed with their language, each with "Listen to a sample"
+  (`POST /voices/preview`, free). Cloning can be done reading Amharic or English.
+- **Script rules.** Account, Script rules: standing instructions for every script, saved
+  with `POST /account/script-rules`, 4000 characters at most.
+
+Not in Build 4: say-the-word matching, editing a sentence's words inside the fix sheet,
+changing reading speed after the voiceover is made, chat-style script writing.
 
 ### 5.9 Account tab
 

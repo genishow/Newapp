@@ -98,11 +98,12 @@ final class LiveAPI: KinbirAPI {
         _ = try await send(builder.get("/voices/\(id)", method: "DELETE"))
     }
 
-    func enrollScript() async throws -> String {
-        try await decode(EnrollScript.self, builder.get("/enroll/script")).text
+    func enrollScript(language: Lang) async throws -> String {
+        let script = try await decode(EnrollScript.self, builder.get("/enroll/script"))
+        return language == .en ? (script.personalEn ?? script.text) : script.text
     }
 
-    func enroll(videoURL: URL) async throws -> EnrollResult {
+    func enroll(videoURL: URL, language: Lang) async throws -> EnrollResult {
         let data: Data
         do {
             data = try Data(contentsOf: videoURL, options: .mappedIfSafe)
@@ -112,7 +113,7 @@ final class LiveAPI: KinbirAPI {
         let ext = videoURL.pathExtension.isEmpty ? "mov" : videoURL.pathExtension.lowercased()
         var form = Multipart()
         form.addField(name: "access_code", value: builder.accessCode() ?? "")
-        form.addField(name: "language", value: "am")
+        form.addField(name: "language", value: language.rawValue)
         form.addFile(name: "video", filename: "enroll." + ext,
                      mimeType: Multipart.mimeType(forExtension: ext), data: data)
         return try await decode(EnrollResult.self, builder.multipart("/enroll", form: form))
@@ -125,14 +126,19 @@ final class LiveAPI: KinbirAPI {
                          builder.post("/extract", body: ["url": url, "owns_content": true]))
     }
 
-    func rewriteEstimate(text: String) async throws -> Double {
-        try await decode(RewriteEstimate.self,
-                         builder.post("/rewrite/estimate", body: ["text": text])).creditsEstimated
+    func rewriteEstimate(text: String, options: ScriptOptions) async throws -> Double {
+        var body: [String: Any] = ["text": text]
+        if options.language == .en { body["language"] = "en" }
+        if let sec = options.targetSec, options.refineInstruction == nil { body["target_sec"] = sec }
+        return try await decode(RewriteEstimate.self,
+                                builder.post("/rewrite/estimate", body: body)).creditsEstimated
     }
 
-    func rewrite(text: String,
+    func rewrite(text: String, options: ScriptOptions,
                  onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult {
-        let request = builder.post("/rewrite", body: ["text": text, "stream": true])
+        var body: [String: Any] = ["text": text, "stream": true]
+        for (key, value) in options.fields { body[key] = value }
+        let request = builder.post("/rewrite", body: body)
         do {
             let (bytes, response) = try await session.bytes(for: request)
             let http = response as? HTTPURLResponse
@@ -169,9 +175,10 @@ final class LiveAPI: KinbirAPI {
 
     // MARK: voiceover
 
-    func generate(text: String, draftId: String?) async throws -> GenerateSubmit {
+    func generate(text: String, draftId: String?, voice: VoiceOptions) async throws -> GenerateSubmit {
         var body: [String: Any] = ["text": text]
         if let draftId { body["draft_id"] = draftId }
+        for (key, value) in voice.fields { body[key] = value }
         return try await decode(GenerateSubmit.self, builder.post("/generate", body: body))
     }
 
@@ -440,5 +447,68 @@ extension LiveAPI {
 
     func deleteAvatarPhoto() async throws {
         _ = try await send(builder.get("/avatar/photo", method: "DELETE"))
+    }
+}
+
+// MARK: - voice extras
+
+extension LiveAPI {
+    func voicePreview(voiceId: String) async throws -> URL {
+        // Renders any missing samples for the account's voices, then the file is ready.
+        _ = try await send(builder.post("/voices/preview", body: [:]))
+        return try await downloadFile(builder.get("/voices/\(voiceId)/preview.wav"),
+                                      name: "voice-" + voiceId)
+    }
+
+    func saveScriptRules(_ rules: String) async throws -> String {
+        try await decode(ScriptRulesResult.self,
+                         builder.post("/account/script-rules", body: ["rules": rules])).scriptRules ?? rules
+    }
+
+    func transcribe(audioURL: URL) async throws -> String {
+        guard let data = try? Data(contentsOf: audioURL), !data.isEmpty else {
+            throw APIError(kind: .other, status: 0, message: "The recording could not be read. Try again.")
+        }
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addFile(name: "audio", filename: "speech.m4a", mimeType: "audio/mp4", data: data)
+        return try await decode(TranscribeResult.self,
+                                builder.multipart("/transcribe/live", form: form)).text ?? ""
+    }
+
+    func setEmphasis(jobId: String, emphasis: String) async throws {
+        _ = try await send(builder.post("/jobs/\(jobId)/emphasis", body: ["emphasis": emphasis]))
+    }
+
+    func fixCandidates(word: String) async throws -> [FixOption] {
+        try await decode(FixCandidates.self,
+                         builder.post("/fix-word/candidates", body: ["word": word])).options ?? []
+    }
+
+    func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview {
+        var body: [String: Any] = ["word": word]
+        if let optionId { body["option_id"] = optionId }
+        if let custom { body["custom"] = custom }
+        return try await decode(FixPreview.self, builder.post("/fix-word/preview", body: body))
+    }
+
+    func fixPreviewStatus(id: String) async throws -> FixPreview {
+        try await decode(FixPreview.self, builder.get("/fix-word/preview/\(id)"))
+    }
+
+    func fixPreviewAudio(id: String) async throws -> URL {
+        try await downloadFile(builder.get("/fix-word/preview/\(id).wav"), name: "fix-" + id)
+    }
+
+    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch {
+        try await decode(FixBatch.self, builder.post("/fix-word/apply", body: [
+            "job_id": jobId, "fixes": [fix.payload],
+        ]))
+    }
+
+    func fixStatus(jobId: String, batchId: String) async throws -> FixBatch {
+        let query = jobId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? jobId
+        return try await decode(FixBatch.self,
+                                builder.get("/fix-word/apply/\(batchId)?job_id=" + query))
     }
 }

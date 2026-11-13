@@ -1,4 +1,4 @@
-# Test checklist (Build 1 and Build 2)
+# Test checklist (Builds 1 to 4)
 
 Things only you can check, because they need a real phone, real email and your real voice.
 Write down what happens for each, and screenshot anything odd.
@@ -69,6 +69,24 @@ Write down what happens for each, and screenshot anything odd.
 - Open **Library**. Is the video listed?
 - Make another video with **Only mine**. Add two or three of your own clips. Do they upload and appear on the shots?
 - If you ever see **Stock footage is not available right now**, add your own clips. Do the empty shots fill?
+
+## 9. Presenter (Build 3)
+
+- On the shots screen, find **Presenter**. Switch on **This is a photo of me** and choose a clear photo of your face.
+- Does it say **Your photo is saved**?
+- Switch on **Use the presenter in this video**. Does it show a cost?
+- Make the video. Does your photo speak at the start? Do the lips match the voice?
+- Try **Separate file**. Is there a **Save the presenter clip** button on the finished video?
+
+## 10. Voice extras (Build 4)
+
+- On Create, tap **Speak**, say a sentence in Amharic, tap **Stop**. Is the text right?
+- Paste English, choose a **Script length**, tap **Write Amharic script**. Is the length close?
+- Under the button, type "make it shorter" and tap **Change it**. Does it change? Does **Undo** bring it back?
+- On a finished voiceover, tap a word. Tap **Listen** on each reading. Tap **Use** on the best one. Does the audio change?
+- Switch to **English**. Paste English. Pick a speed. Make the voiceover. How does it sound?
+- In **My voices**, open the three dots and tap **Listen to a sample**.
+- In **Account**, open **Script rules**, write one rule, save it. Does the next script follow it?
 
 ## Do not test yet
 

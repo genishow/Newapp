@@ -85,7 +85,9 @@ final class MockAPI: KinbirAPI {
                 return copy
             }
             return WhoAmI(email: MockAPI.email, voices: list, activeVoiceId: activeVoiceId,
-                          creditsBalance: credits, tier: nil, hasPaid: false, trialMaxChars: 900)
+                          creditsBalance: credits, tier: nil, hasPaid: false, trialMaxChars: 900,
+                          scriptRules: video.scriptRules, scriptRulesDefault: "Keep sentences short.",
+                          enPace: "normal", enEmphasis: "none")
         }
     }
 
@@ -118,18 +120,18 @@ final class MockAPI: KinbirAPI {
         }
     }
 
-    func enrollScript() async throws -> String {
+    func enrollScript(language: Lang) async throws -> String {
         await pause()
-        return MockAPI.enrollText
+        return language == .en ? "Hello, this is my voice." : MockAPI.enrollText
     }
 
-    func enroll(videoURL: URL) async throws -> EnrollResult {
+    func enroll(videoURL: URL, language: Lang) async throws -> EnrollResult {
         await pause()
         return locked {
             let id = nextId("v")
             let first = voices.isEmpty
             voices.append(VoiceSummary(voiceId: id, name: nil, active: first,
-                                       refLanguage: "am", badge: "green"))
+                                       refLanguage: language.rawValue, badge: "green"))
             if first { activeVoiceId = id }
             let granted: Double = first ? 20 : 0
             credits += granted
@@ -148,14 +150,15 @@ final class MockAPI: KinbirAPI {
                              chars: 58, note: "")
     }
 
-    func rewriteEstimate(text: String) async throws -> Double {
+    func rewriteEstimate(text: String, options: ScriptOptions) async throws -> Double {
         await pause()
         return 1
     }
 
-    func rewrite(text: String,
+    func rewrite(text: String, options: ScriptOptions,
                  onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult {
         await pause()
+        video.lastScriptOptions = options
         let enough = locked { credits >= 1 }
         guard enough else {
             throw APIError.from(status: 402,
@@ -176,8 +179,9 @@ final class MockAPI: KinbirAPI {
 
     // MARK: voiceover
 
-    func generate(text: String, draftId: String?) async throws -> GenerateSubmit {
+    func generate(text: String, draftId: String?, voice: VoiceOptions) async throws -> GenerateSubmit {
         await pause()
+        video.lastVoiceOptions = voice
         return try locked {
             guard activeVoiceId != nil else {
                 throw APIError(kind: .other, status: 400,
@@ -193,7 +197,9 @@ final class MockAPI: KinbirAPI {
             let id = nextId("job")
             jobStore[id] = JobStatus(jobId: id, type: "generate", status: "queued", segmentsDone: 0,
                                  segmentsTotal: 2, error: nil, audioSec: nil, segments: [text],
-                                 creditsCharged: nil, creditsBalance: credits, brollPlanId: nil)
+                                 creditsCharged: nil, creditsBalance: credits, brollPlanId: nil,
+                                 language: voice.language.rawValue, emphasis: voice.emphasis,
+                                 fixedWords: [])
             jobOrder.insert(id, at: 0)
             jobPolls[id] = 0
             return GenerateSubmit(jobId: id, status: "queued", segmentsTotal: 2,
@@ -334,6 +340,66 @@ final class MockVideoState {
     var stockLimited = Launch.mockStockLimit
     var hasAvatarPhoto = false
     var lastAvatar: AvatarChoice?
+    var scriptRules = ""
+    var lastScriptOptions: ScriptOptions?
+    var lastVoiceOptions: VoiceOptions?
+    var fixPolls: [String: Int] = [:]
+    var appliedFixes: [FixEdit] = []
+}
+
+extension MockAPI {
+    func voicePreview(voiceId: String) async throws -> URL {
+        await pause()
+        return try ToneFile.write(name: "voice-" + voiceId)
+    }
+
+    func saveScriptRules(_ rules: String) async throws -> String {
+        await pause()
+        video.scriptRules = rules
+        return rules
+    }
+
+    func transcribe(audioURL: URL) async throws -> String {
+        await pause()
+        return "ሰላም ለሁላችሁ።"
+    }
+
+    func setEmphasis(jobId: String, emphasis: String) async throws {
+        await pause()
+    }
+
+    func fixCandidates(word: String) async throws -> [FixOption] {
+        await pause()
+        return [FixOption(optionId: 0, label: "Option A"), FixOption(optionId: 1, label: "Option B")]
+    }
+
+    func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview {
+        await pause()
+        return FixPreview(previewId: "pv-\(optionId ?? 99)", status: "done")
+    }
+
+    func fixPreviewStatus(id: String) async throws -> FixPreview {
+        await pause()
+        return FixPreview(previewId: id, status: "done")
+    }
+
+    func fixPreviewAudio(id: String) async throws -> URL {
+        await pause()
+        return try ToneFile.write(name: "fix-" + id)
+    }
+
+    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch {
+        await pause()
+        video.appliedFixes.append(fix)
+        return FixBatch(batchId: "fx-1", status: "queued", error: nil)
+    }
+
+    func fixStatus(jobId: String, batchId: String) async throws -> FixBatch {
+        await pause()
+        let polls = (video.fixPolls[batchId] ?? 0) + 1
+        video.fixPolls[batchId] = polls
+        return FixBatch(batchId: batchId, status: polls >= 2 ? "done" : "running", error: nil)
+    }
 }
 
 extension MockAPI {

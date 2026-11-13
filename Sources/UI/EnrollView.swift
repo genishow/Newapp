@@ -13,6 +13,7 @@ struct EnrollView: View {
     @State private var problem: String?
     @State private var advice: [String] = []
     @State private var result: EnrollResult?
+    @State private var language: Lang = .am
 
     var body: some View {
         ScrollView {
@@ -27,7 +28,7 @@ struct EnrollView: View {
         }
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadScript() }
+        .task(id: language) { await loadScript() }
         .fullScreenCover(isPresented: $showRecorder) {
             VideoRecorder { url in
                 showRecorder = false
@@ -52,6 +53,16 @@ struct EnrollView: View {
                 .font(Theme.small).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
                 .card(fill: Theme.grey, padding: 14)
+
+            Picker("Reading language", selection: $language) {
+                ForEach(Lang.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(uploading)
+            .accessibilityIdentifier("enrollLanguagePicker")
+            if language == .en {
+                NoteText(text: "Read in English to get a voice with a native English sound.")
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("Read this aloud").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
@@ -147,7 +158,8 @@ struct EnrollView: View {
     private func loadScript() async {
         scriptProblem = nil
         do {
-            script = try await state.api.enrollScript()
+            script = ""
+            script = try await state.api.enrollScript(language: language)
             if script.isEmpty { scriptProblem = "The script could not be loaded." }
         } catch {
             scriptProblem = APIError.wrap(error).message
@@ -175,7 +187,7 @@ struct EnrollView: View {
         uploading = true
         defer { uploading = false }
         do {
-            let answer = try await state.api.enroll(videoURL: url)
+            let answer = try await state.api.enroll(videoURL: url, language: language)
             await state.refresh()
             result = answer
         } catch {

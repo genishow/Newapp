@@ -14,6 +14,7 @@ struct JobView: View {
     @State private var sharing = false
     @State private var shared: SharedFile?
     @State private var copied = false
+    @State private var fixing: FixTarget?
 
     var body: some View {
         ScrollView {
@@ -34,6 +35,13 @@ struct JobView: View {
         .onDisappear { player.stop() }
         .sheet(item: $shared) { file in
             ShareSheet(items: [file.url])
+        }
+        .sheet(item: $fixing) { target in
+            FixWordSheet(jobId: jobId, target: target, onFixed: {
+                fixing = nil
+                Task { await reloadAfterChange() }
+            }, onClose: { fixing = nil })
+            .environmentObject(state)
         }
     }
 
@@ -146,10 +154,33 @@ struct JobView: View {
                         }
                         .buttonStyle(QuietButtonStyle())
                     }
-                    AmharicText(text: job.scriptText)
-                        .textSelection(.enabled)
+                    if job.isEnglish {
+                        Text(job.scriptText).font(Theme.body).foregroundStyle(Theme.black)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                    } else {
+                        NoteText(text: "A word sounds wrong? Tap it to fix it.")
+                        TappableScript(segments: job.segments ?? [],
+                                       fixedWords: job.fixedWords ?? []) { fixing = $0 }
+                    }
                 }
                 .card(fill: Theme.white)
+            }
+
+            if job.isEnglish {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Emphasis on pauses").font(Theme.small.weight(.medium))
+                        .foregroundStyle(Theme.black)
+                    Picker("Emphasis", selection: Binding(
+                        get: { job.emphasis ?? "none" },
+                        set: { level in Task { await changeEmphasis(level) } })
+                    ) {
+                        ForEach(VoiceOptions.emphases, id: \.self) { Text($0.capitalized).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    NoteText(text: "Free. The audio is updated at once.")
+                }
+                .card(fill: Theme.white, padding: 14)
             }
 
             if let onMakeAnother {
@@ -182,6 +213,22 @@ struct JobView: View {
                 return
             }
             try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
+        }
+    }
+
+    /// After a fix or an emphasis change the audio at the same address is different.
+    private func reloadAfterChange() async {
+        player.stop()
+        if let latest = try? await state.api.job(id: jobId) { job = latest }
+        await loadAudio()
+    }
+
+    private func changeEmphasis(_ level: String) async {
+        do {
+            try await state.api.setEmphasis(jobId: jobId, emphasis: level)
+            await reloadAfterChange()
+        } catch {
+            audioProblem = state.report(error)
         }
     }
 

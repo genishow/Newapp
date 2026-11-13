@@ -563,3 +563,84 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual(s.avatarSkipped, "the end appearance did not fit")
     }
 }
+
+final class ExtrasTests: XCTestCase {
+    func testAmharicScriptOptionsSendNothingExtra() {
+        XCTAssertTrue(ScriptOptions().fields.isEmpty)
+    }
+
+    func testLengthIsKeptInsideWhatTheServerAccepts() {
+        XCTAssertEqual(ScriptOptions(targetSec: 60).fields["target_sec"] as? Int, 60)
+        XCTAssertEqual(ScriptOptions(targetSec: 1200).fields["target_sec"] as? Int, 600)
+        XCTAssertEqual(ScriptOptions(targetSec: 5).fields["target_sec"] as? Int, 15)
+        XCTAssertTrue(ScriptOptions.lengths.allSatisfy { $0 >= 15 && $0 <= 600 })
+    }
+
+    func testRefineChangesTheScriptAndDoesNotAskForALength() {
+        let f = ScriptOptions(language: .en, targetSec: 60, refineInstruction: "make it shorter").fields
+        XCTAssertEqual(f["mode"] as? String, "refine")
+        XCTAssertEqual(f["instruction"] as? String, "make it shorter")
+        XCTAssertEqual(f["effort"] as? String, "medium")
+        XCTAssertEqual(f["language"] as? String, "en")
+        XCTAssertNil(f["target_sec"], "a length would make the server rebuild the script")
+    }
+
+    func testVoiceOptions() {
+        XCTAssertTrue(VoiceOptions().fields.isEmpty, "Amharic sends no language, pace or emphasis")
+        let en = VoiceOptions(language: .en, pace: "fast", emphasis: "punchy").fields
+        XCTAssertEqual(en["language"] as? String, "en")
+        XCTAssertEqual(en["pace"] as? String, "fast")
+        XCTAssertEqual(en["emphasis"] as? String, "punchy")
+    }
+
+    func testFixPayloads() {
+        XCTAssertEqual(FixEdit.option(word: "ቡና", optionId: 2).payload["option_id"] as? Int, 2)
+        XCTAssertEqual(FixEdit.custom(word: "ቡና", spelling: "bunna").payload["custom"] as? String, "bunna")
+        let reread = FixEdit.rereadSentence(segment: 3).payload
+        XCTAssertEqual(reread["segment"] as? Int, 3)
+        XCTAssertEqual(reread["rerecord"] as? Bool, true)
+        XCTAssertNil(reread["word"])
+    }
+
+    func testWordsKeepPunctuationForDisplayButNotForTheServer() {
+        let tokens = Words.tokens(in: "ሰላም፣ ለሁላችሁ። AI 2026")
+        XCTAssertEqual(tokens.map(\.shown), ["ሰላም፣", "ለሁላችሁ።", "AI", "2026"])
+        XCTAssertEqual(tokens.map(\.word), ["ሰላም", "ለሁላችሁ", "", ""], "only Ethiopic words can be fixed")
+    }
+
+    func testDecoding() throws {
+        let c = try JSON.decoder.decode(FixCandidates.self, from: Data(#"{"word":"ቡና","options":[{"option_id":0,"label":"Option A"},{"option_id":1,"label":"Option B"}],"allow_custom":true,"note":""}"#.utf8))
+        XCTAssertEqual(c.options?.count, 2)
+        let p = try JSON.decoder.decode(FixPreview.self, from: Data(#"{"preview_id":"pv1","status":"queued","preview_url":null,"first_ever":true}"#.utf8))
+        XCTAssertFalse(p.isDone)
+        let b = try JSON.decoder.decode(FixBatch.self, from: Data(#"{"batch_id":"fx1","status":"queued","words":["ቡና"],"charged":1.5,"credits_balance":10}"#.utf8))
+        XCTAssertEqual(b.batchId, "fx1")
+        XCTAssertFalse(b.isOver)
+        let me = try JSON.decoder.decode(WhoAmI.self, from: Data(#"{"email":"a@b.co","voices":[{"voice_id":"v2","ref_language":"en"}],"en_pace":"fast","en_emphasis":"strong","script_rules":"Short sentences.","script_rules_default":"T"}"#.utf8))
+        XCTAssertEqual(me.enPace, "fast")
+        XCTAssertEqual(me.scriptRules, "Short sentences.")
+        XCTAssertTrue(me.hasVoice, "an English voice is a voice")
+        let job = try JSON.decoder.decode(JobStatus.self, from: Data(#"{"job_id":"j","status":"done","language":"en","emphasis":"punchy","fixed_words":[]}"#.utf8))
+        XCTAssertTrue(job.isEnglish)
+    }
+
+    func testEnglishJourneyOnTheMockServer() async throws {
+        let api = MockAPI()
+        let submit = try await api.generate(text: "Hello there.", draftId: nil,
+                                            voice: VoiceOptions(language: .en, pace: "slow", emphasis: "none"))
+        _ = try await api.job(id: submit.jobId)
+        let job = try await api.job(id: submit.jobId)
+        XCTAssertTrue(job.isEnglish)
+        XCTAssertEqual(api.video.lastVoiceOptions?.pace, "slow")
+
+        let batch = try await api.fixApply(jobId: submit.jobId, fix: .rereadSentence(segment: 0))
+        var status = try await api.fixStatus(jobId: submit.jobId, batchId: batch.batchId ?? "")
+        XCTAssertFalse(status.isOver)
+        status = try await api.fixStatus(jobId: submit.jobId, batchId: batch.batchId ?? "")
+        XCTAssertEqual(status.status, "done")
+        let saved = try await api.saveScriptRules("Be brief.")
+        XCTAssertEqual(saved, "Be brief.")
+        let me = try await api.whoami()
+        XCTAssertEqual(me.scriptRules, "Be brief.")
+    }
+}

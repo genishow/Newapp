@@ -26,6 +26,8 @@ final class AppState: ObservableObject {
     /// Builds the app's real dependencies, or the mock ones for UI tests.
     static func make() -> AppState {
         if Launch.isMock {
+            // Each UI test starts from the same place: Amharic, nothing half done.
+            UserDefaults.standard.removeObject(forKey: "kinbir.language")
             let store = MemoryCodeStore()
             let api = MockAPI(scenario: .init(noVoice: Launch.mockNoVoice,
                                               noCredits: Launch.mockNoCredits))
@@ -40,7 +42,7 @@ final class AppState: ObservableObject {
     var balance: Double { me?.balance ?? 0 }
     var activeVoice: VoiceSummary? {
         guard let me else { return nil }
-        return me.amharicVoices.first { $0.voiceId == me.activeVoiceId } ?? me.amharicVoices.first
+        return me.allVoices.first { $0.voiceId == me.activeVoiceId } ?? me.allVoices.first
     }
 
     func start() async {
@@ -67,7 +69,8 @@ final class AppState: ObservableObject {
         store.save(result.accessCode)
         me = WhoAmI(email: result.email, voices: nil, activeVoiceId: nil,
                     creditsBalance: result.creditsBalance, tier: nil, hasPaid: nil,
-                    trialMaxChars: nil)
+                    trialMaxChars: nil, scriptRules: nil, scriptRulesDefault: nil,
+                    enPace: nil, enEmphasis: nil)
         phase = .signedIn
         await refresh()
     }

@@ -195,6 +195,52 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("videoRow")
     }
 
+    /// Tap a word on the result, pick another reading, and the sheet closes on success.
+    func testFixAWord() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("word-0-0").tap()
+        waitFor("fixHeading")
+        waitFor("fixListen-0").tap()
+        waitFor("fixUse-0").tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: el("fixHeading"))
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed,
+                       "a finished fix must close the sheet")
+        waitFor("playButton")
+    }
+
+    /// An English project reads English as it is, with speed and emphasis.
+    func testEnglishVoiceover() {
+        launch()
+        signIn()
+        waitFor("languagePicker")
+        app.buttons["English"].tap()
+        typeScript("Coffee was first discovered in Ethiopia.")
+        waitForLabel("kindLabel", contains: "English script")
+        waitFor("englishCard")
+        waitForLabel("mainActionButton", contains: "Make voiceover")
+        el("mainActionButton").tap()
+        waitFor("resultHeading", timeout: 30)
+    }
+
+    /// Speaking fills the script box, and script rules can be saved.
+    func testSpeakAndScriptRules() {
+        launch()
+        signIn()
+        waitFor("speakButton").tap()
+        waitForLabel("speakButton", contains: "Stop")
+        el("speakButton").tap()
+        waitForLabel("kindLabel", contains: "Amharic script")
+
+        app.tabBars.buttons["Account"].tap()
+        waitFor("scriptRulesRow").tap()
+        waitFor("rulesHeading")
+        waitFor("saveRulesButton").tap()
+        waitForLabel("saveRulesButton", contains: "Saved")
+    }
+
     /// A video with the presenter, delivered as a separate clip.
     func testVideoWithPresenter() {
         launch()
