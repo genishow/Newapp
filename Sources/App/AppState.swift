@@ -109,7 +109,8 @@ final class AppState: ObservableObject {
     }
 
     func loadDraft() -> String {
-        guard let key = draftKey else { return "" }
+        // UI tests share one simulator, so a draft from one test must not leak into the next.
+        guard !Launch.isMock, let key = draftKey else { return "" }
         return UserDefaults.standard.string(forKey: key) ?? ""
     }
 
