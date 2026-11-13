@@ -301,6 +301,10 @@ final class KinbirJourneyTests: XCTestCase {
         let field = waitFor("fixCustomField")
         field.tap()
         field.typeText("gebboch")
+        // Playing a typed spelling also offers three close readings of it.
+        waitFor("fixListenTyped").tap()
+        waitFor("fixUse-200")
+        waitFor("fixUse-202")
         waitFor("fixUseTyped").tap()
         waitFor("generateChangesButton")
         waitFor("word-0-0").tap()

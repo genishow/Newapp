@@ -67,6 +67,9 @@ struct WordFixSheet: View {
     /// Spellings already tried for this word, newest first, kept on the phone so they can
     /// be heard and used again later, even after the voiceover was regenerated.
     @State private var tries: [String] = []
+    /// The spelling last played from the box, and three close readings of it.
+    @State private var variantsOf = ""
+    @State private var variants: [String] = []
 
     private var triesKey: String { "kinbir.tries." + target.word }
     private var earKey: String { "kinbir.ear." + target.word }
@@ -326,6 +329,7 @@ struct WordFixSheet: View {
                 playButton(key: "c:" + typed, id: "fixListenTyped") {
                     let spelling = typed
                     remember(spelling)
+                    offerVariants(of: spelling)
                     await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
                 }
                 .disabled(typed.isEmpty)
@@ -338,6 +342,39 @@ struct WordFixSheet: View {
             .buttonStyle(SecondaryButtonStyle())
             .disabled(typed.isEmpty)
             .accessibilityIdentifier("fixUseTyped")
+
+            if !variants.isEmpty {
+                eyebrow(T("Close to what you typed"))
+                NoteText(text: Tf("Three readings near \"%@\", each holding one sound longer or shorter.", variantsOf))
+                ForEach(Array(variants.enumerated()), id: \.element) { index, spelling in
+                    row(key: "c:" + spelling, title: spelling, index: 200 + index,
+                        listen: {
+                            remember(spelling)
+                            await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
+                        },
+                        use: {
+                            remember(spelling)
+                            onUse(.custom(word: target.word, spelling: spelling), target.word + " · " + spelling)
+                        })
+                }
+            }
+        }
+    }
+
+    /// Works out three close readings of a typed spelling and starts making them in the
+    /// background, after the one typed, so they are usually ready by the time they are tapped.
+    private func offerVariants(of spelling: String) {
+        guard spelling != variantsOf else { return }
+        variantsOf = spelling
+        variants = SpellingVariants.make(spelling)
+        let api = state.api
+        let word = target.word
+        let list = variants
+        Task {
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            for v in list {
+                Task { _ = try? await api.fixPreview(word: word, optionId: nil, custom: v) }
+            }
         }
     }
 

@@ -189,3 +189,80 @@ enum TrialRule {
         return "Your free credits voice up to \(limit) Amharic characters at a time, about two minutes. This script is \(TextKind.ethiopicLetterCount(script)). Split it into two, or pick a plan for full-length scripts."
     }
 }
+
+/// Close variations of a spelling the user typed, so typing gives a few readings to
+/// compare, like "Say it myself" does. Holding a sound is written by doubling it
+/// ("gebboch"), and the server reads ch, sh, zh, kh, ts, ny, gn, dj and t', k', p'
+/// as one sound. Each variation holds or lets go of one sound (never the first),
+/// spread across the word. Pairs are used when a word has too few sounds.
+enum SpellingVariants {
+    private static let digraphs = ["ch'", "ts'", "ch", "sh", "zh", "kh", "ts", "ny", "gn", "dj", "t'", "k'", "p'"]
+    private static let vowels: Set<Character> = ["a", "e", "i", "o", "u"]
+
+    /// One sound and how many times it is written in a row.
+    private struct Unit { var sound: String; var count: Int; var consonant: Bool }
+
+    private static func units(_ text: String) -> [Unit] {
+        var out: [Unit] = []
+        var rest = Substring(text.lowercased())
+        while let first = rest.first {
+            let sound: String
+            if let d = digraphs.first(where: { rest.hasPrefix($0) }) {
+                sound = d
+            } else {
+                sound = String(first)
+            }
+            rest = rest.dropFirst(sound.count)
+            let consonant = first.isLetter && !vowels.contains(first)
+            if let last = out.last, last.sound == sound, consonant {
+                out[out.count - 1].count += 1
+            } else {
+                out.append(Unit(sound: sound, count: 1, consonant: consonant))
+            }
+        }
+        return out
+    }
+
+    private static func render(_ units: [Unit]) -> String {
+        units.map { String(repeating: $0.sound, count: $0.count) }.joined()
+    }
+
+    static func make(_ typed: String, count: Int = 3) -> [String] {
+        let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= 2, !text.contains(" "),
+              text.unicodeScalars.allSatisfy({ $0.isASCII }) else { return [] }
+        let parts = units(text)
+        let spots = parts.indices.filter { $0 > 0 && parts[$0].consonant }
+        func toggled(_ at: [Int]) -> String {
+            var copy = parts
+            for i in at { copy[i].count = copy[i].count > 1 ? 1 : 2 }
+            return render(copy)
+        }
+        let original = render(parts)
+        var singles: [String] = []
+        for s in spots {
+            let v = toggled([s])
+            if v != original && !singles.contains(v) { singles.append(v) }
+        }
+        var picked: [String] = []
+        if singles.count <= count {
+            picked = singles
+        } else {
+            // Spread out: first, middle and last sound rather than three at the start.
+            for k in 0..<count {
+                let i = Int((Double(k) * Double(singles.count - 1) / Double(max(count - 1, 1))).rounded())
+                if !picked.contains(singles[i]) { picked.append(singles[i]) }
+            }
+        }
+        if picked.count < count {
+            outer: for a in spots.indices {
+                for b in spots.indices where b > a {
+                    let v = toggled([spots[a], spots[b]])
+                    if v != original && !picked.contains(v) { picked.append(v) }
+                    if picked.count >= count { break outer }
+                }
+            }
+        }
+        return Array(picked.prefix(count))
+    }
+}

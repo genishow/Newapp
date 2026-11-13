@@ -242,3 +242,26 @@ final class FootageExtrasTests: XCTestCase {
     }
 }
 
+
+final class SpellingVariantsTests: XCTestCase {
+    func testHoldsOrLetsGoOfOneSound() {
+        // gebboch: b is held, ch is one sound. The first sound never changes.
+        let v = SpellingVariants.make("gebboch")
+        XCTAssertEqual(v, ["geboch", "gebbochch", "gebochch"])
+    }
+
+    func testSpreadsAcrossALongWord() {
+        let v = SpellingVariants.make("ennddiderregg")
+        XCTAssertEqual(v.count, 3)
+        XCTAssertEqual(Set(v).count, 3)
+        XCTAssertFalse(v.contains("ennddiderregg"))
+        XCTAssertEqual(v.first, "enddiderregg")
+        XCTAssertEqual(v.last, "ennddiderreg")
+    }
+
+    func testNothingForAmharicLettersOrSentences() {
+        XCTAssertEqual(SpellingVariants.make("ገቦች"), [])
+        XCTAssertEqual(SpellingVariants.make("two words"), [])
+        XCTAssertEqual(SpellingVariants.make("a"), [])
+    }
+}
