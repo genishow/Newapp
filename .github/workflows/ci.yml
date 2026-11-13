@@ -1,7 +1,9 @@
-# Runs on every push. One Mac machine does everything:
-#   1. Builds an unsigned Kinbir.ipa and attaches it to the run as a download.
-#   2. Runs the unit tests on the simulator.
-#   3. Runs the end-to-end UI tests on the simulator (the app's built-in mock server).
+# Every push: builds an unsigned Kinbir.ipa and attaches it to the run (about 3 Mac minutes).
+# The tests are the expensive part (about 17 Mac minutes, and GitHub counts each Mac minute
+# as 10 against the free allowance). They run only when this workflow is started by hand
+# from the Actions tab with "Run workflow":
+#   - unit tests on the simulator
+#   - end-to-end UI tests on the simulator (the app's built-in mock server)
 # A second, small job checks the real Kinbir server still answers in the shape the app expects.
 # The .ipa is unsigned. SideStore signs it with your free Apple ID when you install it.
 name: CI
@@ -70,6 +72,7 @@ jobs:
           retention-days: 30
 
       - name: Pick a simulator
+        if: github.event_name == 'workflow_dispatch'
         run: |
           UDID=$(xcrun simctl list devices available -j \
             | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | startswith("iPhone"))] | last | .udid')
@@ -78,6 +81,7 @@ jobs:
           xcrun simctl boot "$UDID" || true
 
       - name: Run unit tests on simulator
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -o pipefail
           xcodebuild test \
@@ -87,6 +91,7 @@ jobs:
             | tee test.log | xcbeautify || (grep -E "error:|failed" test.log | head -80; tail -120 test.log; exit 1)
 
       - name: Run end-to-end UI tests on simulator
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -o pipefail
           xcodebuild test \
