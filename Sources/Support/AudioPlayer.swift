@@ -8,6 +8,8 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published private(set) var isReady = false
     @Published var position: Double = 0
     @Published private(set) var duration: Double = 0
+    /// Listening speed. 1 is normal.
+    @Published private(set) var rate: Float = 1
 
     private var player: AVAudioPlayer?
     private var timer: Timer?
@@ -25,6 +27,8 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             return false
         }
         p.delegate = self
+        p.enableRate = true
+        p.rate = rate
         p.prepareToPlay()
         player = p
         duration = p.duration
@@ -44,6 +48,11 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             isPlaying = true
             startTimer()
         }
+    }
+
+    func setRate(_ value: Float) {
+        rate = value
+        player?.rate = value
     }
 
     func seek(to seconds: Double) {

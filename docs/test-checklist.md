@@ -1,4 +1,4 @@
-# Test checklist (Builds 1 to 4)
+# Test checklist (Builds 1 to 5)
 
 Things only you can check, because they need a real phone, real email and your real voice.
 Write down what happens for each, and screenshot anything odd.
@@ -87,6 +87,21 @@ Write down what happens for each, and screenshot anything odd.
 - Switch to **English**. Paste English. Pick a speed. Make the voiceover. How does it sound?
 - In **My voices**, open the three dots and tap **Listen to a sample**.
 - In **Account**, open **Script rules**, write one rule, save it. Does the next script follow it?
+
+## 11. Ease of use (Build 5)
+
+- On first open, do you get **ቋንቋ ይምረጡ / Choose your language**? Choose አማርኛ.
+- Read every screen in Amharic. Write down any line that sounds wrong or unnatural.
+- Does any Amharic text get cut off or overlap a button?
+- In Account, switch to English and back. Does the whole app change?
+- On an empty Create screen, tap an idea chip, then **Write the script from this idea**. Is the script good?
+- Tap **Shorter**, then **Undo**.
+- While a voiceover is being made, do you see the steps, the clock and the usual time?
+- On the voiceover, try 1.5x speed.
+- Tap **Make a video**, then **Make the video for me**. Does it go all the way to a finished video without stopping?
+- In **Clone my voice**, tap **Record now**. Can you read the script on the camera screen? Does it block your face or the record button?
+- Open a shot. Does the clip play at the top?
+- Does the app feel like the Kinbir website now (the lettering)?
 
 ## Do not test yet
 

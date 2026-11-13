@@ -19,7 +19,7 @@ struct VoicesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text("My voices").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("My voices")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("voicesHeading")
 
                 if let problem {
@@ -28,8 +28,8 @@ struct VoicesView: View {
 
                 if voices.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("No voice yet").font(Theme.heading).foregroundStyle(Theme.black)
-                        Text("Clone your voice to start making voiceovers.")
+                        Text(T("No voice yet")).font(Theme.heading).foregroundStyle(Theme.black)
+                        Text(T("Clone your voice to start making voiceovers."))
                             .font(Theme.body).foregroundStyle(Theme.muted)
                     }
                     .card(fill: Theme.grey)
@@ -41,12 +41,12 @@ struct VoicesView: View {
 
                 if voices.count < maxVoices {
                     NavigationLink(value: Route.enroll) {
-                        Text(voices.isEmpty ? "Clone my voice" : "Add a voice")
+                        Text(voices.isEmpty ? T("Clone my voice") : T("Add a voice"))
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("addVoiceButton")
                 } else {
-                    NoteText(text: "You have 5 voices, which is the most an account can keep. Delete one to add another.")
+                    NoteText(text: T("You have 5 voices, which is the most an account can keep. Delete one to add another."))
                 }
             }
             .page()
@@ -55,28 +55,28 @@ struct VoicesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await state.refresh() }
         .onDisappear { player.stop() }
-        .alert("Rename voice", isPresented: Binding(
+        .alert(T("Rename voice"), isPresented: Binding(
             get: { renaming != nil },
             set: { if !$0 { renaming = nil } })
         ) {
-            TextField("Name", text: $newName)
+            TextField(T("Name"), text: $newName)
                 .accessibilityIdentifier("renameField")
-            Button("Save") {
+            Button(T("Save")) {
                 if let voice = renaming { Task { await rename(voice) } }
             }
-            Button("Cancel", role: .cancel) { renaming = nil }
+            Button(T("Cancel"), role: .cancel) { renaming = nil }
         }
-        .confirmationDialog("Delete this voice?", isPresented: Binding(
+        .confirmationDialog(T("Delete this voice?"), isPresented: Binding(
             get: { deleting != nil },
             set: { if !$0 { deleting = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Delete voice", role: .destructive) {
+            Button(T("Delete voice"), role: .destructive) {
                 if let voice = deleting { Task { await delete(voice) } }
             }
-            Button("Cancel", role: .cancel) { deleting = nil }
+            Button(T("Cancel"), role: .cancel) { deleting = nil }
         } message: {
-            Text("This cannot be undone. Voiceovers you already made are not affected.")
+            Text(T("This cannot be undone. Voiceovers you already made are not affected."))
         }
     }
 
@@ -97,8 +97,8 @@ struct VoicesView: View {
                         .foregroundStyle(Theme.black)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title(voice, index: index))
-                            .font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
-                        Text((isActive ? "In use" : "Tap to use") + (voice.isAmharic ? " · Amharic" : " · English"))
+                            .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        Text((isActive ? T("In use") : T("Tap to use")) + (voice.isAmharic ? T(" · Amharic") : T(" · English")))
                             .font(Theme.small).foregroundStyle(isActive ? Theme.black : Theme.muted)
                     }
                     Spacer()
@@ -112,14 +112,14 @@ struct VoicesView: View {
             .accessibilityIdentifier("voiceRow-\(index)")
 
             Menu {
-                Button(listeningId == voice.voiceId ? "Preparing the sample" : "Listen to a sample") {
+                Button(listeningId == voice.voiceId ? T("Preparing the sample") : T("Listen to a sample")) {
                     Task { await listen(voice) }
                 }
-                Button("Rename") {
+                Button(T("Rename")) {
                     newName = voice.name ?? ""
                     renaming = voice
                 }
-                Button("Delete", role: .destructive) { deleting = voice }
+                Button(T("Delete"), role: .destructive) { deleting = voice }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .medium))
@@ -127,7 +127,7 @@ struct VoicesView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel("More")
+            .accessibilityLabel(T("More"))
             .accessibilityIdentifier("voiceMenu-\(index)")
         }
         .card(fill: isActive ? Theme.lime : Theme.white, padding: 14)

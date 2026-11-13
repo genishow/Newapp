@@ -11,7 +11,7 @@ struct LibraryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text("Library").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Library")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("libraryHeading")
 
                 if let problem {
@@ -22,15 +22,15 @@ struct LibraryView: View {
                     ProgressView().tint(Theme.black)
                 } else if jobs.isEmpty && videos.isEmpty && problem == nil {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Nothing here yet").font(Theme.heading).foregroundStyle(Theme.black)
-                        Text("Your voiceovers and videos appear here for 48 hours.")
+                        Text(T("Nothing here yet")).font(Theme.heading).foregroundStyle(Theme.black)
+                        Text(T("Your voiceovers and videos appear here for 48 hours."))
                             .font(Theme.body).foregroundStyle(Theme.muted)
                     }
                     .card(fill: Theme.grey)
                     .accessibilityIdentifier("libraryEmpty")
                 } else {
                     if !videos.isEmpty {
-                        Text("Videos").font(Theme.heading).foregroundStyle(Theme.black)
+                        Text(T("Videos")).font(Theme.heading).foregroundStyle(Theme.black)
                         ForEach(videos) { video in
                             NavigationLink(value: Route.videoJob(video.videoJobId)) {
                                 videoRow(video)
@@ -39,7 +39,7 @@ struct LibraryView: View {
                             .accessibilityIdentifier("videoRow")
                         }
                         if !jobs.isEmpty {
-                            Text("Voiceovers").font(Theme.heading).foregroundStyle(Theme.black)
+                            Text(T("Voiceovers")).font(Theme.heading).foregroundStyle(Theme.black)
                         }
                     }
                     ForEach(jobs) { job in
@@ -68,6 +68,9 @@ struct LibraryView: View {
                 .multilineTextAlignment(.leading)
             HStack(spacing: 8) {
                 Pill(text: statusLabel(job.status), fill: job.status == "done" ? Theme.lime : Theme.grey)
+                if job.status == "done", let hours = Fmt.hoursLeft(job.finishedAt), hours <= 12 {
+                    Pill(text: Tf("%@ h left", "\(hours)"), fill: Theme.white)
+                }
                 Text([Fmt.length(job.audioSec), Fmt.ago(job.finishedAt ?? job.createdAt)]
                     .filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(Theme.small).foregroundStyle(Theme.muted)
@@ -84,7 +87,10 @@ struct LibraryView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
             HStack(spacing: 8) {
-                Pill(text: video.orientation == "landscape" ? "Horizontal" : "Vertical")
+                Pill(text: video.orientation == "landscape" ? T("Horizontal") : T("Vertical"))
+                if let hours = Fmt.hoursLeft(video.finishedAt), hours <= 12 {
+                    Pill(text: Tf("%@ h left", "\(hours)"), fill: Theme.white)
+                }
                 Text([Fmt.length(video.durationSec), Fmt.ago(video.finishedAt)]
                     .filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(Theme.small).foregroundStyle(Theme.muted)
@@ -95,10 +101,10 @@ struct LibraryView: View {
 
     private func statusLabel(_ status: String) -> String {
         switch status {
-        case "done": return "Ready"
-        case "failed": return "Did not work"
-        case "running": return "Recording"
-        default: return "In line"
+        case "done": return T("Ready")
+        case "failed": return T("Did not work")
+        case "running": return T("Recording")
+        default: return T("In line")
         }
     }
 

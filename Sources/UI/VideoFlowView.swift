@@ -1,4 +1,36 @@
+import AVKit
 import SwiftUI
+
+/// A stock clip playing silently on a loop, so a shot can be judged in motion.
+struct LoopingPreview: View {
+    let url: URL
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.black)
+            if let player {
+                VideoPlayer(player: player).disabled(true)
+            }
+        }
+        .frame(height: 210)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
+        .onAppear {
+            let queue = AVQueuePlayer()
+            queue.isMuted = true
+            looper = AVPlayerLooper(player: queue, templateItem: AVPlayerItem(url: url))
+            player = queue
+            queue.play()
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
+            looper = nil
+        }
+    }
+}
 
 /// Turns a finished voiceover into a video: choose the shape and footage, plan the
 /// shots, fill them with clips, pick music, then render.
@@ -31,6 +63,8 @@ struct VideoFlowView: View {
     @State private var avatar = AvatarChoice()
     @State private var audioSec = 0.0
     @State private var starting = false
+    /// One-tap mode: plan, fill and render without stopping, when every shot gets footage.
+    @State private var auto = false
     @StateObject private var musicPlayer = AudioPlayer()
 
     private var emptyShots: [Beat] { beats.filter { $0.isEmpty } }
@@ -77,20 +111,20 @@ struct VideoFlowView: View {
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Make a video").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Make a video")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("videoSetupHeading")
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Shape").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
-                Picker("Shape", selection: $shape) {
-                    ForEach(Shape.allCases) { Text($0.title).tag($0) }
+                Text(T("Shape")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                Picker(T("Shape"), selection: $shape) {
+                    ForEach(Shape.allCases) { Text(T($0.title)).tag($0) }
                 }
                 .pickerStyle(.segmented)
 
-                Text("Footage").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+                Text(T("Footage")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                     .padding(.top, 6)
-                Picker("Footage", selection: $source) {
-                    ForEach(FootageSource.allCases) { Text($0.title).tag($0) }
+                Picker(T("Footage"), selection: $source) {
+                    ForEach(FootageSource.allCases) { Text(T($0.title)).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("sourcePicker")
@@ -107,32 +141,47 @@ struct VideoFlowView: View {
             }
 
             Button {
+                auto = true
                 Task { await startPlan() }
             } label: {
-                BusyLabel(title: "Plan the shots", busy: starting)
+                BusyLabel(title: T("Make the video for me"), busy: starting && auto)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+            .accessibilityIdentifier("autoVideoButton")
+
+            NoteText(text: T("Kinbir plans the shots, finds the footage and makes the video in one go. You can still change any shot afterwards and make it again."))
+
+            Button {
+                auto = false
+                Task { await startPlan() }
+            } label: {
+                BusyLabel(title: T("Plan the shots"), busy: starting && !auto)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
             .accessibilityIdentifier("planButton")
 
+            NoteText(text: T("Choose this to check every shot yourself before the video is made."))
+
             if let estimate {
-                NoteText(text: "Planning costs about \(Fmt.credits(estimate)) credits. Finding footage and changing shots is free. The finished video is 2 credits.")
+                NoteText(text: Tf("Planning costs about %@ credits. Finding footage and changing shots is free. The finished video is 2 credits.", Fmt.credits(estimate)))
             }
         }
     }
 
     private var sourceNote: String {
         switch source {
-        case .stock: return "Kinbir finds free stock clips for every shot."
-        case .mix: return "Your clips go where they fit. Stock clips fill the rest."
-        case .own: return "Only clips you add are used."
+        case .stock: return T("Kinbir finds free stock clips for every shot.")
+        case .mix: return T("Your clips go where they fit. Stock clips fill the rest.")
+        case .own: return T("Only clips you add are used.")
         }
     }
 
     private var clipsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(uploads.isEmpty ? "No clips added yet" : "\(uploads.count) of your clips added")
-                .font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
+            Text(uploads.isEmpty ? T("No clips added yet") : Tf("%@ of your clips added", "\(uploads.count)"))
+                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("clipCount")
             if let working {
                 HStack(spacing: 10) {
@@ -142,7 +191,7 @@ struct VideoFlowView: View {
             } else {
                 addClipsButton
             }
-            NoteText(text: "Only add footage you filmed or have permission to use.")
+            NoteText(text: T("Only add footage you filmed or have permission to use."))
         }
         .card(fill: Theme.white)
     }
@@ -150,13 +199,13 @@ struct VideoFlowView: View {
     @ViewBuilder private var addClipsButton: some View {
         if Launch.isMock {
             // The simulator's photo library is empty, so the UI tests take this path.
-            Button("Add sample clip") {
+            Button(T("Add sample clip")) {
                 Task { await addClips([FileManager.default.temporaryDirectory.appendingPathComponent("sample.mov")]) }
             }
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("addSampleClipButton")
         } else {
-            Button("Add my clips") { showClipPicker = true }
+            Button(T("Add my clips")) { showClipPicker = true }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("addClipsButton")
         }
@@ -166,18 +215,20 @@ struct VideoFlowView: View {
 
     private var planning: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Planning your video").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Planning your video")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("planningHeading")
-            VStack(alignment: .leading, spacing: 12) {
-                if problem == nil { ProgressView().tint(Theme.black) }
-                Text(working ?? "Deciding what each shot should show.")
-                    .font(Theme.body).foregroundStyle(Theme.black)
-                NoteText(text: "This can take a few minutes. You can leave this screen and come back.")
+            if problem == nil {
+                StepList(steps: auto
+                            ? [T("Planning the shots"), T("Finding footage"), T("Making your video")]
+                            : [T("Planning the shots"), T("Finding footage"), T("Ready for you to review")],
+                         current: working == nil ? 0 : 1,
+                         detail: working ?? T("Deciding what each shot should show."),
+                         estimate: T("usually 1 to 3 minutes"))
             }
-            .card(fill: Theme.grey)
+            NoteText(text: T("This can take a few minutes. You can leave this screen and come back."))
             if let problem {
                 ProblemCard(message: problem)
-                Button("Check again") {
+                Button(T("Check again")) {
                     self.problem = nil
                     Task { await resumePlanning() }
                 }
@@ -190,17 +241,17 @@ struct VideoFlowView: View {
 
     private var shots: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Your shots").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your shots")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("shotsHeading")
 
             if stockLimited && !emptyShots.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Stock footage is not available right now")
+                    Text(T("Stock footage is not available right now"))
                         .font(Theme.heading).foregroundStyle(Theme.black)
-                    Text("The free stock library has reached its limit. Upload your own footage for the empty shots, or try stock again in a few minutes.")
+                    Text(T("The free stock library has reached its limit. Upload your own footage for the empty shots, or try stock again in a few minutes."))
                         .font(Theme.body).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button("Try stock again") { Task { await fillShots(stock: true, own: false) } }
+                    Button(T("Try stock again")) { Task { await fillShots(stock: true, own: false) } }
                         .buttonStyle(QuietButtonStyle())
                         .disabled(working != nil)
                 }
@@ -208,9 +259,9 @@ struct VideoFlowView: View {
                 .accessibilityIdentifier("stockLimitCard")
             } else if !emptyShots.isEmpty && working == nil {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(emptyShots.count) shots need footage")
-                        .font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
-                    Text("Tap a shot to search with other words, or add your own clips.")
+                    Text(Tf("%@ shots need footage", "\(emptyShots.count)"))
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text(T("Tap a shot to search with other words, or add your own clips."))
                         .font(Theme.small).foregroundStyle(Theme.muted)
                 }
                 .card(fill: Theme.grey, padding: 14)
@@ -250,14 +301,14 @@ struct VideoFlowView: View {
             Button {
                 Task { await makeVideo() }
             } label: {
-                BusyLabel(title: "Make video · 2 credits", busy: starting)
+                BusyLabel(title: T("Make video · 2 credits"), busy: starting)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(starting || working != nil || !emptyShots.isEmpty)
             .accessibilityIdentifier("makeVideoButton")
 
             if !emptyShots.isEmpty {
-                NoteText(text: "Every shot needs footage before the video can be made.")
+                NoteText(text: T("Every shot needs footage before the video can be made."))
             }
         }
     }
@@ -265,10 +316,10 @@ struct VideoFlowView: View {
     private var finishCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Music").font(Theme.body).foregroundStyle(Theme.black)
+                Text(T("Music")).font(Theme.body).foregroundStyle(Theme.black)
                 Spacer()
-                Picker("Music", selection: $musicId) {
-                    Text("None").tag(String?.none)
+                Picker(T("Music"), selection: $musicId) {
+                    Text(T("None")).tag(String?.none)
                     ForEach(tracks) { track in
                         Text(track.title ?? "Track").tag(String?.some(track.trackId))
                     }
@@ -278,12 +329,12 @@ struct VideoFlowView: View {
                 .accessibilityIdentifier("musicPicker")
             }
             if musicId != nil {
-                Button(musicPlayer.isPlaying ? "Stop preview" : "Listen") {
+                Button(musicPlayer.isPlaying ? T("Stop preview") : T("Listen")) {
                     Task { await toggleMusic() }
                 }
                 .buttonStyle(QuietButtonStyle())
             }
-            Toggle("Captions on the video", isOn: $captions)
+            Toggle(T("Captions on the video"), isOn: $captions)
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .tint(Theme.black)
         }
@@ -351,6 +402,10 @@ struct VideoFlowView: View {
                     await state.refresh()
                     await fillShots(stock: source != .own, own: source != .stock)
                     stage = .shots
+                    if auto && emptyShots.isEmpty && !beats.isEmpty {
+                        await makeVideo()
+                    }
+                    auto = false
                     return
                 }
                 if latest.status == "failed" {
@@ -377,7 +432,7 @@ struct VideoFlowView: View {
         guard let planId else { return }
         problem = nil
         if stock {
-            working = "Finding footage for your shots."
+            working = T("Finding footage for your shots.")
             stockLimited = false
             var refusals = 0
             for _ in 0..<20 {
@@ -402,7 +457,7 @@ struct VideoFlowView: View {
             }
         }
         if own && !uploads.isEmpty {
-            working = "Placing your clips."
+            working = T("Placing your clips.")
             for _ in 0..<30 {
                 do {
                     let match = try await state.api.matchOwnClips(planId: planId,
@@ -497,12 +552,12 @@ struct ShotRow: View {
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("Shot \(beat.beat)").font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
+                    Text(Tf("Shot %@", "\(beat.beat)")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
                     Text(Fmt.clock(beat.start ?? 0)).font(Theme.small).foregroundStyle(Theme.muted)
                     if beat.isEmpty {
-                        Pill(text: "Needs footage", fill: Theme.white)
+                        Pill(text: T("Needs footage"), fill: Theme.white)
                     } else if beat.chosen?.isOwn == true {
-                        Pill(text: "Yours")
+                        Pill(text: T("Yours"))
                     }
                 }
                 Text(beat.says ?? beat.mustShow ?? "")
@@ -562,7 +617,7 @@ struct ShotSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.gap) {
-                    Text("Shot \(beat.beat)").font(Theme.title).foregroundStyle(Theme.black)
+                    Text(Tf("Shot %@", "\(beat.beat)")).font(Theme.title).foregroundStyle(Theme.black)
                         .accessibilityIdentifier("shotSheetHeading")
                     if let says = beat.says, !says.isEmpty {
                         AmharicText(text: says, font: Theme.small)
@@ -572,8 +627,12 @@ struct ShotSheet: View {
                         ProblemCard(message: problem)
                     }
 
+                    if let link = beat.chosen?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
+                        LoopingPreview(url: url).id(link)
+                    }
+
                     if let list = beat.candidates, !list.isEmpty {
-                        Text("Tap a clip to use it").font(Theme.small.weight(.medium))
+                        Text(T("Tap a clip to use it")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
                         LazyVGrid(columns: columns, spacing: 12) {
                             ForEach(Array(list.enumerated()), id: \.element.id) { index, clip in
@@ -583,7 +642,7 @@ struct ShotSheet: View {
                                     ClipThumb(candidate: clip)
                                         .aspectRatio(1, contentMode: .fit)
                                         .overlay(alignment: .topLeading) {
-                                            if index == 0 { Pill(text: "In use").padding(4) }
+                                            if index == 0 { Pill(text: T("In use")).padding(4) }
                                         }
                                 }
                                 .buttonStyle(.plain)
@@ -592,13 +651,13 @@ struct ShotSheet: View {
                             }
                         }
                     } else {
-                        Text("No clip found for this shot yet.")
+                        Text(T("No clip found for this shot yet."))
                             .font(Theme.body).foregroundStyle(Theme.black)
                             .card(fill: Theme.grey, padding: 14)
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Search with other words").font(Theme.small.weight(.medium))
+                        Text(T("Search with other words")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
                         TextField(beat.query ?? "For example: coffee cup", text: $query)
                             .textInputAutocapitalization(.never)
@@ -607,7 +666,7 @@ struct ShotSheet: View {
                         Button {
                             Task { await search() }
                         } label: {
-                            BusyLabel(title: "Search stock footage", busy: busy)
+                            BusyLabel(title: T("Search stock footage"), busy: busy)
                         }
                         .buttonStyle(SecondaryButtonStyle())
                         .disabled(busy)
@@ -616,7 +675,7 @@ struct ShotSheet: View {
                     }
 
                     if !uploads.isEmpty {
-                        Text("Use one of your clips").font(Theme.small.weight(.medium))
+                        Text(T("Use one of your clips")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
                         ForEach(uploads) { upload in
                             Button {
@@ -644,7 +703,7 @@ struct ShotSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { onClose() }
+                    Button(T("Done")) { onClose() }
                         .accessibilityIdentifier("shotSheetDone")
                 }
             }
@@ -678,16 +737,16 @@ struct ShotSheet: View {
             let result = try await state.api.searchFootage(planId: planId, shape: nil,
                                                            beat: beat.beat, query: words)
             if result.stockLimited {
-                note = "Stock footage is not available right now. Use one of your own clips, or try again in a few minutes."
+                note = T("Stock footage is not available right now. Use one of your own clips, or try again in a few minutes.")
                 return
             }
             if let fresh = try await state.api.plan(id: planId).beats?.first(where: { $0.beat == beat.beat }) {
                 beat = fresh
             }
             if beat.candidates?.isEmpty != false {
-                note = "Nothing found. Try simpler words, like one object or place."
+                note = T("Nothing found. Try simpler words, like one object or place.")
             } else if beat.exhausted == true {
-                note = "No new clips for those words. Try different words."
+                note = T("No new clips for those words. Try different words.")
             }
         } catch {
             problem = state.report(error)

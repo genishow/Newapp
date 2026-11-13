@@ -30,7 +30,7 @@ struct EnrollView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: language) { await loadScript() }
         .fullScreenCover(isPresented: $showRecorder) {
-            VideoRecorder { url in
+            VideoRecorder(script: script) { url in
                 showRecorder = false
                 if let url { Task { await submit(url) } }
             }
@@ -46,31 +46,31 @@ struct EnrollView: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Clone your voice").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Clone your voice")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("enrollHeading")
 
-            Text("I am recording my own voice and face. I give permission for an AI voice of me to be created and used only by me.")
+            Text(T("I am recording my own voice and face. I give permission for an AI voice of me to be created and used only by me."))
                 .font(Theme.small).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
                 .card(fill: Theme.grey, padding: 14)
 
-            Picker("Reading language", selection: $language) {
-                ForEach(Lang.allCases) { Text($0.title).tag($0) }
+            Picker(T("Reading language"), selection: $language) {
+                ForEach(Lang.allCases) { Text(T($0.title)).tag($0) }
             }
             .pickerStyle(.segmented)
             .disabled(uploading)
             .accessibilityIdentifier("enrollLanguagePicker")
             if language == .en {
-                NoteText(text: "Read in English to get a voice with a native English sound.")
+                NoteText(text: T("Read in English to get a voice with a native English sound."))
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Read this aloud").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+                Text(T("Read this aloud")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                 if script.isEmpty && scriptProblem == nil {
                     ProgressView().tint(Theme.black)
                 } else if let scriptProblem {
                     NoteText(text: scriptProblem)
-                    Button("Try again") { Task { await loadScript() } }
+                    Button(T("Try again")) { Task { await loadScript() } }
                         .buttonStyle(QuietButtonStyle())
                 } else {
                     AmharicText(text: script, font: .system(size: 19))
@@ -80,39 +80,40 @@ struct EnrollView: View {
             .card(fill: Theme.lime)
 
             VStack(alignment: .leading, spacing: 6) {
-                tip("A quiet room, no music or TV.")
-                tip("Hold the phone close, about an arm's length.")
-                tip("Read naturally, the way you normally speak.")
-                tip("10 to 40 seconds.")
+                tip(T("A quiet room, no music or TV."))
+                tip(T("Hold the phone close, about an arm's length."))
+                tip(T("Read naturally, the way you normally speak."))
+                tip(T("10 to 40 seconds."))
+                tip(T("The words stay on screen while you record."))
             }
 
             if let problem {
                 ProblemCard(message: problem)
             }
             ForEach(advice, id: \.self) { line in
-                NoteText(text: "Tip: " + APIError.sentenceCase(line))
+                NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
             }
 
             if uploading {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.black)
-                    Text("Creating your voice. This can take a minute.")
+                    Text(T("Creating your voice. This can take a minute."))
                         .font(Theme.body).foregroundStyle(Theme.black)
                 }
                 .card(fill: Theme.grey, padding: 14)
             } else {
                 if Launch.isMock {
                     // The simulator has no camera, so the UI tests take this path.
-                    Button("Use sample video") { Task { await submitSample() } }
+                    Button(T("Use sample video")) { Task { await submitSample() } }
                         .buttonStyle(PrimaryButtonStyle())
                         .accessibilityIdentifier("sampleVideoButton")
                 } else if VideoRecorder.isAvailable {
-                    Button("Record now") { showRecorder = true }
+                    Button(T("Record now")) { showRecorder = true }
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(script.isEmpty)
                         .accessibilityIdentifier("recordButton")
                 }
-                Button("Choose a video") { showLibrary = true }
+                Button(T("Choose a video")) { showLibrary = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(script.isEmpty)
                     .accessibilityIdentifier("chooseVideoButton")
@@ -131,25 +132,25 @@ struct EnrollView: View {
     private func done(_ result: EnrollResult) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             if result.isApproved {
-                Text("Your voice is ready").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Your voice is ready")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("enrollDoneHeading")
                 if let granted = result.creditsGranted, granted > 0 {
-                    Text("\(Fmt.credits(granted)) free credits are on your account.")
+                    Text(Tf("%@ free credits are on your account.", Fmt.credits(granted)))
                         .font(Theme.body).foregroundStyle(Theme.black)
                         .card(fill: Theme.lime, padding: 14)
                 }
                 if result.needsReview == true {
-                    NoteText(text: "The recording was a little rough. If the voice does not sound right, record again in a quieter place.")
+                    NoteText(text: T("The recording was a little rough. If the voice does not sound right, record again in a quieter place."))
                 }
             } else {
-                Text("Thanks").font(Theme.title).foregroundStyle(Theme.black)
-                Text("Your video was received. You will get an email when it is approved.")
+                Text(T("Thanks")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Your video was received. You will get an email when it is approved."))
                     .font(Theme.body).foregroundStyle(Theme.muted)
             }
             ForEach(result.advice ?? [], id: \.self) { line in
-                NoteText(text: "Tip: " + APIError.sentenceCase(line))
+                NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
             }
-            Button("Continue") { dismiss() }
+            Button(T("Continue")) { dismiss() }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("enrollContinueButton")
         }
@@ -160,7 +161,7 @@ struct EnrollView: View {
         do {
             script = ""
             script = try await state.api.enrollScript(language: language)
-            if script.isEmpty { scriptProblem = "The script could not be loaded." }
+            if script.isEmpty { scriptProblem = T("The script could not be loaded.") }
         } catch {
             scriptProblem = APIError.wrap(error).message
         }

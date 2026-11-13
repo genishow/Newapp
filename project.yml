@@ -42,6 +42,10 @@ targets:
           - UIInterfaceOrientationPortrait
         UIRequiresFullScreen: true
         UIUserInterfaceStyle: Light
+        UIAppFonts:
+          - SpaceGrotesk-Regular.ttf
+          - SpaceGrotesk-Medium.ttf
+          - SpaceGrotesk-Bold.ttf
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Kinbir records a short video of you reading a script, so it can create your own voice.
         NSMicrophoneUsageDescription: Kinbir records your voice to create your own voice, and to turn what you say into a script.

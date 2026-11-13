@@ -30,8 +30,8 @@ struct AvatarCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Presenter").font(Theme.heading).foregroundStyle(Theme.black)
-            Text("Your photo, speaking your voiceover.")
+            Text(T("Presenter")).font(Theme.heading).foregroundStyle(Theme.black)
+            Text(T("Your photo, speaking your voiceover."))
                 .font(Theme.small).foregroundStyle(Theme.muted)
 
             if let problem {
@@ -40,7 +40,7 @@ struct AvatarCard: View {
 
             if ready {
                 photoRow
-                Toggle("Use the presenter in this video", isOn: $choice.enabled)
+                Toggle(T("Use the presenter in this video"), isOn: $choice.enabled)
                     .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
                     .accessibilityIdentifier("avatarToggle")
                 if choice.enabled { options }
@@ -69,10 +69,10 @@ struct AvatarCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Theme.black, lineWidth: 1))
-            Text("Your photo is saved").font(Theme.body).foregroundStyle(Theme.black)
+            Text(T("Your photo is saved")).font(Theme.body).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("avatarReady")
             Spacer()
-            Button("Remove") { Task { await remove() } }
+            Button(T("Remove")) { Task { await remove() } }
                 .buttonStyle(QuietButtonStyle())
                 .disabled(busy)
         }
@@ -80,56 +80,56 @@ struct AvatarCard: View {
 
     private var options: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Toggle("For the whole video", isOn: $choice.wholeVideo)
+            Toggle(T("For the whole video"), isOn: $choice.wholeVideo)
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
             if !choice.wholeVideo {
-                Toggle("At the start", isOn: $choice.atStart)
+                Toggle(T("At the start"), isOn: $choice.atStart)
                     .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                Toggle("At the end", isOn: $choice.atEnd)
+                Toggle(T("At the end"), isOn: $choice.atEnd)
                     .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                Text("Seconds each time").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
-                Picker("Seconds", selection: $choice.seconds) {
+                Text(T("Seconds each time")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                Picker(T("Seconds"), selection: $choice.seconds) {
                     ForEach(AvatarChoice.lengths, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .pickerStyle(.segmented)
             }
-            Picker("Delivery", selection: $choice.mode) {
-                ForEach(AvatarChoice.Mode.allCases) { Text($0.title).tag($0) }
+            Picker(T("Delivery"), selection: $choice.mode) {
+                ForEach(AvatarChoice.Mode.allCases) { Text(T($0.title)).tag($0) }
             }
             .pickerStyle(.segmented)
             if quote > 0 {
-                NoteText(text: "The presenter adds about \(Fmt.credits(quote)) credits. Any part that cannot be made is refunded.")
+                NoteText(text: Tf("The presenter adds about %@ credits. Any part that cannot be made is refunded.", Fmt.credits(quote)))
                     .accessibilityIdentifier("avatarQuote")
             } else {
-                NoteText(text: "Choose where the presenter appears.")
+                NoteText(text: T("Choose where the presenter appears."))
             }
         }
     }
 
     private var uploadPart: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Toggle("This is a photo of me", isOn: $declared)
+            Toggle(T("This is a photo of me"), isOn: $declared)
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
                 .accessibilityIdentifier("avatarDeclare")
             if busy {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.black)
-                    Text("Saving your photo").font(Theme.small).foregroundStyle(Theme.black)
+                    Text(T("Saving your photo")).font(Theme.small).foregroundStyle(Theme.black)
                 }
             } else if Launch.isMock {
                 // The simulator's photo library is empty, so the UI tests take this path.
-                Button("Use sample photo") { Task { await send(Data("sample".utf8), image: nil) } }
+                Button(T("Use sample photo")) { Task { await send(Data("sample".utf8), image: nil) } }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(!declared)
                     .accessibilityIdentifier("samplePhotoButton")
             } else {
                 PhotosPicker(selection: $pickerItem, matching: .images) {
-                    Text("Choose a photo")
+                    Text(T("Choose a photo"))
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(!declared)
             }
-            NoteText(text: "A clear photo of your face, looking at the camera. Only your own photo.")
+            NoteText(text: T("A clear photo of your face, looking at the camera. Only your own photo."))
         }
     }
 
@@ -148,7 +148,7 @@ struct AvatarCard: View {
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data),
               let jpeg = AvatarPhoto.jpeg(from: image) else {
-            problem = "That photo could not be read. Try another."
+            problem = T("That photo could not be read. Try another.")
             return
         }
         await send(jpeg, image: image)

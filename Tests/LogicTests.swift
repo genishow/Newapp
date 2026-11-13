@@ -117,3 +117,46 @@ final class FormatterTests: XCTestCase {
         XCTAssertNotEqual(Fmt.ownerTag("am-abc"), Fmt.ownerTag("am-abd"))
     }
 }
+
+final class InterfaceLanguageTests: XCTestCase {
+    func testEveryAmharicLineKeepsItsValues() {
+        // A line like "Shot %@" must keep the same number of slots in Amharic.
+        for (english, amharic) in Amharic.table {
+            XCTAssertFalse(amharic.trimmingCharacters(in: .whitespaces).isEmpty, "empty line for: \(english)")
+            XCTAssertEqual(english.components(separatedBy: "%@").count,
+                           amharic.components(separatedBy: "%@").count,
+                           "value slots differ for: \(english)")
+        }
+    }
+
+    func testAmharicLinesAreActuallyAmharic() {
+        for (english, amharic) in Amharic.table where english != "Kinbir" {
+            XCTAssertTrue(amharic.unicodeScalars.contains { TextKind.isEthiopic($0) },
+                          "no Ethiopic letters in the line for: \(english)")
+        }
+    }
+
+    func testEndingsMatch() {
+        // Lines glued in front of other text end with a space in both languages.
+        for (english, amharic) in Amharic.table {
+            XCTAssertEqual(english.hasSuffix(" "), amharic.hasSuffix(" "), "trailing space differs for: \(english)")
+        }
+    }
+
+    func testHoursLeft() {
+        let now = Fmt.date(fromServer: "2026-11-12T12:00:00Z")!
+        XCTAssertEqual(Fmt.hoursLeft("2026-11-12T11:00:00Z", now: now), 47)
+        XCTAssertEqual(Fmt.hoursLeft("2026-11-10T13:00:00Z", now: now), 1)
+        XCTAssertNil(Fmt.hoursLeft("2026-11-10T11:00:00Z", now: now), "past 48 hours it is gone")
+        XCTAssertNil(Fmt.hoursLeft(nil, now: now))
+    }
+
+    func testWritingFromAnIdea() {
+        var options = ScriptOptions(targetSec: 60)
+        options.fromIdea = true
+        XCTAssertEqual(options.fields["mode"] as? String, "brief")
+        XCTAssertEqual(options.fields["target_sec"] as? Int, 60)
+        options.refineInstruction = "shorter"
+        XCTAssertEqual(options.fields["mode"] as? String, "refine", "a change request wins over an idea")
+    }
+}

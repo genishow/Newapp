@@ -98,7 +98,7 @@ struct FixWordSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.gap) {
-                    Text("Fix this word").font(Theme.title).foregroundStyle(Theme.black)
+                    Text(T("Fix this word")).font(Theme.title).foregroundStyle(Theme.black)
                         .accessibilityIdentifier("fixHeading")
                     AmharicText(text: target.word, font: .system(size: 28, weight: .medium))
 
@@ -116,21 +116,21 @@ struct FixWordSheet: View {
                     if !loaded {
                         ProgressView().tint(Theme.black)
                     } else if options.isEmpty {
-                        NoteText(text: "No other readings exist for this word yet. Type how it should sound below.")
+                        NoteText(text: T("No other readings exist for this word yet. Type how it should sound below."))
                     } else {
-                        Text("Listen, then use the one that sounds right")
-                            .font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+                        Text(T("Listen, then use the one that sounds right"))
+                            .font(Theme.smallMedium).foregroundStyle(Theme.black)
                         ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                             HStack(spacing: 12) {
                                 Text(option.label ?? "Option \(index + 1)")
                                     .font(Theme.body).foregroundStyle(Theme.black)
                                 Spacer()
-                                Button("Listen") {
+                                Button(T("Listen")) {
                                     Task { await listen(optionId: option.optionId, custom: nil) }
                                 }
                                 .buttonStyle(QuietButtonStyle())
                                 .accessibilityIdentifier("fixListen-\(index)")
-                                Button("Use") {
+                                Button(T("Use")) {
                                     Task { await apply(.option(word: target.word, optionId: option.optionId)) }
                                 }
                                 .buttonStyle(QuietButtonStyle())
@@ -142,17 +142,17 @@ struct FixWordSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Or type how it should sound").font(Theme.small.weight(.medium))
+                        Text(T("Or type how it should sound")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
-                        TextField("Your spelling", text: $custom)
+                        TextField(T("Your spelling"), text: $custom)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .field()
                             .accessibilityIdentifier("fixCustomField")
                         HStack(spacing: 20) {
-                            Button("Listen") { Task { await listen(optionId: nil, custom: typed) } }
+                            Button(T("Listen")) { Task { await listen(optionId: nil, custom: typed) } }
                                 .buttonStyle(QuietButtonStyle())
-                            Button("Use") {
+                            Button(T("Use")) {
                                 Task { await apply(.custom(word: target.word, spelling: typed)) }
                             }
                             .buttonStyle(QuietButtonStyle())
@@ -160,14 +160,14 @@ struct FixWordSheet: View {
                         .disabled(busy != nil || typed.count < 2)
                     }
 
-                    Button("Read the whole sentence again") {
+                    Button(T("Read the whole sentence again")) {
                         Task { await apply(.rereadSentence(segment: target.segment)) }
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(busy != nil)
                     .accessibilityIdentifier("rereadButton")
 
-                    NoteText(text: "Listening to a reading is free when it has been made before; a brand new one costs under 1 credit. Using a fix costs 1.5 credits and records that sentence again.")
+                    NoteText(text: T("Listening to a reading is free when it has been made before; a brand new one costs under 1 credit. Using a fix costs 1.5 credits and records that sentence again."))
                 }
                 .page()
             }
@@ -175,7 +175,7 @@ struct FixWordSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { onClose() }.accessibilityIdentifier("fixClose")
+                    Button(T("Close")) { onClose() }.accessibilityIdentifier("fixClose")
                 }
             }
         }
@@ -199,7 +199,7 @@ struct FixWordSheet: View {
     }
 
     private func listen(optionId: Int?, custom: String?) async {
-        busy = "Preparing this reading."
+        busy = T("Preparing this reading.")
         problem = nil
         defer { busy = nil }
         do {
@@ -208,7 +208,7 @@ struct FixWordSheet: View {
             var tries = 0
             while !preview.isDone {
                 if preview.isFailed || tries > 90 {
-                    problem = "That reading could not be made. Try another."
+                    problem = T("That reading could not be made. Try another.")
                     return
                 }
                 tries += 1
@@ -224,14 +224,14 @@ struct FixWordSheet: View {
     }
 
     private func apply(_ fix: FixEdit) async {
-        busy = "Recording the sentence again."
+        busy = T("Recording the sentence again.")
         problem = nil
         player.stop()
         defer { busy = nil }
         do {
             var batch = try await state.api.fixApply(jobId: jobId, fix: fix)
             guard let batchId = batch.batchId else {
-                problem = "The fix could not be started. Try again."
+                problem = T("The fix could not be started. Try again.")
                 return
             }
             var tries = 0
@@ -267,9 +267,9 @@ struct ScriptRulesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text("Script rules").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Script rules")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("rulesHeading")
-                Text("Kinbir follows these every time it writes or changes a script for you.")
+                Text(T("Kinbir follows these every time it writes or changes a script for you."))
                     .font(Theme.body).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -292,17 +292,17 @@ struct ScriptRulesView: View {
                 Button {
                     Task { await save() }
                 } label: {
-                    BusyLabel(title: saved ? "Saved" : "Save rules", busy: busy)
+                    BusyLabel(title: saved ? T("Saved") : T("Save rules"), busy: busy)
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(busy)
                 .accessibilityIdentifier("saveRulesButton")
 
                 if let template = state.me?.scriptRulesDefault, !template.isEmpty {
-                    Button("Reset to the Kinbir template") { rules = template }
+                    Button(T("Reset to the Kinbir template")) { rules = template }
                         .buttonStyle(QuietButtonStyle())
                 }
-                NoteText(text: "Leave it empty to use no rules. \(rules.count) of \(limit) characters.")
+                NoteText(text: Tf("Leave it empty to use no rules. %@ of %@ characters.", "\(rules.count)", "\(limit)"))
             }
             .page()
         }

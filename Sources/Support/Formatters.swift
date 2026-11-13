@@ -45,6 +45,13 @@ enum Fmt {
         return "\(Int(seconds / 86_400)) d ago"
     }
 
+    /// Hours until the server deletes something made at `iso`. Nil when unknown or gone.
+    static func hoursLeft(_ iso: String?, keptHours: Double = 48, now: Date = Date()) -> Int? {
+        guard let made = date(fromServer: iso) else { return nil }
+        let left = keptHours * 3600 - now.timeIntervalSince(made)
+        return left > 0 ? max(1, Int((left / 3600).rounded(.up))) : nil
+    }
+
     /// A stable short tag for an access code, used to key the saved draft.
     static func ownerTag(_ code: String) -> String {
         var h: UInt32 = 5381

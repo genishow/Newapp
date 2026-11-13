@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 
 /// Records a short video with the front camera.
 struct VideoRecorder: UIViewControllerRepresentable {
+    /// The words to read, shown over the camera so nobody has to memorise them.
+    var script: String = ""
     let onFinish: (URL?) -> Void
 
     static var isAvailable: Bool {
@@ -25,7 +27,32 @@ struct VideoRecorder: UIViewControllerRepresentable {
         picker.videoMaximumDuration = EnrollRules.maxSeconds
         picker.videoQuality = .typeMedium
         picker.delegate = context.coordinator
+        if !script.isEmpty {
+            picker.cameraOverlayView = VideoRecorder.prompter(for: script, in: picker.view.bounds)
+        }
         return picker
+    }
+
+    /// A panel across the upper part of the camera with the script on it. It ignores
+    /// touches, so the camera's own buttons keep working.
+    static func prompter(for script: String, in bounds: CGRect) -> UIView {
+        let width = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
+        let panel = UIView(frame: CGRect(x: 12, y: 110, width: width - 24, height: 250))
+        panel.backgroundColor = UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 0.72)
+        panel.layer.cornerRadius = 20
+        panel.isUserInteractionEnabled = false
+        panel.autoresizingMask = [.flexibleWidth]
+
+        let label = UILabel(frame: panel.bounds.insetBy(dx: 16, dy: 12))
+        label.text = script
+        label.numberOfLines = 0
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 20, weight: .medium)
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.6
+        label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        panel.addSubview(label)
+        return panel
     }
 
     func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}

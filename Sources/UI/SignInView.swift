@@ -17,16 +17,16 @@ struct SignInView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(codeSent ? "Enter your code" : "Start with your email")
+                Text(codeSent ? T("Enter your code") : T("Start with your email"))
                     .font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("signInHeading")
 
                 if codeSent {
-                    Text("We sent a 6-digit code to \(email). It works for 10 minutes.")
+                    Text(Tf("We sent a 6-digit code to %@. It works for 10 minutes.", email))
                         .font(Theme.body).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    TextField("6-digit code", text: $code)
+                    TextField(T("6-digit code"), text: $code)
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
                         .field()
@@ -39,19 +39,19 @@ struct SignInView: View {
                     Button {
                         Task { await verify() }
                     } label: {
-                        BusyLabel(title: "Continue", busy: busy)
+                        BusyLabel(title: T("Continue"), busy: busy)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(busy || code.count != 6)
                     .accessibilityIdentifier("verifyButton")
 
                     HStack(spacing: 20) {
-                        Button("Send a new code") { Task { await sendCode() } }
+                        Button(T("Send a new code")) { Task { await sendCode() } }
                             .buttonStyle(QuietButtonStyle())
                             .disabled(busy || now < canResendAt)
                             .opacity(now < canResendAt ? 0.4 : 1)
                             .accessibilityIdentifier("resendButton")
-                        Button("Use a different email") {
+                        Button(T("Use a different email")) {
                             codeSent = false
                             code = ""
                             problem = nil
@@ -59,7 +59,7 @@ struct SignInView: View {
                         .buttonStyle(QuietButtonStyle())
                     }
                 } else {
-                    Text("No password. We email you a code. If you are new, this also creates your account.")
+                    Text(T("No password. We email you a code. If you are new, this also creates your account."))
                         .font(Theme.body).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -74,7 +74,7 @@ struct SignInView: View {
                     Button {
                         Task { await sendCode() }
                     } label: {
-                        BusyLabel(title: "Send me a code", busy: busy)
+                        BusyLabel(title: T("Send me a code"), busy: busy)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(busy || !EmailRules.looksValid(email))

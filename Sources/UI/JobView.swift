@@ -49,25 +49,21 @@ struct JobView: View {
 
     private var progress: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(job?.isRunning == true ? "Recording your voiceover" : "In line")
+            Text(job?.isRunning == true ? T("Recording your voiceover") : T("In line"))
                 .font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("progressHeading")
 
-            VStack(alignment: .leading, spacing: 12) {
-                if problem == nil {
-                    ProgressView().tint(Theme.black)
-                }
-                if let job, let total = job.segmentsTotal, total > 0 {
-                    Text("Part \(min((job.segmentsDone ?? 0) + 1, total)) of \(total)")
-                        .font(Theme.body).foregroundStyle(Theme.black)
-                }
-                NoteText(text: "The first voiceover of a session takes a couple of minutes longer while the voice engine wakes up. You can leave this screen. It will be in your Library when it is ready.")
+            if problem == nil {
+                StepList(steps: [T("In line"), T("Recording your voiceover"), T("Finishing")],
+                         current: job?.isRunning == true ? 1 : 0,
+                         detail: partDetail,
+                         estimate: T("usually 1 to 3 minutes"))
             }
-            .card(fill: Theme.grey)
+            NoteText(text: T("The first voiceover of a session takes a couple of minutes longer while the voice engine wakes up. You can leave this screen. It will be in your Library when it is ready."))
 
             if let problem {
                 ProblemCard(message: problem)
-                Button("Try again") {
+                Button(T("Try again")) {
                     self.problem = nil
                     attempt += 1
                 }
@@ -76,9 +72,14 @@ struct JobView: View {
         }
     }
 
+    private var partDetail: String? {
+        guard let job, let total = job.segmentsTotal, total > 1 else { return nil }
+        return Tf("Part %@ of %@", "\(min((job.segmentsDone ?? 0) + 1, total))", "\(total)")
+    }
+
     private func failed(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("This one did not work").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("This one did not work")).font(Theme.title).foregroundStyle(Theme.black)
             ProblemCard(message: job.error.map(APIError.sentenceCase)
                         ?? "The voiceover could not be made. Your credits were returned.")
         }
@@ -86,7 +87,7 @@ struct JobView: View {
 
     private func result(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Your voiceover").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your voiceover")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("resultHeading")
 
             VStack(alignment: .leading, spacing: 12) {
@@ -101,7 +102,7 @@ struct JobView: View {
                             .background(Circle().fill(Theme.black))
                     }
                     .disabled(!player.isReady)
-                    .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+                    .accessibilityLabel(player.isPlaying ? T("Pause") : T("Play"))
                     .accessibilityIdentifier("playButton")
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -118,10 +119,20 @@ struct JobView: View {
                         .font(Theme.small).foregroundStyle(Theme.muted)
                     }
                 }
+                if player.isReady {
+                    ChipRow {
+                        ForEach([0.75, 1.0, 1.25, 1.5], id: \.self) { speed in
+                            Chip(title: speed == 1.0 ? "1x" : "\(speed.formatted())x",
+                                 selected: player.rate == Float(speed)) {
+                                player.setRate(Float(speed))
+                            }
+                        }
+                    }
+                }
                 if let audioProblem {
                     NoteText(text: audioProblem)
                 } else if !player.isReady {
-                    NoteText(text: "Loading the audio.")
+                    NoteText(text: T("Loading the audio."))
                 }
             }
             .card(fill: Theme.lime)
@@ -129,16 +140,16 @@ struct JobView: View {
             Button {
                 Task { await share() }
             } label: {
-                BusyLabel(title: "Share or save", busy: sharing)
+                BusyLabel(title: T("Share or save"), busy: sharing)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(sharing)
             .accessibilityIdentifier("shareButton")
 
-            NoteText(text: "Kept for 48 hours. Save it if you need it later.")
+            NoteText(text: T("Kept for 48 hours. Save it if you need it later."))
 
             NavigationLink(value: Route.video(jobId)) {
-                Text(job.brollPlanId == nil ? "Make a video" : "Continue the video")
+                Text(job.brollPlanId == nil ? T("Make a video") : T("Continue the video"))
             }
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("makeVideoLink")
@@ -146,9 +157,9 @@ struct JobView: View {
             if !job.scriptText.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Script").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+                        Text(T("Script")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                         Spacer()
-                        Button(copied ? "Copied" : "Copy") {
+                        Button(copied ? T("Copied") : T("Copy")) {
                             UIPasteboard.general.string = job.scriptText
                             copied = true
                         }
@@ -159,7 +170,7 @@ struct JobView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .textSelection(.enabled)
                     } else {
-                        NoteText(text: "A word sounds wrong? Tap it to fix it.")
+                        NoteText(text: T("A word sounds wrong? Tap it to fix it."))
                         TappableScript(segments: job.segments ?? [],
                                        fixedWords: job.fixedWords ?? []) { fixing = $0 }
                     }
@@ -169,22 +180,22 @@ struct JobView: View {
 
             if job.isEnglish {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Emphasis on pauses").font(Theme.small.weight(.medium))
+                    Text(T("Emphasis on pauses")).font(Theme.smallMedium)
                         .foregroundStyle(Theme.black)
-                    Picker("Emphasis", selection: Binding(
+                    Picker(T("Emphasis"), selection: Binding(
                         get: { job.emphasis ?? "none" },
                         set: { level in Task { await changeEmphasis(level) } })
                     ) {
-                        ForEach(VoiceOptions.emphases, id: \.self) { Text($0.capitalized).tag($0) }
+                        ForEach(VoiceOptions.emphases, id: \.self) { Text(T($0.capitalized)).tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    NoteText(text: "Free. The audio is updated at once.")
+                    NoteText(text: T("Free. The audio is updated at once."))
                 }
                 .card(fill: Theme.white, padding: 14)
             }
 
             if let onMakeAnother {
-                Button("Make another") { onMakeAnother() }
+                Button(T("Make another")) { onMakeAnother() }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("makeAnotherButton")
             }
@@ -199,11 +210,13 @@ struct JobView: View {
                 let latest = try await state.api.job(id: jobId)
                 job = latest
                 if latest.isDone {
+                    Haptics.success()
                     await loadAudio()
                     await state.refresh()
                     return
                 }
                 if latest.isFailed {
+                    Haptics.failure()
                     await state.refresh()
                     return
                 }
@@ -237,7 +250,7 @@ struct JobView: View {
         do {
             let url = try await state.api.playbackAudio(jobId: jobId)
             if !player.load(url: url) {
-                audioProblem = "The audio could not be opened. Use Share or save to get the file."
+                audioProblem = T("The audio could not be opened. Use Share or save to get the file.")
             }
         } catch {
             audioProblem = state.report(error)

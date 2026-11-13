@@ -18,15 +18,15 @@ struct WelcomeView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Amharic voiceovers in")
+                        Text(T("Amharic voiceovers in"))
                             .font(Theme.title).foregroundStyle(Theme.black)
-                        Marker(text: "your own voice")
+                        Marker(text: T("your own voice"))
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("welcomeHeading")
                     .padding(.top, 8)
 
-                    Text("Write Amharic, or paste English or a link. Kinbir writes the script and reads it aloud in a voice cloned from you.")
+                    Text(T("Write Amharic, or paste English or a link. Kinbir writes the script and reads it aloud in a voice cloned from you."))
                         .font(Theme.body).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -36,17 +36,17 @@ struct WelcomeView: View {
 
                     DemoCard()
 
-                    Button("Start free") { showSignIn = true }
+                    Button(T("Start free")) { showSignIn = true }
                         .buttonStyle(PrimaryButtonStyle())
                         .accessibilityIdentifier("startButton")
 
-                    NoteText(text: "Your first voiceovers are free. No card needed.")
+                    NoteText(text: T("Your first voiceovers are free. No card needed."))
 
                     HStack(spacing: 20) {
-                        Link("Privacy", destination: URL(string: "https://kinbir.com/privacy")!)
-                        Link("Terms", destination: URL(string: "https://kinbir.com/terms")!)
+                        Link(T("Privacy"), destination: URL(string: "https://kinbir.com/privacy")!)
+                        Link(T("Terms"), destination: URL(string: "https://kinbir.com/terms")!)
                     }
-                    .font(Theme.small.weight(.medium))
+                    .font(Theme.smallMedium)
                     .foregroundStyle(Theme.black)
                     .padding(.top, 4)
                 }
@@ -73,9 +73,9 @@ struct DemoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Hear it first").font(Theme.heading).foregroundStyle(Theme.black)
+            Text(T("Hear it first")).font(Theme.heading).foregroundStyle(Theme.black)
 
-            TextField("Type a short Amharic sentence", text: $text, axis: .vertical)
+            TextField(T("Type a short Amharic sentence"), text: $text, axis: .vertical)
                 .lineLimit(2...4)
                 .lineSpacing(Theme.amharicLineSpacing)
                 .padding(.vertical, 8)
@@ -96,10 +96,10 @@ struct DemoCard: View {
             .accessibilityIdentifier("demoPlayButton")
 
             if busy {
-                NoteText(text: "Preparing the voice. The first time can take a minute.")
+                NoteText(text: T("Preparing the voice. The first time can take a minute."))
             }
             if ready {
-                Text("Ready").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+                Text(T("Ready")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("demoReady")
             }
             if let problem {
@@ -111,9 +111,9 @@ struct DemoCard: View {
     }
 
     private var buttonTitle: String {
-        if busy { return "Preparing" }
-        if ready { return player.isPlaying ? "Pause" : "Play again" }
-        return "Play in the Kinbir voice"
+        if busy { return T("Preparing") }
+        if ready { return player.isPlaying ? T("Pause") : T("Play again") }
+        return T("Play in the Kinbir voice")
     }
 
     private func play() async {
@@ -131,7 +131,7 @@ struct DemoCard: View {
                 }
                 tries += 1
                 if tries > 120 {
-                    problem = "This is taking too long. Try again in a moment."
+                    problem = T("This is taking too long. Try again in a moment.")
                     return
                 }
                 try await Task.sleep(nanoseconds: UInt64(Launch.demoPollSeconds * 1_000_000_000))
@@ -142,7 +142,7 @@ struct DemoCard: View {
                 ready = true
                 player.toggle()
             } else {
-                problem = "The audio could not be played. Try again."
+                problem = T("The audio could not be played. Try again.")
             }
         } catch {
             problem = APIError.wrap(error).message

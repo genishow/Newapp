@@ -87,7 +87,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 struct QuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Theme.small.weight(.medium))
+            .font(Theme.smallMedium)
             .underline()
             .foregroundStyle(Theme.black)
             .frame(minHeight: 44)
@@ -118,7 +118,7 @@ struct Pill: View {
 
     var body: some View {
         Text(text)
-            .font(Theme.small.weight(.medium))
+            .font(Theme.smallMedium)
             .foregroundStyle(Theme.black)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -155,7 +155,7 @@ struct ProblemCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Problem").font(Theme.small.weight(.medium)).foregroundStyle(Theme.black)
+            Text(T("Problem")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             Text(message).font(Theme.body).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -227,5 +227,104 @@ struct BusyLabel: View {
             if busy { ProgressView().tint(Theme.black) }
             Text(title)
         }
+    }
+}
+
+// MARK: build 5: progress, chips, haptics
+
+/// A light tap or a success or failure buzz. Sparing, and never while recording.
+enum Haptics {
+    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+    static func failure() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
+    static func tap() { UISelectionFeedbackGenerator().selectionChanged() }
+}
+
+/// A small rounded button for quick choices: ideas, rewrites, speeds.
+struct Chip: View {
+    let title: String
+    var selected = false
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            Text(title)
+                .font(Theme.smallMedium)
+                .foregroundStyle(Theme.black)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 40)
+                .background(Capsule().fill(selected ? Theme.lime : Theme.white))
+                .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A row of chips that scrolls sideways.
+struct ChipRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) { content }
+                .padding(.vertical, 2)
+        }
+    }
+}
+
+/// Long work shown as named steps with ticks, the time so far, and a rough estimate.
+/// People wait far more calmly when they can see where things are.
+struct StepList: View {
+    let steps: [String]
+    /// Index of the step in progress. Equal to `steps.count` when everything is done.
+    let current: Int
+    var detail: String?
+    var estimate: String?
+
+    @State private var started = Date()
+    @State private var now = Date()
+    private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, title in
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(index < current ? Theme.black : (index == current ? Theme.lime : Theme.white))
+                        Circle().strokeBorder(Theme.black, lineWidth: 1)
+                        if index < current {
+                            Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Theme.white)
+                        } else if index == current {
+                            ProgressView().controlSize(.mini).tint(Theme.black)
+                        }
+                    }
+                    .frame(width: 26, height: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(index == current ? Theme.bodyMedium : Theme.body)
+                            .foregroundStyle(index > current ? Theme.muted : Theme.black)
+                        if index == current, let detail {
+                            Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            HStack {
+                Text(Fmt.clock(now.timeIntervalSince(started)))
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    .monospacedDigit()
+                if let estimate {
+                    Text("· " + estimate).font(Theme.small).foregroundStyle(Theme.muted)
+                }
+            }
+        }
+        .card(fill: Theme.grey)
+        .onReceive(clock) { now = $0 }
+        .accessibilityElement(children: .combine)
     }
 }

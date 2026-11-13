@@ -2,58 +2,70 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject private var state: AppState
+    @AppStorage(UILanguage.key) private var uiLanguage = UILanguage.am.rawValue
+
     private var version: String {
         let info = Bundle.main.infoDictionary
         let v = info?["CFBundleShortVersionString"] as? String ?? "1.0"
         let b = info?["CFBundleVersion"] as? String ?? "1"
-        return "Version \(v), build \(b)"
+        return Tf("Version %@, build %@", v, b)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text("Account").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Account")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("accountHeading")
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(state.me?.email ?? "Signed in")
-                        .font(Theme.body.weight(.medium)).foregroundStyle(Theme.black)
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
                         .accessibilityIdentifier("accountEmail")
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Fmt.credits(state.balance))
                             .font(.system(size: 40, weight: .medium)).foregroundStyle(Theme.black)
                             .accessibilityIdentifier("accountBalance")
-                        Text("credits").font(Theme.body).foregroundStyle(Theme.black)
+                        Text(T("credits")).font(Theme.body).foregroundStyle(Theme.black)
                     }
                     if let tier = state.me?.tier, !tier.isEmpty {
                         Pill(text: planName(tier) + " plan", fill: Theme.white)
                     }
-                    Text("A one-minute voiceover is about 2.5 credits. " + APIError.buyingNote)
+                    Text(T("A one-minute voiceover is about 2.5 credits. ") + T(APIError.buyingNote))
                         .font(Theme.small).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .card(fill: Theme.lime)
 
                 VStack(spacing: 0) {
-                    NavigationLink(value: Route.voices) { rowLabel("My voices") }
+                    NavigationLink(value: Route.voices) { rowLabel(T("My voices")) }
                         .accessibilityIdentifier("myVoicesRow")
                     divider
-                    NavigationLink(value: Route.scriptRules) { rowLabel("Script rules") }
+                    NavigationLink(value: Route.scriptRules) { rowLabel(T("Script rules")) }
                         .accessibilityIdentifier("scriptRulesRow")
                     divider
-                    Link(destination: URL(string: "https://kinbir.com/privacy")!) { rowLabel("Privacy") }
+                    Link(destination: URL(string: "https://kinbir.com/privacy")!) { rowLabel(T("Privacy")) }
                     divider
-                    Link(destination: URL(string: "https://kinbir.com/terms")!) { rowLabel("Terms") }
+                    Link(destination: URL(string: "https://kinbir.com/terms")!) { rowLabel(T("Terms")) }
                     divider
-                    Link(destination: URL(string: "mailto:support@kinbir.com")!) { rowLabel("Support") }
+                    Link(destination: URL(string: "mailto:support@kinbir.com")!) { rowLabel(T("Support")) }
                 }
                 .card(fill: Theme.white, padding: 4)
 
-                Button("Sign out") { state.signOut() }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(T("Interface language")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    Picker(T("Interface language"), selection: $uiLanguage) {
+                        ForEach(UILanguage.allCases) { Text($0.name).tag($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("uiLanguagePicker")
+                }
+                .card(fill: Theme.white, padding: 14)
+
+                Button(T("Sign out")) { state.signOut() }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("signOutButton")
 
-                NavigationLink(value: Route.deleteAccount) { Text("Delete my account") }
+                NavigationLink(value: Route.deleteAccount) { Text(T("Delete my account")) }
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("deleteAccountLink")
 
@@ -84,9 +96,9 @@ struct AccountView: View {
 
     private func planName(_ tier: String) -> String {
         switch tier {
-        case "starter": return "Starter"
-        case "creator": return "Pro"
-        case "studio": return "Studio"
+        case "starter": return T("Starter")
+        case "creator": return T("Pro")
+        case "studio": return T("Studio")
         default: return tier.capitalized
         }
     }
@@ -107,19 +119,19 @@ struct DeleteAccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text("Delete my account").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Delete my account")).font(Theme.title).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("deleteHeading")
 
-                Text("This removes your account, your voices, your scripts and any credits left. It cannot be undone.")
+                Text(T("This removes your account, your voices, your scripts and any credits left. It cannot be undone."))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .card(fill: Theme.grey, padding: 14)
 
-                Text("Type your email to confirm: \(email)")
+                Text(Tf("Type your email to confirm: %@", email))
                     .font(Theme.small).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
 
-                TextField("Your email", text: $typed)
+                TextField(T("Your email"), text: $typed)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -133,7 +145,7 @@ struct DeleteAccountView: View {
                 Button {
                     Task { await delete() }
                 } label: {
-                    BusyLabel(title: "Delete my account for good", busy: busy)
+                    BusyLabel(title: T("Delete my account for good"), busy: busy)
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(busy || !matches)

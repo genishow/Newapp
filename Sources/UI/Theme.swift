@@ -17,9 +17,24 @@ enum Theme {
     /// Ethiopic letters are taller than Latin ones and need more room between lines.
     static let amharicLineSpacing: CGFloat = 8
 
-    static let title = Font.system(size: 30, weight: .medium)
-    static let heading = Font.system(size: 22, weight: .medium)
-    static let body = Font.system(size: 17)
-    static let small = Font.system(size: 14)
-    static let button = Font.system(size: 17, weight: .medium)
+// Space Grotesk, the Kinbir website's typeface, for Latin text. Amharic falls through to
+    // the system's Ethiopic face automatically. Sizes follow the user's text size setting.
+    static func font(_ size: CGFloat, _ weight: Font.Weight = .regular,
+                     relativeTo style: Font.TextStyle = .body) -> Font {
+        let name: String
+        switch weight {
+        case .bold, .semibold, .heavy, .black: name = "SpaceGrotesk-Bold"
+        case .medium: name = "SpaceGrotesk-Medium"
+        default: name = "SpaceGrotesk-Regular"
+        }
+        return Font.custom(name, size: size, relativeTo: style)
+    }
+
+    static let title = font(30, .medium, relativeTo: .title)
+    static let heading = font(22, .medium, relativeTo: .title2)
+    static let body = font(17, .regular, relativeTo: .body)
+    static let bodyMedium = font(17, .medium, relativeTo: .body)
+    static let small = font(14, .regular, relativeTo: .footnote)
+    static let smallMedium = font(14, .medium, relativeTo: .footnote)
+    static let button = font(17, .medium, relativeTo: .body)
 }

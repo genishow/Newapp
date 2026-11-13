@@ -21,10 +21,10 @@ struct VideoJobView: View {
             if let status, status.isDone {
                 done(status)
             } else if let status, status.status == "cancelled" {
-                Text("Stopped").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Stopped")).font(Theme.title).foregroundStyle(Theme.black)
                 NoteText(text: refundNote ?? "The video was stopped and the credits were returned.")
             } else if let status, status.status == "failed" {
-                Text("This one did not work").font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("This one did not work")).font(Theme.title).foregroundStyle(Theme.black)
                 ProblemCard(message: status.error.map(APIError.sentenceCase)
                             ?? "The video could not be made. Your credits were returned.")
             } else {
@@ -40,21 +40,19 @@ struct VideoJobView: View {
 
     private var rendering: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Making your video").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Making your video")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("videoProgressHeading")
-            VStack(alignment: .leading, spacing: 12) {
-                if problem == nil { ProgressView().tint(Theme.black) }
-                if let status, let total = status.filesTotal, total > 0 {
-                    Text("Clip \(min(status.filesDone ?? 0, total)) of \(total)")
-                        .font(Theme.body).foregroundStyle(Theme.black)
-                }
-                NoteText(text: "This takes a few minutes. You can leave this screen. The video will be in your Library when it is ready.")
+            if problem == nil {
+                StepList(steps: [T("In line"), T("Putting the clips together"), T("Finishing")],
+                         current: status?.status == "running" ? 1 : 0,
+                         detail: clipDetail,
+                         estimate: T("usually 2 to 5 minutes"))
             }
-            .card(fill: Theme.grey)
+            NoteText(text: T("This takes a few minutes. You can leave this screen. The video will be in your Library when it is ready."))
 
             if let problem {
                 ProblemCard(message: problem)
-                Button("Check again") {
+                Button(T("Check again")) {
                     self.problem = nil
                     attempt += 1
                 }
@@ -63,7 +61,7 @@ struct VideoJobView: View {
                 Button {
                     Task { await stop() }
                 } label: {
-                    BusyLabel(title: "Stop and get the credits back", busy: stopping)
+                    BusyLabel(title: T("Stop and get the credits back"), busy: stopping)
                 }
                 .buttonStyle(QuietButtonStyle())
                 .disabled(stopping)
@@ -71,9 +69,14 @@ struct VideoJobView: View {
         }
     }
 
+    private var clipDetail: String? {
+        guard let status, let total = status.filesTotal, total > 0 else { return nil }
+        return Tf("Clip %@ of %@", "\(min(status.filesDone ?? 0, total))", "\(total)")
+    }
+
     private func done(_ status: AssembleStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text("Your video").font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your video")).font(Theme.title).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("videoReadyHeading")
 
             if let player {
@@ -84,7 +87,7 @@ struct VideoJobView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                         .strokeBorder(Theme.black, lineWidth: 1))
             } else {
-                Text("The preview is not available here. Save the video to watch it.")
+                Text(T("The preview is not available here. Save the video to watch it."))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .card(fill: Theme.lime)
             }
@@ -92,7 +95,7 @@ struct VideoJobView: View {
             Button {
                 Task { await save() }
             } label: {
-                BusyLabel(title: saving ? "Downloading" : "Save or share video", busy: saving)
+                BusyLabel(title: saving ? T("Downloading") : T("Save or share video"), busy: saving)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(saving)
@@ -102,14 +105,14 @@ struct VideoJobView: View {
                 Button {
                     Task { await saveAvatar() }
                 } label: {
-                    BusyLabel(title: "Save the presenter clip", busy: savingAvatar)
+                    BusyLabel(title: T("Save the presenter clip"), busy: savingAvatar)
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(savingAvatar)
                 .accessibilityIdentifier("saveAvatarButton")
             }
             if let skipped = status.avatarSkipped, !skipped.isEmpty {
-                NoteText(text: "Presenter: " + APIError.sentenceCase(skipped))
+                NoteText(text: T("Presenter: ") + APIError.sentenceCase(skipped))
             }
 
             if let problem {
@@ -128,6 +131,7 @@ struct VideoJobView: View {
                 status = latest
                 misses = 0
                 if latest.isOver {
+                    if latest.isDone { Haptics.success() } else if latest.status == "failed" { Haptics.failure() }
                     if latest.isDone, player == nil,
                        let url = state.api.absoluteURL(latest.playPath) {
                         player = AVPlayer(url: url)
@@ -154,7 +158,7 @@ struct VideoJobView: View {
         do {
             let answer = try await state.api.stopAssemble(id: videoJobId)
             if let back = answer.creditsRefunded, back > 0 {
-                refundNote = "The video was stopped. \(Fmt.credits(back)) credits were returned."
+                refundNote = Tf("The video was stopped. %@ credits were returned.", Fmt.credits(back))
             }
             attempt += 1
             await state.refresh()

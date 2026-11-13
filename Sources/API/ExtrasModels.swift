@@ -14,6 +14,8 @@ struct ScriptOptions: Equatable {
     var targetSec: Int?
     /// When set, the current script is changed as asked and not rebuilt.
     var refineInstruction: String?
+    /// The text is an idea, not source material: Kinbir writes the whole script from it.
+    var fromIdea = false
 
     static let lengths: [Int] = [15, 30, 45, 60, 90, 120, 180, 240, 300, 420, 600]
 
@@ -25,8 +27,12 @@ struct ScriptOptions: Equatable {
             f["mode"] = "refine"
             f["instruction"] = instruction
             f["effort"] = "medium"
-        } else if let targetSec {
-            f["target_sec"] = min(600, max(15, targetSec))
+        } else {
+            if fromIdea {
+                f["mode"] = "brief"
+                f["effort"] = "medium"
+            }
+            if let targetSec { f["target_sec"] = min(600, max(15, targetSec)) }
         }
         return f
     }

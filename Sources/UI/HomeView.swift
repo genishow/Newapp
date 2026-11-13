@@ -28,11 +28,11 @@ struct HomeView: View {
     var body: some View {
         TabView {
             CreateTab()
-                .tabItem { Label("Create", systemImage: "waveform") }
+                .tabItem { Label(T("Create"), systemImage: "waveform") }
             LibraryTab()
-                .tabItem { Label("Library", systemImage: "square.stack") }
+                .tabItem { Label(T("Library"), systemImage: "square.stack") }
             AccountTab()
-                .tabItem { Label("Account", systemImage: "person") }
+                .tabItem { Label(T("Account"), systemImage: "person") }
         }
         .tint(Theme.black)
     }
