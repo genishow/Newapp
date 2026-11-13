@@ -390,6 +390,19 @@ extension MockAPI {
         return try ToneFile.write(name: "fix-" + id)
     }
 
+    func fixByEar(jobId: String, word: String, audioURL: URL) async throws -> String {
+        await pause()
+        return "ear-1"
+    }
+
+    func fixByEarStatus(matchId: String) async throws -> ByEarResult {
+        await pause()
+        return ByEarResult(status: "done",
+                           ranked: [ByEarMatch(optionId: 1001, previewId: "pv-ear-1", match: 92),
+                                    ByEarMatch(optionId: 1002, previewId: "pv-ear-2", match: 71)],
+                           error: nil)
+    }
+
     func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
         await pause()
         video.appliedFixes.append(contentsOf: fixes)

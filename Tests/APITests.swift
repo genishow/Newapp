@@ -631,6 +631,10 @@ final class ExtrasTests: XCTestCase {
     func testFixPayloads() {
         XCTAssertEqual(FixEdit.option(word: "ቡና", optionId: 2).payload["option_id"] as? Int, 2)
         XCTAssertEqual(FixEdit.custom(word: "ቡና", spelling: "bunna").payload["custom"] as? String, "bunna")
+        let heard = FixEdit.heard(word: "ቡና", optionId: 1001, matchId: "m1").payload
+        XCTAssertEqual(heard["option_id"] as? Int, 1001)
+        XCTAssertEqual(heard["byear_match"] as? String, "m1")
+        XCTAssertEqual(FixEdit.heard(word: "ቡና", optionId: 1001, matchId: "m1").id, FixEdit.option(word: "ቡና", optionId: 1).id)
         let reread = FixEdit.rereadSentence(segment: 3).payload
         XCTAssertEqual(reread["segment"] as? Int, 3)
         XCTAssertNil(reread["word"])

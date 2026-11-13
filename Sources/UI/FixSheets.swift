@@ -6,17 +6,23 @@ import SwiftUI
 struct WordFixSheet: View {
     @EnvironmentObject private var state: AppState
     let target: FixTarget
+    let jobId: String
     /// How many times this word appears, so the user knows one fix changes them all.
     let occurrences: Int
+    /// True when this word already has a change waiting, so it can be unmarked.
+    let marked: Bool
+    let onUnmark: () -> Void
     /// The fix, and the short label shown for it in the list of changes.
     let onUse: (FixEdit, String) -> Void
     let onClose: () -> Void
 
     @StateObject private var player = AudioPlayer()
+    @StateObject private var recorder = SpeechRecorder()
     /// Goes up with every Listen tap, so a newer tap takes over from one still preparing.
     @State private var turn = 0
     @State private var options: [FixOption] = []
     @State private var loaded = false
+    @State private var optionsFailed: String?
     @State private var custom = ""
     @State private var problem: String?
     /// Which reading is being prepared right now, for the spinner on its row.
@@ -27,70 +33,39 @@ struct WordFixSheet: View {
     @State private var clips: [String: URL] = [:]
     @State private var playingKey: String?
 
+    private enum Ear { case idle, recording, matching }
+    @State private var ear: Ear = .idle
+    @State private var earMatches: [ByEarMatch] = []
+    @State private var earMatchId: String?
+    @State private var earProblem: String?
+
     private var typed: String { custom.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.gap) {
-                    Text(T("How should this word sound?")).font(Theme.heading).foregroundStyle(Theme.black)
-                        .accessibilityIdentifier("fixHeading")
-                    AmharicText(text: target.word, font: .system(size: 30, weight: .medium))
-                    if occurrences > 1 {
-                        NoteText(text: Tf("It appears %@ times. Fixing it here changes all of them.", "\(occurrences)"))
-                    }
-
-                    if let problem {
-                        ProblemCard(message: problem)
-                    }
-
-                    if !loaded {
-                        HStack(spacing: 10) {
-                            ProgressView().tint(Theme.black)
-                            Text(T("Preparing options")).font(Theme.body).foregroundStyle(Theme.black)
-                        }
-                    } else if options.isEmpty {
-                        NoteText(text: T("Type how it should sound below."))
-                    } else {
-                        ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
-                            row(key: "o:\(option.optionId)",
-                                title: Tf("Option %@", optionLetter(index)),
-                                index: index,
-                                listen: { await hear(key: "o:\(option.optionId)", optionId: option.optionId, custom: nil) },
-                                use: {
-                                    onUse(.option(word: target.word, optionId: option.optionId),
-                                          target.word + " · " + optionLetter(index))
-                                })
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        (Text(T("How should") + " ").font(Theme.heading)
+                         + Text(target.word).font(.system(size: 24, weight: .bold))
+                         + Text(" " + T("sound?")).font(Theme.heading))
+                            .foregroundStyle(Theme.black)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("fixHeading")
+                        if occurrences > 1 {
+                            NoteText(text: Tf("Appears %@ times, fixing it here changes all of them.", "\(occurrences)"))
                         }
                     }
 
-                    if preparing != nil && (firstEver || waited > 3) {
-                        NoteText(text: firstEver
-                                 ? T("This word is being voiced for the very first time, so it can take a minute or two. Everyone after you gets it instantly.")
-                                 : Tf("Preparing the audio. %@ seconds so far.", "\(waited)"))
-                    }
+                    suggestions
+                    sayIt
+                    typeIt
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(T("Not right? Type it your way")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                        TextField(T("Type how it should sound"), text: $custom)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .field()
-                            .accessibilityIdentifier("fixCustomField")
-                        HStack(spacing: 20) {
-                            Button(preparing == "c:" + typed ? T("Preparing") : T("Listen")) {
-                                Task { await hear(key: "c:" + typed, optionId: nil, custom: typed) }
-                            }
+                    if marked {
+                        Button(T("Unmark")) { onUnmark() }
                             .buttonStyle(QuietButtonStyle())
-                            Button(T("Use what I typed")) {
-                                onUse(.custom(word: target.word, spelling: typed), target.word + " · " + typed)
-                            }
-                            .buttonStyle(QuietButtonStyle())
-                        }
-                        .disabled(typed.isEmpty)
+                            .accessibilityIdentifier("fixUnmark")
                     }
-                    .card(fill: Theme.white, padding: 14)
-
                 }
                 .page()
             }
@@ -98,64 +73,244 @@ struct WordFixSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(T("Close")) { onClose() }.accessibilityIdentifier("fixClose")
+                    Button {
+                        onClose()
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
+                    }
+                    .accessibilityLabel(T("Close"))
+                    .accessibilityIdentifier("fixClose")
                 }
             }
         }
         .tint(Theme.black)
         .task { await open() }
-        // A typed spelling is prepared after a short pause, so Listen is quick.
+        // A typed spelling is prepared after a short pause, so play is quick.
         .task(id: typed) {
             guard typed.count >= 3 else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if Task.isCancelled { return }
             _ = try? await state.api.fixPreview(word: target.word, optionId: nil, custom: typed)
         }
-        .onDisappear { player.stop() }
+        .onDisappear {
+            player.stop()
+            _ = recorder.stop()
+        }
+    }
+
+    private func eyebrow(_ text: String) -> some View {
+        Text(text.uppercased()).font(Theme.font(12, .bold, relativeTo: .caption))
+            .foregroundStyle(Theme.muted)
+            .kerning(0.6)
+    }
+
+    /// The website's first block: the suggested readings, each with play and Use.
+    @ViewBuilder private var suggestions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !loaded {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.black)
+                    Text(T("Preparing options…")).font(Theme.body).foregroundStyle(Theme.black)
+                }
+            } else if let optionsFailed {
+                Text(optionsFailed).font(Theme.small).foregroundStyle(Theme.black)
+                Button(T("Try again")) {
+                    loaded = false
+                    Task { await open() }
+                }
+                .buttonStyle(QuietButtonStyle())
+            } else if options.isEmpty {
+                NoteText(text: T("No suggestion yet, type how it should sound."))
+            } else {
+                eyebrow(T("Playing the suggestion, sound right?"))
+                if preparing != nil && (firstEver || waited > 3) {
+                    NoteText(text: (firstEver
+                                    ? T("This word is being voiced for the very first time, so it can take up to a minute or two. Everyone after you gets it instantly.")
+                                    : T("Preparing the audio…"))
+                             + (waited > 3 ? " (\(waited)s)" : ""))
+                }
+                ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
+                    row(key: "o:\(option.optionId)",
+                        title: option.label ?? Tf("Option %@", optionLetter(index)),
+                        index: index,
+                        listen: { await hear(key: "o:\(option.optionId)", optionId: option.optionId, custom: nil) },
+                        use: {
+                            onUse(.option(word: target.word, optionId: option.optionId),
+                                  target.word + " · " + (option.label ?? optionLetter(index)))
+                        })
+                }
+            }
+            if let problem {
+                Text(problem).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("fixProblem")
+            }
+        }
+    }
+
+    /// "Or say it yourself": say the word, and the closest readings are listed best first.
+    @ViewBuilder private var sayIt: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            eyebrow(T("Or say it yourself"))
+            NoteText(text: T("Say the word once, naturally, the way it sounds inside a sentence. The video always keeps the cloned voice, never your recording."))
+            Button {
+                Task { await toggleEar() }
+            } label: {
+                HStack(spacing: 8) {
+                    if ear == .matching {
+                        ProgressView().tint(Theme.black)
+                    } else {
+                        Image(systemName: ear == .recording ? "stop.fill" : "mic.fill")
+                    }
+                    Text(ear == .recording ? T("Stop. I said it")
+                         : ear == .matching ? T("Listening…")
+                         : T("Record the word · up to 1 credit"))
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(ear == .matching)
+            .accessibilityIdentifier("fixRecordWord")
+
+            if ear == .matching {
+                NoteText(text: T("Comparing with the voice's own readings. The first time for a word can take a couple of minutes, stay here."))
+            }
+            if !earMatches.isEmpty {
+                NoteText(text: T("Closest to your reading. Listen from 1 down and keep the right one."))
+                ForEach(Array(earMatches.enumerated()), id: \.element.id) { index, match in
+                    row(key: "o:\(match.optionId)",
+                        title: "\(index + 1) · " + Tf("%@% match", "\(Int((match.match ?? 0).rounded()))"),
+                        index: 100 + index,
+                        useTitle: T("Use this"),
+                        listen: { await hear(key: "o:\(match.optionId)", optionId: match.optionId, custom: nil) },
+                        use: {
+                            onUse(.heard(word: target.word, optionId: match.optionId, matchId: earMatchId ?? ""),
+                                  target.word + " · " + T("my reading"))
+                        })
+                }
+            }
+            if let earProblem {
+                Text(earProblem).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// "Not right? Type it your way": a field with its own play button, then Use.
+    @ViewBuilder private var typeIt: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            eyebrow(options.isEmpty ? T("Type how it should sound") : T("Not right? Type it your way"))
+            NoteText(text: T("Spell it however it sounds to you. Press play to hear it. Double a letter to hold it longer."))
+            HStack(spacing: 10) {
+                TextField(T("e.g. gebboch"), text: $custom)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .field()
+                    .accessibilityIdentifier("fixCustomField")
+                playButton(key: "c:" + typed, id: "fixListenTyped") {
+                    await hear(key: "c:" + typed, optionId: nil, custom: typed)
+                }
+                .disabled(typed.isEmpty)
+                .opacity(typed.isEmpty ? 0.4 : 1)
+            }
+            Button(T("Use what I typed")) {
+                onUse(.custom(word: target.word, spelling: typed), target.word + " · " + typed)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(typed.isEmpty)
+            .accessibilityIdentifier("fixUseTyped")
+        }
     }
 
     private func optionLetter(_ index: Int) -> String {
         String(UnicodeScalar(UInt8(65 + min(index, 25))))
     }
 
-    private func row(key: String, title: String, index: Int,
+    private func playButton(key: String, id: String, listen: @escaping () async -> Void) -> some View {
+        Button {
+            Task { await listen() }
+        } label: {
+            ZStack {
+                Circle().fill(playingKey == key ? Theme.lime : Theme.black)
+                if preparing == key {
+                    ProgressView().tint(Theme.white)
+                } else {
+                    Image(systemName: "play.fill").font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(playingKey == key ? Theme.black : Theme.white)
+                }
+            }
+            .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(T("Listen"))
+        .accessibilityIdentifier(id)
+    }
+
+    private func row(key: String, title: String, index: Int, useTitle: String = T("Use"),
                      listen: @escaping () async -> Void, use: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
-            Button {
-                Task { await listen() }
-            } label: {
-                ZStack {
-                    Circle().fill(playingKey == key ? Theme.lime : Theme.black)
-                    if preparing == key {
-                        ProgressView().tint(Theme.white)
-                    } else {
-                        Image(systemName: "play.fill").font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(playingKey == key ? Theme.black : Theme.white)
-                    }
-                }
-                .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(T("Listen"))
-            .accessibilityIdentifier("fixListen-\(index)")
-
+            playButton(key: key, id: "fixListen-\(index)", listen: listen)
             Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
             Spacer()
-            Button(T("Use")) { use() }
-                .buttonStyle(QuietButtonStyle())
+            Button(useTitle) { use() }
+                .font(Theme.smallMedium)
+                .foregroundStyle(Theme.black)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 40)
+                .background(Capsule().fill(Theme.lime))
+                .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
                 .accessibilityIdentifier("fixUse-\(index)")
         }
-        .card(fill: Theme.white, padding: 10)
+        .card(fill: Theme.grey, padding: 10)
+    }
+
+    /// Records the word, sends it, and lists the closest readings.
+    private func toggleEar() async {
+        earProblem = nil
+        if ear == .recording {
+            guard let file = recorder.stop() else {
+                ear = .idle
+                return
+            }
+            ear = .matching
+            do {
+                let id = try await state.api.fixByEar(jobId: jobId, word: target.word, audioURL: file)
+                earMatchId = id
+                var result = try await state.api.fixByEarStatus(matchId: id)
+                var tries = 0
+                while !result.isDone && !result.isFailed && tries < 240 {
+                    tries += 1
+                    try await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
+                    result = try await state.api.fixByEarStatus(matchId: id)
+                }
+                if result.isDone, let ranked = result.ranked, !ranked.isEmpty {
+                    earMatches = ranked
+                    await state.refresh()
+                } else {
+                    earProblem = result.error.map(APIError.sentenceCase)
+                        ?? T("Could not compare the recording. Try again.")
+                }
+            } catch {
+                if !Task.isCancelled { earProblem = state.report(error) }
+            }
+            ear = .idle
+        } else {
+            player.stop()
+            if await recorder.start() {
+                ear = .recording
+            } else {
+                earProblem = T("Kinbir needs the microphone to hear you. Allow it in Settings, then try again.")
+            }
+        }
     }
 
     /// Loads the options, starts preparing every reading, and plays the first one.
     private func open() async {
         guard !loaded else { return }
+        optionsFailed = nil
         do {
             options = try await state.api.fixCandidates(word: target.word)
         } catch {
-            // "No other readings yet" is an answer, not a failure.
-            problem = state.report(error)
+            optionsFailed = state.report(error)
         }
         loaded = true
         guard let first = options.first else { return }

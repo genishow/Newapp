@@ -491,6 +491,22 @@ extension LiveAPI {
         try await downloadFile(builder.get("/fix-word/preview/\(id).wav"), name: "fix-" + id)
     }
 
+    func fixByEar(jobId: String, word: String, audioURL: URL) async throws -> String {
+        guard let data = try? Data(contentsOf: audioURL), !data.isEmpty else {
+            throw APIError(kind: .other, status: 0, message: "The recording could not be read. Try again.")
+        }
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addField(name: "job_id", value: jobId)
+        form.addField(name: "word", value: word)
+        form.addFile(name: "audio", filename: "word.m4a", mimeType: "audio/mp4", data: data)
+        return try await decode(ByEarStart.self, builder.multipart("/fix-word/by-ear", form: form)).matchId
+    }
+
+    func fixByEarStatus(matchId: String) async throws -> ByEarResult {
+        try await decode(ByEarResult.self, builder.get("/fix-word/by-ear/\(matchId)"))
+    }
+
     func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
         try await decode(FixBatch.self, builder.post("/fix-word/apply", body: [
             "job_id": jobId, "fixes": fixes.prefix(FixEdit.maxPerBatch).map { $0.payload },

@@ -79,10 +79,33 @@ struct FixPreview: Codable, Equatable {
     var isFailed: Bool { status == "failed" }
 }
 
+/// The readings closest to how the user said the word, best first.
+struct ByEarMatch: Codable, Identifiable, Equatable {
+    let optionId: Int
+    var previewId: String?
+    /// How close it is to the recording, 0 to 100.
+    var match: Double?
+    var id: Int { optionId }
+}
+
+struct ByEarStart: Codable, Equatable {
+    let matchId: String
+}
+
+struct ByEarResult: Codable, Equatable {
+    var status: String
+    var ranked: [ByEarMatch]?
+    var error: String?
+    var isDone: Bool { status == "done" }
+    var isFailed: Bool { status == "failed" }
+}
+
 /// One correction. Either a word with a chosen or typed reading, or a sentence to read again.
 enum FixEdit: Equatable, Identifiable {
     case option(word: String, optionId: Int)
     case custom(word: String, spelling: String)
+    /// A reading found by saying the word aloud ("Or say it yourself").
+    case heard(word: String, optionId: Int, matchId: String)
     /// Record this part of the script again, words unchanged.
     case rereadSentence(segment: Int)
     /// Record this part of the script again with new words.
@@ -96,6 +119,8 @@ enum FixEdit: Equatable, Identifiable {
         switch self {
         case .option(let word, let optionId): return ["word": word, "option_id": optionId]
         case .custom(let word, let spelling): return ["word": word, "custom": spelling]
+        case .heard(let word, let optionId, let matchId):
+            return ["word": word, "option_id": optionId, "byear_match": matchId]
         case .rereadSentence(let segment): return ["segment": segment]
         case .editSentence(let segment, let text): return ["segment": segment, "text": text]
         case .rereadPart(let segment, let part):
@@ -108,7 +133,7 @@ enum FixEdit: Equatable, Identifiable {
     /// One fix per word and one per sentence: a newer choice replaces the older one.
     var id: String {
         switch self {
-        case .option(let word, _), .custom(let word, _): return "w:" + word
+        case .option(let word, _), .custom(let word, _), .heard(let word, _, _): return "w:" + word
         case .rereadSentence(let segment), .editSentence(let segment, _): return "s:\(segment)"
         case .rereadPart(let segment, let part), .editPart(let segment, let part, _):
             return "p:\(segment):\(part)"

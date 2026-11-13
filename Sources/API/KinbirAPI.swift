@@ -42,6 +42,9 @@ protocol KinbirAPI: AnyObject {
     func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview
     func fixPreviewStatus(id: String) async throws -> FixPreview
     func fixPreviewAudio(id: String) async throws -> URL
+    /// "Or say it yourself": sends a recording of the word. Returns a match id to poll.
+    func fixByEar(jobId: String, word: String, audioURL: URL) async throws -> String
+    func fixByEarStatus(matchId: String) async throws -> ByEarResult
     /// All the queued changes in one go, for one flat price.
     func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch

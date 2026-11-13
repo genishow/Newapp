@@ -122,7 +122,12 @@ struct FixView: View {
         }
         .onDisappear { player.stop() }
         .sheet(item: $fixingWord) { target in
-            WordFixSheet(target: target, occurrences: occurrences(of: target.word),
+            WordFixSheet(target: target, jobId: jobId, occurrences: occurrences(of: target.word),
+                         marked: pending.contains { $0.id == "w:" + target.word },
+                         onUnmark: {
+                             pending.removeAll { $0.id == "w:" + target.word }
+                             fixingWord = nil
+                         },
                          onUse: { fix, label in
                              queue(.word(fix, label: label))
                              fixingWord = nil
@@ -220,7 +225,7 @@ struct FixView: View {
         pending.compactMap { item in
             guard case .word(let fix, _) = item else { return nil }
             switch fix {
-            case .option(let word, _), .custom(let word, _): return word
+            case .option(let word, _), .custom(let word, _), .heard(let word, _, _): return word
             default: return nil
             }
         }

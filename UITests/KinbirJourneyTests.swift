@@ -249,6 +249,12 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("word-0-0").tap()
         // The first reading plays by itself; choosing one only adds it to the list.
         waitFor("fixHeading")
+        // "Or say it yourself": record the word, and the closest readings are listed.
+        waitFor("fixRecordWord").tap()
+        waitForLabel("fixRecordWord", contains: "Stop")
+        el("fixRecordWord").tap()
+        waitFor("fixUse-100", timeout: 20)
+        app.swipeDown()
         waitFor("fixUse-0").tap()
         waitFor("generateChangesButton").tap()
         waitFor("fixDoneNote", timeout: 20)
