@@ -127,6 +127,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # Last, so the reason is the first thing seen at the end of the log.
+      - name: Say which end-to-end test failed and why
+        if: failure()
+        run: |
+          grep -E "error:|Test Case .* failed|did not appear|never showed|XCTAssert" uitest.log | tail -30 || true
+          for f in build/screenshots/*.txt; do
+            case "$(head -c 300 "$f")" in *Issue*|*Assert*|*failed*) echo "== $f"; head -40 "$f";; esac
+          done 2>/dev/null || true
+
   live-server-check:
     # Free, public endpoints only. Never signs in, never spends credits.
     # A failure here is a warning about the server, not about this build.
