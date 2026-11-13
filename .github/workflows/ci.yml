@@ -133,8 +133,14 @@ jobs:
         if: failure()
         run: |
           grep -E "error:|Test Case .* failed|did not appear|never showed|XCTAssert" uitest.log | tail -30 || true
+          # The steps just before each failure, to see what the test did last.
+          grep -n -B25 -E "did not appear|never showed" uitest.log | grep -E "t = |did not appear|never showed" | tail -60 || true
+          # What was on screen when it failed: the identifiers and labels in view.
           for f in build/screenshots/*.txt; do
-            case "$(head -c 300 "$f")" in *Issue*|*Assert*|*failed*) echo "== $f"; head -40 "$f";; esac
+            if head -c 200 "$f" | grep -q "Attributes: Application"; then
+              echo "== screen at failure: $f"
+              grep -oE "identifier: '[^']+'|label: '[^']{1,60}'" "$f" | head -80
+            fi
           done 2>/dev/null || true
 
   live-server-check:
