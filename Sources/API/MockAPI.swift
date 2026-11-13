@@ -214,7 +214,8 @@ final class MockAPI: KinbirAPI {
                 guard let j = jobStore[id] else { return nil }
                 return JobSummary(jobId: id, status: j.status, createdAt: "2026-11-12T10:00:00Z",
                                   finishedAt: j.isDone ? "2026-11-12T10:01:00Z" : nil,
-                                  audioSec: j.audioSec, preview: String(j.scriptText.prefix(90)))
+                                  audioSec: j.audioSec, preview: String(j.scriptText.prefix(90)),
+                                  voiceId: "v-mock-1")
             }
         }
     }
@@ -345,6 +346,7 @@ final class MockVideoState {
     var lastVoiceOptions: VoiceOptions?
     var fixPolls: [String: Int] = [:]
     var appliedFixes: [FixEdit] = []
+    var warmCalls = 0
 }
 
 extension MockAPI {
@@ -375,12 +377,12 @@ extension MockAPI {
 
     func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview {
         await pause()
-        return FixPreview(previewId: "pv-\(optionId ?? 99)", status: "done")
+        return FixPreview(previewId: "pv-\(optionId ?? 99)", status: "done", firstEver: false)
     }
 
     func fixPreviewStatus(id: String) async throws -> FixPreview {
         await pause()
-        return FixPreview(previewId: id, status: "done")
+        return FixPreview(previewId: id, status: "done", firstEver: false)
     }
 
     func fixPreviewAudio(id: String) async throws -> URL {
@@ -388,10 +390,24 @@ extension MockAPI {
         return try ToneFile.write(name: "fix-" + id)
     }
 
-    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch {
+    func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
         await pause()
-        video.appliedFixes.append(fix)
+        video.appliedFixes.append(contentsOf: fixes)
+        video.fixPolls["fx-1"] = 0
         return FixBatch(batchId: "fx-1", status: "queued", error: nil)
+    }
+
+    func fixCancel(jobId: String, batchId: String) async throws {
+        await pause()
+    }
+
+    func warmEngine() async {
+        video.warmCalls += 1
+    }
+
+    func recentScripts() async throws -> [SavedScript] {
+        await pause()
+        return []
     }
 
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch {
@@ -549,7 +565,7 @@ extension MockAPI {
         guard polls >= 2 else {
             return AssembleStatus(status: "running", filesDone: 1, filesTotal: 2, durationSec: nil,
                                   error: nil, previewUrl: nil, streamUrl: nil, downloadUrl: nil,
-                                  avatarSkipped: nil, avatarMode: nil, avatarFile: nil)
+                                  orientation: "portrait", avatarSkipped: nil, avatarMode: nil, avatarFile: nil)
         }
         if !video.videos.contains(where: { $0.videoJobId == id }) {
             video.videos.insert(VideoSummary(videoJobId: id, planId: "bp-mock", jobId: nil,
@@ -560,7 +576,8 @@ extension MockAPI {
         let separate = video.lastAvatar?.mode == .separate
         return AssembleStatus(status: "done", filesDone: 2, filesTotal: 2, durationSec: 6, error: nil,
                               previewUrl: nil, streamUrl: nil,
-                              downloadUrl: "/assemble/\(id)/video.mp4", avatarSkipped: nil,
+                              downloadUrl: "/assemble/\(id)/video.mp4", orientation: "portrait",
+                              avatarSkipped: nil,
                               avatarMode: video.lastAvatar?.mode.rawValue,
                               avatarFile: separate)
     }

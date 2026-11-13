@@ -59,12 +59,19 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("verifyButton").tap()
     }
 
-    private func typeScript(_ text: String) {
-        let editor = waitFor("scriptEditor")
+    private func type(_ text: String, into id: String) {
+        let editor = waitFor(id)
         editor.tap()
         editor.typeText(text)
         let done = el("keyboardDone")
         if done.waitForExistence(timeout: 3) { done.tap() }
+    }
+
+    /// English text in, Amharic script out: the "English text" tab of step 1.
+    private func writeAmharicScript() {
+        waitFor("tab-source").tap()
+        type("Coffee was first discovered in Ethiopia.", into: "sourceEditor")
+        waitFor("writeButton").tap()
     }
 
     // MARK: tests
@@ -94,23 +101,21 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("voiceLine")
 
         // English in, Amharic script out.
-        typeScript("Coffee was first discovered in Ethiopia.")
-        waitForLabel("kindLabel", contains: "English")
-        waitForLabel("mainActionButton", contains: "Write Amharic script")
-        el("mainActionButton").tap()
-        waitForLabel("kindLabel", contains: "Amharic", timeout: 20)
+        writeAmharicScript()
+        waitFor("scriptCounter", timeout: 20)
         waitForLabel("creditsPill", contains: "19")
 
         // Make the voiceover.
-        waitForLabel("mainActionButton", contains: "Make voiceover")
-        el("mainActionButton").tap()
+        waitForLabel("voiceButton", contains: "Make voiceover")
+        el("voiceButton").tap()
         waitFor("resultHeading", timeout: 30)
         waitFor("playButton")
         waitFor("shareButton")
 
         // Make another clears the script.
         waitFor("makeAnotherButton").tap()
-        waitForLabel("kindLabel", contains: "Nothing yet")
+        waitFor("voiceButton")
+        XCTAssertFalse(el("scriptCounter").exists, "the script box must be empty again")
 
         // The Library lists it.
         app.tabBars.buttons["Library"].tap()
@@ -138,7 +143,7 @@ final class KinbirJourneyTests: XCTestCase {
     func testReturningUserSeesCreateAndEmptyLibrary() {
         launch()
         signIn()
-        waitFor("mainActionButton")
+        waitFor("voiceButton")
         waitFor("voiceLine")
         XCTAssertFalse(el("cloneVoiceButton").exists, "an account with a voice must not be asked to clone")
 
@@ -154,12 +159,9 @@ final class KinbirJourneyTests: XCTestCase {
 
     /// From a script to a finished video with stock footage.
     private func makeVoiceover() {
-        typeScript("Coffee was first discovered in Ethiopia.")
-        waitForLabel("mainActionButton", contains: "Write Amharic script")
-        el("mainActionButton").tap()
-        waitForLabel("kindLabel", contains: "Amharic", timeout: 20)
-        waitForLabel("mainActionButton", contains: "Make voiceover")
-        el("mainActionButton").tap()
+        writeAmharicScript()
+        waitFor("scriptCounter", timeout: 20)
+        el("voiceButton").tap()
         waitFor("resultHeading", timeout: 30)
     }
 
@@ -201,13 +203,11 @@ final class KinbirJourneyTests: XCTestCase {
         signIn()
         makeVoiceover()
         waitFor("word-0-0").tap()
+        // The first reading plays by itself; choosing one only adds it to the list.
         waitFor("fixHeading")
-        waitFor("fixListen-0").tap()
         waitFor("fixUse-0").tap()
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
-                                             object: el("fixHeading"))
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed,
-                       "a finished fix must close the sheet")
+        waitFor("generateChangesButton").tap()
+        waitFor("fixDoneNote", timeout: 20)
         waitFor("playButton")
     }
 
@@ -217,11 +217,10 @@ final class KinbirJourneyTests: XCTestCase {
         signIn()
         waitFor("languagePicker")
         app.buttons["English"].tap()
-        typeScript("Coffee was first discovered in Ethiopia.")
-        waitForLabel("kindLabel", contains: "English script")
+        type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
+        waitFor("scriptCounter")
         waitFor("englishCard")
-        waitForLabel("mainActionButton", contains: "Make voiceover")
-        el("mainActionButton").tap()
+        el("voiceButton").tap()
         waitFor("resultHeading", timeout: 30)
     }
 
@@ -232,7 +231,7 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("speakButton").tap()
         waitForLabel("speakButton", contains: "Stop")
         el("speakButton").tap()
-        waitForLabel("kindLabel", contains: "Amharic script")
+        waitFor("scriptCounter")
 
         app.tabBars.buttons["Account"].tap()
         waitFor("scriptRulesRow").tap()
@@ -296,9 +295,7 @@ final class KinbirJourneyTests: XCTestCase {
         launch(["-mockNoCredits"])
         signIn()
         waitForLabel("creditsPill", contains: "0")
-        typeScript("Coffee was first discovered in Ethiopia.")
-        waitForLabel("mainActionButton", contains: "Write Amharic script")
-        el("mainActionButton").tap()
+        writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
         waitForLabel("problemCard", contains: "next build")
     }

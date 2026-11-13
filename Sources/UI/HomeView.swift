@@ -6,7 +6,7 @@ enum Route: Hashable {
     /// Make a video from this voiceover.
     case video(String)
     /// A video that is rendering or finished.
-    case videoJob(String)
+    case videoJob(String, landscape: Bool)
     case voices
     case enroll
     case deleteAccount
@@ -49,8 +49,8 @@ struct RouteDestinations: ViewModifier {
                 JobView(jobId: id, onMakeAnother: onMakeAnother)
             case .video(let jobId):
                 VideoFlowView(jobId: jobId)
-            case .videoJob(let id):
-                VideoJobScreen(videoJobId: id)
+            case .videoJob(let id, let landscape):
+                VideoJobScreen(videoJobId: id, shape: landscape ? .landscape : .portrait)
             case .voices:
                 VoicesView()
             case .enroll:

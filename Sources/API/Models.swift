@@ -111,8 +111,24 @@ struct JobSummary: Codable, Identifiable, Equatable {
     var finishedAt: String?
     var audioSec: Double?
     var preview: String?
+    var voiceId: String?
 
     var id: String { jobId }
+
+    /// The server lists every kind of job here: script writing, footage plans and renders
+    /// as well as voiceovers. Only a finished voiceover has audio to open.
+    var isFinishedVoiceover: Bool {
+        jobId.hasPrefix("job-") && status == "done" && (audioSec ?? 0) > 0
+            && !(preview ?? "").isEmpty
+    }
+
+    /// A voiceover still being made. Other running jobs carry no voice.
+    var isRunningVoiceover: Bool {
+        jobId.hasPrefix("job-") && (status == "queued" || status == "running")
+            && !(voiceId ?? "").isEmpty
+    }
+
+    var belongsInLibrary: Bool { isFinishedVoiceover || isRunningVoiceover }
 }
 
 struct JobsList: Codable, Equatable {

@@ -1,48 +1,55 @@
 import SwiftUI
 
-/// The home of the app: a script box and one button.
+/// The script page, in the website's three steps: your script, your voice, make the voiceover.
 struct CreateView: View {
     @EnvironmentObject private var state: AppState
+    /// The finished script: what the voice will read.
     @Binding var text: String
     @Binding var path: [Route]
+
+    /// Where the script comes from. The same four choices as the website.
+    private enum Tab: String, CaseIterable, Identifiable {
+        case script, idea, source, link
+        var id: String { rawValue }
+    }
 
     private enum Work: Equatable {
         case idle, fetching, writing, starting, listening, transcribing
     }
 
-    /// What the main button does with the text as it stands.
-    private enum Action: Equatable {
-        case nothing, fetch, write, voice
-    }
+    private enum WriteKind { case idea, source, refine }
 
+    @State private var tab: Tab = .script
     @State private var work: Work = .idle
     @State private var problem: String?
+    /// The idea, the text to rewrite, or the link, depending on the tab.
+    @State private var idea = ""
+    @State private var source = ""
+    @State private var link = ""
+    @State private var ownsLink = false
+    @State private var faithful = false
+    @State private var targetSec: Int? = 60
     @State private var estimate: Double?
-    /// The text from before Kinbir wrote or changed the script, for Undo.
+    /// The script from before Kinbir wrote or changed it, for Undo.
     @State private var beforeRewrite: String?
-    /// Ties the voiceover to the script Kinbir wrote, while the text is unchanged.
     @State private var draftId: String?
     @State private var draftText: String?
-    @State private var targetSec: Int?
     @State private var instruction = ""
     @State private var voice = VoiceOptions()
     @State private var seededVoice = false
+    @State private var recent: [SavedScript] = []
     @StateObject private var recorder = SpeechRecorder()
     @FocusState private var editing: Bool
     @AppStorage("kinbir.language") private var languageRaw = Lang.am.rawValue
 
     private var language: Lang { Lang(rawValue: languageRaw) ?? .am }
-    private var kind: TextKind { TextKind.detect(text) }
     private var busy: Bool { work != .idle }
+    private var script: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// English text in an Amharic project is source material; in an English project it is the script.
-    private var action: Action {
-        switch kind {
-        case .empty: return .nothing
-        case .link: return .fetch
-        case .english: return language == .en ? .voice : .write
-        case .amharic: return .voice
-        }
+    /// Reading time, by the website's own rule of thumb: about 7 syllables a second for
+    /// Amharic and a little over 2 words a second for English.
+    private var seconds: Double {
+        ScriptMath.seconds(script, language: language)
     }
 
     var body: some View {
@@ -50,65 +57,17 @@ struct CreateView: View {
             VStack(alignment: .leading, spacing: Theme.gap) {
                 header
 
-                if state.me != nil && state.me?.hasVoice == false {
-                    cloneCard
-                }
+                stepTitle(1, T("Your script"))
+                scriptStep
 
-                Picker(T("Language"), selection: $languageRaw) {
-                    ForEach(Lang.allCases) { Text(T($0.title)).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .disabled(busy)
-                .accessibilityIdentifier("languagePicker")
+                stepTitle(2, T("Your voice"))
+                voiceStep
 
-                if kind == .empty && !busy {
-                    ideaRow
-                }
+                stepTitle(3, T("Make the voiceover"))
+                makeStep
 
-                scriptCard
-
-                if action == .write || action == .fetch {
-                    lengthRow
-                }
-                if language == .en && action == .voice {
-                    englishCard
-                }
-
-                if let problem {
-                    ProblemCard(message: problem)
-                }
-
-                Button {
-                    editing = false
-                    Task { await mainAction() }
-                } label: {
-                    BusyLabel(title: buttonTitle, busy: busy && work != .listening)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(busy || action == .nothing)
-                .accessibilityIdentifier("mainActionButton")
-
-                if looksLikeAnIdea && !busy {
-                    Button(T("Write the script from this idea")) {
-                        editing = false
-                        Task { await writeScript(refine: false, fromIdea: true) }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("writeFromIdeaButton")
-                }
-
-                belowButton
-
-                if let me = state.me, me.hasVoice, me.balance < 3 {
-                    Text(Tf("You have %@ credits left, enough for about one short voiceover.", Fmt.credits(me.balance)) + " " + T(APIError.buyingNote))
-                        .font(Theme.small).foregroundStyle(Theme.black)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .card(fill: Theme.grey, padding: 14)
-                        .accessibilityIdentifier("lowBalanceCard")
-                }
-
-                if action == .voice && !busy {
-                    refineCard
+                if !recent.isEmpty {
+                    recentList
                 }
             }
             .page()
@@ -133,13 +92,19 @@ struct CreateView: View {
             problem = nil
         }
         .task(id: estimateKey) { await loadEstimate() }
+        // A script is ready and a voice exists: wake the voice engine now, so the
+        // voiceover does not start with its two minute warm-up.
+        .task(id: script.isEmpty) {
+            if !script.isEmpty, state.me?.hasVoice == true { await state.api.warmEngine() }
+        }
         .task {
             voice.language = language
             await state.refresh()
+            recent = (try? await state.api.recentScripts()) ?? []
         }
     }
 
-    // MARK: pieces
+    // MARK: frame
 
     private var header: some View {
         HStack {
@@ -151,49 +116,79 @@ struct CreateView: View {
         }
     }
 
-    private var cloneCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(T("Clone your voice first")).font(Theme.heading).foregroundStyle(Theme.black)
-            Text(T("Read a short script on camera once. After that, every voiceover is in your voice."))
-                .font(Theme.body).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            NavigationLink(value: Route.enroll) {
-                Text(T("Clone my voice"))
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .accessibilityIdentifier("cloneVoiceButton")
+    private func stepTitle(_ number: Int, _ title: String) -> some View {
+        HStack(spacing: 10) {
+            Text("\(number)")
+                .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Theme.lime))
+                .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
+            Text(title).font(Theme.heading).foregroundStyle(Theme.black)
         }
-        .card(fill: Theme.lime)
+        .padding(.top, 6)
+        .accessibilityElement(children: .combine)
     }
 
-    private var placeholder: String {
-        language == .en ? "Write or paste your English script, or paste a link."
-                        : "Write Amharic, or paste English or a link."
+    // MARK: step 1
+
+    private func title(for tab: Tab) -> String {
+        switch tab {
+        case .script: return language == .en ? T("English script") : T("Amharic text")
+        case .idea: return T("Ask Kinbir")
+        case .source: return language == .en ? T("Text to rewrite") : T("English text")
+        case .link: return T("Article link")
+        }
     }
 
-    private var scriptCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text(placeholder)
-                        .font(Theme.body).foregroundStyle(Theme.muted)
-                        .padding(.top, 8).padding(.leading, 5)
-                        .allowsHitTesting(false)
+    private var scriptStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker(T("Language"), selection: $languageRaw) {
+                ForEach(Lang.allCases) { Text(T($0.title)).tag($0.rawValue) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(busy)
+            .accessibilityIdentifier("languagePicker")
+
+            ChipRow {
+                ForEach(Tab.allCases) { item in
+                    Chip(title: title(for: item), selected: tab == item) {
+                        tab = item
+                        problem = nil
+                    }
+                    .accessibilityIdentifier("tab-" + item.rawValue)
                 }
-                TextEditor(text: $text)
-                    .font(Theme.body)
-                    .lineSpacing(Theme.amharicLineSpacing)
-                    .foregroundStyle(Theme.black)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 200)
-                    .focused($editing)
-                    .disabled(work == .writing || work == .transcribing)
-                    .accessibilityIdentifier("scriptEditor")
+            }
+            .disabled(busy)
+
+            switch tab {
+            case .script: scriptTab
+            case .idea: ideaTab
+            case .source: sourceTab
+            case .link: linkTab
             }
 
-            HStack(spacing: 12) {
-                Text(kindLabel).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                    .accessibilityIdentifier("kindLabel")
+            if let problem {
+                ProblemCard(message: problem)
+            }
+        }
+    }
+
+    private var scriptTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(language == .en ? T("Your English script. Type in it to edit.")
+                                 : T("Your Amharic script. Type in it to edit."))
+                .font(Theme.small).foregroundStyle(Theme.muted)
+            editor($text, placeholder: language == .en ? T("Write or paste your script here.")
+                                                         : T("Write or paste your Amharic script here."),
+                   id: "scriptEditor")
+                .disabled(work == .writing || work == .transcribing)
+
+            HStack(spacing: 14) {
+                if !script.isEmpty {
+                    Text(Tf("About %@", Fmt.length(max(1, seconds))))
+                        .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        .accessibilityIdentifier("scriptCounter")
+                }
                 Spacer()
                 if beforeRewrite != nil && !busy {
                     Button(T("Undo")) {
@@ -212,16 +207,6 @@ struct CreateView: View {
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("clearButton")
                 }
-                if text.isEmpty && !busy {
-                    PasteButton(payloadType: String.self) { strings in
-                        if let first = strings.first {
-                            DispatchQueue.main.async { text = first }
-                        }
-                    }
-                    .labelStyle(.titleOnly)
-                    .tint(Theme.black)
-                    .buttonBorderShape(.capsule)
-                }
                 // Speech to text understands Amharic only.
                 if language == .am && (work == .idle || work == .listening) {
                     Button(work == .listening ? T("Stop") : T("Speak")) {
@@ -235,16 +220,132 @@ struct CreateView: View {
                 NoteText(text: T("Listening. Speak in Amharic, then tap Stop."))
             } else if work == .transcribing {
                 NoteText(text: T("Turning your words into text."))
+            } else if work == .writing {
+                NoteText(text: T("Writing your script. You can edit it when it is done."))
+            }
+
+            if !script.isEmpty && !busy {
+                Text(T("Ask for a change")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                ChipRow {
+                    ForEach(CreateView.rewrites, id: \.title) { item in
+                        Chip(title: T(item.title)) {
+                            instruction = item.instruction
+                            editing = false
+                            Task { await write(.refine) }
+                        }
+                    }
+                }
+                HStack(spacing: 10) {
+                    TextField(T("Tell Kinbir what to change"), text: $instruction)
+                        .field()
+                        .accessibilityIdentifier("refineField")
+                    Button(T("Apply")) {
+                        editing = false
+                        Task { await write(.refine) }
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                    .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("refineButton")
+                }
+                NoteText(text: T("Each change costs credits. Undo brings the old script back."))
             }
         }
         .card(fill: Theme.grey, padding: 14)
     }
 
+    private var ideaTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Say what the video is about. Kinbir writes the whole script."))
+                .font(Theme.small).foregroundStyle(Theme.muted)
+            TextField(T("For example: the history of Ethiopian coffee"), text: $idea, axis: .vertical)
+                .lineLimit(2...5)
+                .padding(.vertical, 8)
+                .field()
+                .accessibilityIdentifier("ideaField")
+            ChipRow {
+                ForEach(CreateView.ideas, id: \.title) { item in
+                    Chip(title: T(item.title)) { idea = language == .en ? item.en : item.am }
+                }
+            }
+            lengthRow
+            writeButton(disabled: idea.trimmingCharacters(in: .whitespacesAndNewlines).count < 4, kind: .idea)
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private var sourceTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(language == .en ? T("Paste any text. Kinbir rewrites it as a video script.")
+                                 : T("Paste English text. Kinbir writes it as a natural Amharic script."))
+                .font(Theme.small).foregroundStyle(Theme.muted)
+            editor($source, placeholder: T("Paste the text here."), id: "sourceEditor")
+            Picker(T("Style"), selection: $faithful) {
+                Text(T("Video style")).tag(false)
+                Text(T("Close to the original")).tag(true)
+            }
+            .pickerStyle(.segmented)
+            NoteText(text: faithful ? T("Keeps the original order and wording as much as possible.")
+                                    : T("Recommended. Rebuilt to hold attention, at the length you choose."))
+            if !faithful { lengthRow }
+            writeButton(disabled: source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, kind: .source)
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private var linkTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Paste a link to an article. Kinbir reads it and brings the text here."))
+                .font(Theme.small).foregroundStyle(Theme.muted)
+            TextField("https://", text: $link)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .field()
+                .accessibilityIdentifier("linkField")
+            Toggle(T("This page is mine, or I have permission to use it"), isOn: $ownsLink)
+                .font(Theme.small).foregroundStyle(Theme.black).tint(Theme.black)
+            Button {
+                editing = false
+                Task { await fetchArticle() }
+            } label: {
+                BusyLabel(title: work == .fetching ? T("Getting the article") : T("Get the article"),
+                          busy: work == .fetching)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(busy || !ownsLink || !TextKind.isLink(link))
+            .accessibilityIdentifier("fetchButton")
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private func editor(_ binding: Binding<String>, placeholder: String, id: String) -> some View {
+        ZStack(alignment: .topLeading) {
+            if binding.wrappedValue.isEmpty {
+                Text(placeholder)
+                    .font(Theme.body).foregroundStyle(Theme.muted)
+                    .padding(.top, 16).padding(.leading, 13)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: binding)
+                .font(Theme.body)
+                .lineSpacing(Theme.amharicLineSpacing)
+                .foregroundStyle(Theme.black)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(minHeight: 170)
+                .focused($editing)
+                .accessibilityIdentifier(id)
+        }
+        .background(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).fill(Theme.white))
+        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+            .strokeBorder(Theme.black, lineWidth: 1))
+    }
+
     private var lengthRow: some View {
         HStack {
-            Text(T("Script length")).font(Theme.body).foregroundStyle(Theme.black)
+            Text(T("Video length")).font(Theme.body).foregroundStyle(Theme.black)
             Spacer()
-            Picker(T("Script length"), selection: $targetSec) {
+            Picker(T("Video length"), selection: $targetSec) {
                 Text(T("Automatic")).tag(Int?.none)
                 ForEach(ScriptOptions.lengths, id: \.self) { sec in
                     Text(Fmt.length(Double(sec))).tag(Int?.some(sec))
@@ -254,57 +355,144 @@ struct CreateView: View {
             .tint(Theme.black)
             .accessibilityIdentifier("lengthPicker")
         }
-        .card(fill: Theme.white, padding: 12)
     }
 
-    private var englishCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(T("Reading speed")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            Picker(T("Reading speed"), selection: $voice.pace) {
-                ForEach(VoiceOptions.paces, id: \.self) { Text(T($0.capitalized)).tag($0) }
+    /// The one button that spends credits on writing, with its price on it.
+    private func writeButton(disabled: Bool, kind: WriteKind) -> some View {
+        let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T("credits") } ?? ""
+        return Button {
+            editing = false
+            Task { await write(kind) }
+        } label: {
+            BusyLabel(title: work == .writing ? T("Writing") : T("Write the script") + price,
+                      busy: work == .writing)
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(busy || disabled)
+        .accessibilityIdentifier("writeButton")
+    }
+
+    // MARK: step 2
+
+    @ViewBuilder private var voiceStep: some View {
+        if state.me != nil && state.me?.hasVoice == false {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(T("Clone your voice first")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                Text(T("Read a short script on camera once. After that, every voiceover is in your voice."))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                NavigationLink(value: Route.enroll) { Text(T("Clone my voice")) }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("cloneVoiceButton")
             }
-            .pickerStyle(.segmented)
-            Text(T("Emphasis on pauses")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            Picker(T("Emphasis"), selection: $voice.emphasis) {
-                ForEach(VoiceOptions.emphases, id: \.self) { Text(T($0.capitalized)).tag($0) }
+            .card(fill: Theme.lime, padding: 14)
+        } else {
+            HStack(spacing: 12) {
+                Image(systemName: "waveform").font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Theme.black)
+                Text(state.activeVoice?.name ?? T("My voice"))
+                    .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("voiceLine")
+                Spacer()
+                NavigationLink(value: Route.voices) { Text(T("Change")) }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("changeVoiceButton")
             }
-            .pickerStyle(.segmented)
-            if state.activeVoice?.isAmharic == true {
-                NoteText(text: T("This voice was cloned reading Amharic, so its English has an Amharic accent. Clone an English reading for a native sound."))
+            .card(fill: Theme.white, padding: 14)
+        }
+    }
+
+    // MARK: step 3
+
+    private var voiceButtonTitle: String {
+        if work == .starting { return T("Starting") }
+        if script.isEmpty { return T("Make voiceover") }
+        let credits = ScriptMath.voiceCredits(seconds: seconds)
+        return T("Make voiceover") + " · ≈ " + Fmt.credits(credits) + " " + T("credits")
+    }
+
+    private var makeStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if language == .en {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(T("Reading speed")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    Picker(T("Reading speed"), selection: $voice.pace) {
+                        ForEach(VoiceOptions.paces, id: \.self) { Text(T($0.capitalized)).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Text(T("Emphasis on pauses")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    Picker(T("Emphasis"), selection: $voice.emphasis) {
+                        ForEach(VoiceOptions.emphases, id: \.self) { Text(T($0.capitalized)).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    if state.activeVoice?.isAmharic == true {
+                        NoteText(text: T("This voice was cloned reading Amharic, so its English has an Amharic accent. Clone an English reading for a native sound."))
+                    }
+                }
+                .card(fill: Theme.white, padding: 14)
+                .accessibilityIdentifier("englishCard")
+            }
+
+            Button {
+                editing = false
+                Task { await makeVoiceover() }
+            } label: {
+                BusyLabel(title: voiceButtonTitle, busy: work == .starting)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(busy || script.isEmpty)
+            .accessibilityIdentifier("voiceButton")
+
+            if script.isEmpty {
+                NoteText(text: T("Finish step 1 first. The button wakes up when there is a script."))
+            } else {
+                NoteText(text: Tf("This makes the audio, about %@. Next you can turn it into a video.", Fmt.length(max(1, seconds))))
+            }
+            if let limit = state.me?.trialMaxChars, language == .am, !script.isEmpty {
+                NoteText(text: Tf("Free credits voice up to %@ Amharic characters at a time. This script has %@.",
+                                  "\(limit)", "\(TextKind.ethiopicLetterCount(script))"))
+            }
+            if let me = state.me, me.hasVoice, me.balance < 3 {
+                Text(Tf("You have %@ credits left, enough for about one short voiceover.", Fmt.credits(me.balance)) + " " + T(APIError.buyingNote))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .card(fill: Theme.grey, padding: 14)
+                    .accessibilityIdentifier("lowBalanceCard")
             }
         }
-        .card(fill: Theme.white, padding: 14)
-        .accessibilityIdentifier("englishCard")
     }
 
-    /// A short line in the project's language is more likely an idea than a finished script.
-    private var looksLikeAnIdea: Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return action == .voice && trimmed.count >= 4 && trimmed.count <= 160
+    private var recentList: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Your recent scripts")).font(Theme.heading).foregroundStyle(Theme.black)
+                .padding(.top, 6)
+            ForEach(recent.prefix(5)) { item in
+                Button {
+                    beforeRewrite = text.isEmpty ? nil : text
+                    text = item.body
+                    tab = .script
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.body).font(Theme.small).foregroundStyle(Theme.black)
+                            .lineSpacing(4).lineLimit(2).multilineTextAlignment(.leading)
+                        Text(Fmt.ago(item.createdAt)).font(Theme.small).foregroundStyle(Theme.muted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(fill: Theme.white, padding: 12)
+                }
+                .buttonStyle(.plain)
+                .disabled(busy)
+            }
+        }
     }
 
     private static let ideas: [(title: String, am: String, en: String)] = [
-        ("News", "ስለ ዛሬው ዋና ዜና አጭር ማብራሪያ ቪዲዮ", "A short explainer about today's top news story"),
+        ("News", "ስለ ዛሬው ዋና ዜና አጭር ማብራሪያ", "A short explainer about today's top news story"),
         ("History", "ስለ አድዋ ድል አጭር ታሪክ", "A short history of the Battle of Adwa"),
         ("Motivation", "ጠዋት ለመነሳት የሚያነሳሳ አጭር መልእክት", "A short motivational message for the morning"),
         ("Business", "ለአዲስ የቡና መሸጫ ማስታወቂያ", "An ad for a new coffee shop"),
         ("How to", "ገንዘብ ለመቆጠብ ሦስት ቀላል መንገዶች", "Three easy ways to save money"),
     ]
-
-    private var ideaRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(T("Need an idea? Tap one, then change it to yours."))
-                .font(Theme.small).foregroundStyle(Theme.muted)
-            ChipRow {
-                ForEach(CreateView.ideas, id: \.title) { idea in
-                    Chip(title: T(idea.title)) {
-                        text = language == .en ? idea.en : idea.am
-                    }
-                }
-            }
-        }
-        .accessibilityIdentifier("ideaRow")
-    }
 
     private static let rewrites: [(title: String, instruction: String)] = [
         ("Shorter", "Make it shorter. Keep the main point."),
@@ -314,91 +502,18 @@ struct CreateView: View {
         ("Stronger opening", "Rewrite only the first sentence as a hook that makes people keep watching."),
     ]
 
-    private var refineCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(T("Change the script")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            ChipRow {
-                ForEach(CreateView.rewrites, id: \.title) { item in
-                    Chip(title: T(item.title)) {
-                        instruction = item.instruction
-                        editing = false
-                        Task { await writeScript(refine: true) }
-                    }
-                }
-            }
-            TextField(T("Tell Kinbir what to change"), text: $instruction, axis: .vertical)
-                .lineLimit(1...3)
-                .padding(.vertical, 8)
-                .field()
-                .accessibilityIdentifier("refineField")
-            Button(T("Change it")) {
-                editing = false
-                Task { await writeScript(refine: true) }
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityIdentifier("refineButton")
-            NoteText(text: T("For example: make it shorter, or start with a question. Each change costs credits."))
-        }
-        .card(fill: Theme.white, padding: 14)
-    }
+    // MARK: work
 
-    @ViewBuilder private var belowButton: some View {
-        if action == .write, let estimate, !busy {
-            NoteText(text: Tf("Writing the Amharic script costs about %@ credits.", Fmt.credits(estimate)))
-                .accessibilityIdentifier("estimateNote")
-        }
-        if work == .writing {
-            NoteText(text: T("Writing your script. You can edit it when it is done."))
-        }
-        if let limit = state.me?.trialMaxChars, kind == .amharic, language == .am {
-            let used = TextKind.ethiopicLetterCount(text)
-            NoteText(text: Tf("Free credits voice up to %@ Amharic characters at a time. This script has %@.", "\(limit)", "\(used)"))
-        }
-        if let active = state.activeVoice {
-            HStack(spacing: 8) {
-                Text(T("Voice: ") + (active.name ?? T("My voice")))
-                    .font(Theme.small).foregroundStyle(Theme.muted)
-                    .accessibilityIdentifier("voiceLine")
-                NavigationLink(value: Route.voices) { Text(T("Change")) }
-                    .buttonStyle(QuietButtonStyle())
-                    .accessibilityIdentifier("changeVoiceButton")
-            }
-        }
-    }
-
-    private var kindLabel: String {
-        switch kind {
-        case .empty: return T("Nothing yet")
-        case .link: return T("Link")
-        case .english: return language == .en ? T("English script") : T("English text")
-        case .amharic: return T("Amharic script")
-        }
-    }
-
-    private var buttonTitle: String {
-        switch work {
-        case .fetching: return T("Getting the article")
-        case .writing: return T("Writing")
-        case .starting: return T("Starting")
-        case .transcribing: return T("One moment")
-        case .idle, .listening:
-            switch action {
-            case .fetch: return T("Get the article")
-            case .write: return T("Write Amharic script")
-            case .nothing, .voice: return T("Make voiceover")
-            }
-        }
-    }
-
-    /// Changes only when an estimate is worth asking for again.
+    /// What the price on the write button is for. Empty when nothing would be written.
     private var estimateKey: String {
-        action == .write && work == .idle ? text + "|\(targetSec ?? 0)" : ""
+        guard work == .idle else { return "" }
+        switch tab {
+        case .idea: return idea.isEmpty ? "" : "i|" + idea + "|\(targetSec ?? 0)"
+        case .source: return source.isEmpty ? "" : "s|" + source + "|\(targetSec ?? 0)|\(faithful)"
+        case .script, .link: return ""
+        }
     }
 
-    // MARK: actions
-
-    /// Preselects the English speed and emphasis used last time.
     private func seedVoice(from me: WhoAmI?) {
         guard !seededVoice, let me else { return }
         seededVoice = true
@@ -410,68 +525,65 @@ struct CreateView: View {
 
     private func loadEstimate() async {
         estimate = nil
-        let snapshot = text
-        guard action == .write else { return }
+        let input = tab == .idea ? idea : source
+        guard tab == .idea || tab == .source, !input.isEmpty else { return }
         // Wait for typing to pause before asking the server.
         try? await Task.sleep(nanoseconds: 800_000_000)
         if Task.isCancelled { return }
         estimate = try? await state.api.rewriteEstimate(
-            text: snapshot, options: ScriptOptions(language: language, targetSec: targetSec))
+            text: input, options: ScriptOptions(language: language, targetSec: faithful ? nil : targetSec))
     }
 
-    private func mainAction() async {
+    private func write(_ kind: WriteKind) async {
+        work = .writing
         problem = nil
-        switch action {
-        case .nothing:
-            return
-        case .fetch:
-            await fetchArticle()
-        case .write:
-            await writeScript(refine: false)
-        case .voice:
-            await makeVoiceover()
+        defer { work = .idle }
+        let old = text
+        var options = ScriptOptions(language: language, targetSec: targetSec)
+        let input: String
+        switch kind {
+        case .idea:
+            input = idea.trimmingCharacters(in: .whitespacesAndNewlines)
+            options.fromIdea = true
+        case .source:
+            input = source.trimmingCharacters(in: .whitespacesAndNewlines)
+            options.faithful = faithful
+            if faithful { options.targetSec = nil }
+        case .refine:
+            input = old
+            options.refineInstruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        do {
+            // The script box fills as the text arrives.
+            tab = .script
+            text = ""
+            let result = try await state.api.rewrite(text: input, options: options) { piece in
+                text += piece
+            }
+            let final = (result.amharic ?? text).trimmingCharacters(in: .whitespacesAndNewlines)
+            beforeRewrite = old.isEmpty ? nil : old
+            draftText = final
+            text = final
+            draftId = result.draftId
+            if kind == .refine { instruction = "" }
+            Haptics.success()
+            await state.refresh()
+        } catch {
+            text = old
+            if kind == .idea { tab = .idea } else if kind == .source { tab = .source }
+            problem = state.report(error)
         }
     }
 
     private func fetchArticle() async {
         work = .fetching
-        defer { work = .idle }
-        do {
-            let link = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let article = try await state.api.extract(url: link)
-            beforeRewrite = link
-            text = article.text
-        } catch {
-            problem = state.report(error)
-        }
-    }
-
-    private func writeScript(refine: Bool, fromIdea: Bool = false) async {
-        work = .writing
         problem = nil
         defer { work = .idle }
-        let source = text
-        var options = ScriptOptions(language: language, targetSec: targetSec)
-        options.fromIdea = fromIdea
-        if refine {
-            options.refineInstruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
         do {
-            // The editor fills with the script as it arrives.
-            text = ""
-            let result = try await state.api.rewrite(text: source, options: options) { piece in
-                text += piece
-            }
-            let final = (result.amharic ?? text).trimmingCharacters(in: .whitespacesAndNewlines)
-            beforeRewrite = source
-            draftText = final
-            text = final
-            draftId = result.draftId
-            if refine { instruction = "" }
-            Haptics.success()
-            await state.refresh()
+            let article = try await state.api.extract(url: link.trimmingCharacters(in: .whitespacesAndNewlines))
+            source = article.text
+            tab = .source
         } catch {
-            text = source
             problem = state.report(error)
         }
     }
@@ -482,15 +594,16 @@ struct CreateView: View {
             return
         }
         work = .starting
+        problem = nil
         defer { work = .idle }
         do {
-            let script = text.trimmingCharacters(in: .whitespacesAndNewlines)
             var options = voice
             options.language = language
             let submit = try await state.api.generate(text: script, draftId: draftId, voice: options)
             await state.refresh()
             path.append(.job(submit.jobId))
         } catch {
+            tab = .script
             problem = state.report(error)
         }
     }
@@ -523,5 +636,21 @@ struct CreateView: View {
         } else {
             problem = T("Kinbir needs the microphone to hear you. Allow it in Settings, then try again.")
         }
+    }
+}
+
+/// Reading time and voiceover price, by the website's own rules of thumb.
+enum ScriptMath {
+    /// About 7.17 syllables a second for Amharic, 2.2 words a second for English.
+    static func seconds(_ script: String, language: Lang) -> Double {
+        if language == .en {
+            return Double(script.split(whereSeparator: { $0.isWhitespace }).count) / 2.2
+        }
+        return Double(TextKind.ethiopicLetterCount(script)) / 7.17
+    }
+
+    /// About 2.5 credits a minute, in half credits, never under half a credit.
+    static func voiceCredits(seconds: Double) -> Double {
+        max(0.5, ((seconds / 60 * 2.5) * 2).rounded(.up) / 2)
     }
 }

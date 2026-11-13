@@ -17,6 +17,7 @@ writes the script and reads it aloud in a voice cloned from you.
 | [docs/install-guide.md](docs/install-guide.md) | How to put a build on your iPhone with SideStore |
 | [docs/test-checklist.md](docs/test-checklist.md) | What to try on your phone after each build |
 | [docs/build-5.md](docs/build-5.md) | What Build 5 changed to make the app easier to use, and what still needs the server |
+| [docs/build-6.md](docs/build-6.md) | What Build 6 rebuilt to match the website after the first phone test |
 | [docs/build-2-server-changes.md](docs/build-2-server-changes.md) | Server work needed for buying credits and the built-in voice |
 
 ## Workflows

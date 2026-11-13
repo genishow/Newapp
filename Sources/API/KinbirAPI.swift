@@ -39,8 +39,14 @@ protocol KinbirAPI: AnyObject {
     func fixPreview(word: String, optionId: Int?, custom: String?) async throws -> FixPreview
     func fixPreviewStatus(id: String) async throws -> FixPreview
     func fixPreviewAudio(id: String) async throws -> URL
-    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch
+    /// All the queued changes in one go, for one flat price.
+    func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch
+    func fixCancel(jobId: String, batchId: String) async throws
+    /// Wakes the voice engine so the next voiceover or word preview starts sooner. Free.
+    func warmEngine() async
+    /// Scripts from the last day, on every device the account is signed in on.
+    func recentScripts() async throws -> [SavedScript]
     func jobs() async throws -> [JobSummary]
     func job(id: String) async throws -> JobStatus
     /// Small copy for the in-app player. Returns a local file.

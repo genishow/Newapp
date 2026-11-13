@@ -152,6 +152,7 @@ struct AssembleStatus: Codable, Equatable {
     var streamUrl: String?
     var downloadUrl: String?
     /// A sentence to show when some or all presenter appearances were dropped.
+    var orientation: String?
     var avatarSkipped: String?
     var avatarMode: String?
     /// True when the presenter was delivered as its own clip.

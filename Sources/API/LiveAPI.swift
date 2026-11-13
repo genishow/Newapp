@@ -500,10 +500,22 @@ extension LiveAPI {
         try await downloadFile(builder.get("/fix-word/preview/\(id).wav"), name: "fix-" + id)
     }
 
-    func fixApply(jobId: String, fix: FixEdit) async throws -> FixBatch {
+    func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
         try await decode(FixBatch.self, builder.post("/fix-word/apply", body: [
-            "job_id": jobId, "fixes": [fix.payload],
+            "job_id": jobId, "fixes": fixes.prefix(FixEdit.maxPerBatch).map { $0.payload },
         ]))
+    }
+
+    func fixCancel(jobId: String, batchId: String) async throws {
+        _ = try await send(builder.post("/fix-word/apply/\(batchId)/cancel", body: ["job_id": jobId]))
+    }
+
+    func warmEngine() async {
+        _ = try? await send(builder.post("/fix-word/warm", body: [:]))
+    }
+
+    func recentScripts() async throws -> [SavedScript] {
+        try await decode(SavedScripts.self, builder.get("/scripts?limit=10&full=true")).scripts
     }
 
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch {

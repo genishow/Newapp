@@ -4,6 +4,7 @@ import SwiftUI
 /// A stock clip playing silently on a loop, so a shot can be judged in motion.
 struct LoopingPreview: View {
     let url: URL
+    var shape: Shape = .landscape
     @State private var player: AVQueuePlayer?
     @State private var looper: AVPlayerLooper?
 
@@ -14,7 +15,9 @@ struct LoopingPreview: View {
                 VideoPlayer(player: player).disabled(true)
             }
         }
-        .frame(height: 210)
+        .aspectRatio(shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0, contentMode: .fit)
+        .frame(maxWidth: shape == .portrait ? 200 : .infinity)
+        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
         .onAppear {
@@ -83,7 +86,7 @@ struct VideoFlowView: View {
                 case .shots:
                     shots
                 case .video(let id):
-                    VideoJobView(videoJobId: id)
+                    VideoJobView(videoJobId: id, shape: shape)
                 }
             }
             .page()
@@ -99,7 +102,7 @@ struct VideoFlowView: View {
             }
         }
         .sheet(item: $picking) { beat in
-            ShotSheet(planId: planId ?? "", beat: beat, uploads: uploads) {
+            ShotSheet(planId: planId ?? "", beat: beat, uploads: uploads, shape: shape) {
                 picking = nil
                 Task { await reloadPlan() }
             }
@@ -279,7 +282,7 @@ struct VideoFlowView: View {
                 Button {
                     picking = beat
                 } label: {
-                    ShotRow(beat: beat)
+                    ShotRow(beat: beat, shape: shape)
                 }
                 .buttonStyle(.plain)
                 .disabled(working != nil)
@@ -545,11 +548,12 @@ struct VideoFlowView: View {
 /// One shot in the list: its picture, its place in the video, the words it covers.
 struct ShotRow: View {
     let beat: Beat
+    var shape: Shape = .portrait
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ClipThumb(candidate: beat.chosen)
-                .frame(width: 72, height: 72)
+                .frame(width: shape == .portrait ? 63 : 128, height: shape == .portrait ? 112 : 72)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(Tf("Shot %@", "\(beat.beat)")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
@@ -603,6 +607,7 @@ struct ShotSheet: View {
     let planId: String
     @State var beat: Beat
     let uploads: [UploadMeta]
+    var shape: Shape = .portrait
     let onClose: () -> Void
 
     @State private var query = ""
@@ -628,7 +633,7 @@ struct ShotSheet: View {
                     }
 
                     if let link = beat.chosen?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
-                        LoopingPreview(url: url).id(link)
+                        LoopingPreview(url: url, shape: shape).id(link)
                     }
 
                     if let list = beat.candidates, !list.isEmpty {
@@ -640,7 +645,7 @@ struct ShotSheet: View {
                                     Task { await choose(clip) }
                                 } label: {
                                     ClipThumb(candidate: clip)
-                                        .aspectRatio(1, contentMode: .fit)
+                                        .aspectRatio(shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0, contentMode: .fit)
                                         .overlay(alignment: .topLeading) {
                                             if index == 0 { Pill(text: T("In use")).padding(4) }
                                         }

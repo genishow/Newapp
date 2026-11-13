@@ -5,6 +5,8 @@ import SwiftUI
 struct VideoJobView: View {
     @EnvironmentObject private var state: AppState
     let videoJobId: String
+    /// Vertical or horizontal, when the caller already knows it.
+    var shape: Shape?
 
     @State private var status: AssembleStatus?
     @State private var problem: String?
@@ -81,8 +83,9 @@ struct VideoJobView: View {
 
             if let player {
                 VideoPlayer(player: player)
-                    .aspectRatio(9.0 / 16.0, contentMode: .fit)
-                    .frame(maxHeight: 420)
+                    .aspectRatio(isLandscape(status) ? 16.0 / 9.0 : 9.0 / 16.0, contentMode: .fit)
+                    .frame(maxWidth: isLandscape(status) ? .infinity : 300)
+                    .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                         .strokeBorder(Theme.black, lineWidth: 1))
@@ -121,6 +124,11 @@ struct VideoJobView: View {
             NoteText(text: [Fmt.length(status.durationSec), "Kept for 48 hours. Save it if you need it later."]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
         }
+    }
+
+    private func isLandscape(_ status: AssembleStatus) -> Bool {
+        if let raw = status.orientation, let known = Shape(rawValue: raw) { return known == .landscape }
+        return shape == .landscape
     }
 
     private func poll() async {
@@ -195,10 +203,11 @@ struct VideoJobView: View {
 /// A finished or running video opened from the Library.
 struct VideoJobScreen: View {
     let videoJobId: String
+    var shape: Shape?
 
     var body: some View {
         ScrollView {
-            VideoJobView(videoJobId: videoJobId).page()
+            VideoJobView(videoJobId: videoJobId, shape: shape).page()
         }
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)

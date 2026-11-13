@@ -32,7 +32,7 @@ struct LibraryView: View {
                     if !videos.isEmpty {
                         Text(T("Videos")).font(Theme.heading).foregroundStyle(Theme.black)
                         ForEach(videos) { video in
-                            NavigationLink(value: Route.videoJob(video.videoJobId)) {
+                            NavigationLink(value: Route.videoJob(video.videoJobId, landscape: video.orientation == "landscape")) {
                                 videoRow(video)
                             }
                             .buttonStyle(.plain)
@@ -110,7 +110,7 @@ struct LibraryView: View {
 
     private func load() async {
         do {
-            jobs = try await state.api.jobs()
+            jobs = try await state.api.jobs().filter { $0.belongsInLibrary }
             videos = (try? await state.api.videos()) ?? []
             problem = nil
         } catch {

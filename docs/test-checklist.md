@@ -1,4 +1,4 @@
-# Test checklist (Builds 1 to 5)
+# Test checklist (Builds 1 to 6)
 
 Things only you can check, because they need a real phone, real email and your real voice.
 Write down what happens for each, and screenshot anything odd.
@@ -102,6 +102,20 @@ Write down what happens for each, and screenshot anything odd.
 - In **Clone my voice**, tap **Record now**. Can you read the script on the camera screen? Does it block your face or the record button?
 - Open a shot. Does the clip play at the top?
 - Does the app feel like the Kinbir website now (the lettering)?
+
+## 12. The website's way (Build 6)
+
+- Is the Create screen clear now: step 1 script, step 2 voice, step 3 make the voiceover?
+- Try each of the four choices in step 1: Amharic text, Ask Kinbir, English text, Article link.
+- Do the write button and the voiceover button show a price? Is it close to what was charged?
+- After you press **Make voiceover**, do you see what is happening the whole time?
+- Was the voiceover faster to start than before?
+- On the voiceover, tap a word. Does a reading play by itself? How many seconds did it take?
+- Tap the other readings. Are they quick?
+- Choose **Use** on two different words, then **Generate my 2 changes**. Did it cost 1.5 credits in total?
+- Switch to **Change the words**, tap a sentence, change a word, save, and generate. Is the new audio right?
+- Open the Library. Is there anything that says expired or will not open?
+- Make a horizontal video. Do the pictures and the player look horizontal?
 
 ## Do not test yet
 

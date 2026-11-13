@@ -598,8 +598,15 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(FixEdit.custom(word: "ቡና", spelling: "bunna").payload["custom"] as? String, "bunna")
         let reread = FixEdit.rereadSentence(segment: 3).payload
         XCTAssertEqual(reread["segment"] as? Int, 3)
-        XCTAssertEqual(reread["rerecord"] as? Bool, true)
         XCTAssertNil(reread["word"])
+        XCTAssertNil(reread["text"], "the same words are read again")
+        let edit = FixEdit.editSentence(segment: 1, text: "ሰላም።").payload
+        XCTAssertEqual(edit["segment"] as? Int, 1)
+        XCTAssertEqual(edit["text"] as? String, "ሰላም።")
+        // One change per word and per sentence: a newer choice replaces the older one.
+        XCTAssertEqual(FixEdit.option(word: "ቡና", optionId: 1).id, FixEdit.custom(word: "ቡና", spelling: "x").id)
+        XCTAssertEqual(FixEdit.rereadSentence(segment: 2).id, FixEdit.editSentence(segment: 2, text: "y").id)
+        XCTAssertNotEqual(FixEdit.rereadSentence(segment: 2).id, FixEdit.rereadSentence(segment: 3).id)
     }
 
     func testWordsKeepPunctuationForDisplayButNotForTheServer() {
@@ -633,7 +640,10 @@ final class ExtrasTests: XCTestCase {
         XCTAssertTrue(job.isEnglish)
         XCTAssertEqual(api.video.lastVoiceOptions?.pace, "slow")
 
-        let batch = try await api.fixApply(jobId: submit.jobId, fix: .rereadSentence(segment: 0))
+        let batch = try await api.fixApply(jobId: submit.jobId, fixes: [
+            .rereadSentence(segment: 0), .option(word: "ሰላም", optionId: 1),
+        ])
+        XCTAssertEqual(api.video.appliedFixes.count, 2, "all changes go in one request")
         var status = try await api.fixStatus(jobId: submit.jobId, batchId: batch.batchId ?? "")
         XCTAssertFalse(status.isOver)
         status = try await api.fixStatus(jobId: submit.jobId, batchId: batch.batchId ?? "")
@@ -642,5 +652,31 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(saved, "Be brief.")
         let me = try await api.whoami()
         XCTAssertEqual(me.scriptRules, "Be brief.")
+    }
+}
+
+final class LibraryFilterTests: XCTestCase {
+    private func row(_ id: String, _ status: String, audio: Double? = nil, preview: String? = nil,
+                     voice: String? = nil) -> JobSummary {
+        JobSummary(jobId: id, status: status, createdAt: nil, finishedAt: nil, audioSec: audio,
+                   preview: preview, voiceId: voice)
+    }
+
+    func testOnlyRealVoiceoversAreListed() {
+        // The server's list also holds script writing, footage plans and renders.
+        XCTAssertTrue(row("job-1", "done", audio: 30, preview: "ሰላም", voice: "v1").belongsInLibrary)
+        XCTAssertTrue(row("job-2", "running", voice: "v1").belongsInLibrary, "a voiceover being made")
+        XCTAssertFalse(row("job-3", "done", preview: "plan").belongsInLibrary, "a footage plan has no audio")
+        XCTAssertFalse(row("job-4", "running").belongsInLibrary, "a running plan carries no voice")
+        XCTAssertFalse(row("vid-5", "done", audio: 30, preview: "x").belongsInLibrary, "videos have their own list")
+        XCTAssertFalse(row("job-6", "failed", voice: "v1").belongsInLibrary)
+    }
+
+    func testFaithfulMode() {
+        var o = ScriptOptions()
+        o.faithful = true
+        XCTAssertEqual(o.fields["mode"] as? String, "faithful")
+        o.fromIdea = true
+        XCTAssertEqual(o.fields["mode"] as? String, "brief", "an idea is written from scratch")
     }
 }
