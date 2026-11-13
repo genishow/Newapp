@@ -28,6 +28,11 @@ struct APIError: Error, Equatable, LocalizedError {
     static func from(status: Int, data: Data, path: String) -> APIError {
         let detail = serverSentence(in: data)
 
+        // Another account's voiceover or shot list: say so, and stay signed in.
+        if status == 401, let detail, detail.lowercased().contains("does not match this") {
+            return APIError(kind: .other, status: status,
+                            message: "This item belongs to a different sign-in.")
+        }
         if status == 401 && !path.hasPrefix("/auth/") {
             return APIError(kind: .sessionExpired, status: status,
                             message: "Your session is not valid any more. Sign in again.")

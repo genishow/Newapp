@@ -367,7 +367,7 @@ struct CreateView: View {
             } label: {
                 HStack {
                     Text(T("Recent scripts")).font(Theme.heading).foregroundStyle(Theme.black)
-                    Text("\(min(recent.count, 5))").font(Theme.smallMedium).foregroundStyle(Theme.muted)
+                    Text("\(min(recent.count, 20))").font(Theme.smallMedium).foregroundStyle(Theme.muted)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.black)
@@ -379,7 +379,7 @@ struct CreateView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("recentToggle")
             if recentOpen {
-            ForEach(recent.prefix(5)) { item in
+            ForEach(recent.prefix(20)) { item in
                 Button {
                     beforeRewrite = text.isEmpty ? nil : text
                     text = item.body

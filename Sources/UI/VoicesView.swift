@@ -119,7 +119,10 @@ struct VoicesView: View {
                     newName = voice.name ?? ""
                     renaming = voice
                 }
-                Button(T("Delete"), role: .destructive) { deleting = voice }
+                // The only voice cannot be deleted, as on the website.
+                if voices.count > 1 {
+                    Button(T("Delete"), role: .destructive) { deleting = voice }
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .medium))

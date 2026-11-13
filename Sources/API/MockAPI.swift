@@ -446,7 +446,8 @@ extension MockAPI {
         return 3
     }
 
-    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit {
+    func planFootage(jobId: String, shape: Shape, source: FootageSource,
+                     shotLength: String) async throws -> PlanSubmit {
         await pause()
         video.planPolls = 0
         video.searches = 0
@@ -583,7 +584,7 @@ extension MockAPI {
     }
 
     func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
-                  avatar: AvatarChoice?) async throws -> AssembleSubmit {
+                  avatar: AvatarChoice?, options: RenderOptions) async throws -> AssembleSubmit {
         await pause()
         if let avatar, avatar.enabled {
             guard video.hasAvatarPhoto else {

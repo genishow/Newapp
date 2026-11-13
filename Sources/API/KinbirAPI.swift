@@ -72,7 +72,8 @@ protocol KinbirAPI: AnyObject {
 
     // Footage
     func footageEstimate(script: String) async throws -> Double
-    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit
+    func planFootage(jobId: String, shape: Shape, source: FootageSource,
+                     shotLength: String) async throws -> PlanSubmit
     func planJob(id: String) async throws -> PlanJob
     func plan(id: String) async throws -> StoredPlan
     /// One slice of the stock search. Pass `beat` to search a single shot again.
@@ -97,7 +98,7 @@ protocol KinbirAPI: AnyObject {
 
     // Finished video
     func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
-                  avatar: AvatarChoice?) async throws -> AssembleSubmit
+                  avatar: AvatarChoice?, options: RenderOptions) async throws -> AssembleSubmit
     func assembleStatus(id: String) async throws -> AssembleStatus
     func stopAssemble(id: String) async throws -> StopResult
     func downloadVideo(id: String) async throws -> URL
@@ -117,6 +118,14 @@ protocol KinbirAPI: AnyObject {
 
 /// The Amharic-only calls from Build 1, kept so simple callers stay simple.
 extension KinbirAPI {
+    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit {
+        try await planFootage(jobId: jobId, shape: shape, source: source, shotLength: "auto")
+    }
+    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
+                  avatar: AvatarChoice?) async throws -> AssembleSubmit {
+        try await assemble(planId: planId, shape: shape, musicId: musicId, captions: captions,
+                           avatar: avatar, options: RenderOptions())
+    }
     func enrollScript() async throws -> String { try await enrollScript(language: .am) }
     func enroll(videoURL: URL) async throws -> EnrollResult {
         try await enroll(videoURL: videoURL, language: .am)

@@ -558,6 +558,33 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual((p["placements"] as? [String: Any])?["start"] as? Bool, true)
     }
 
+    func testRenderOptionsLikeTheWebsite() {
+        let plain = RenderOptions().payload(music: false, captions: false)
+        XCTAssertEqual(plain["quality"] as? String, "4k", "the website's default quality")
+        XCTAssertNil(plain["music_level"])
+        XCTAssertNil(plain["caption_font"])
+        XCTAssertNil(plain["graphics"])
+        var all = RenderOptions()
+        all.quality = "1080p"
+        all.musicLevel = "prominent"
+        all.captionFont = "serif"
+        all.graphics = true
+        all.graphicsColor = "blue"
+        let body = all.payload(music: true, captions: true)
+        XCTAssertEqual(body["quality"] as? String, "1080p")
+        XCTAssertEqual(body["music_level"] as? String, "prominent")
+        XCTAssertEqual(body["caption_font"] as? String, "serif")
+        XCTAssertEqual(body["graphics"] as? Bool, true)
+        XCTAssertEqual(body["graphics_color"] as? String, "blue")
+    }
+
+    func testAnotherAccountsItemDoesNotSignYouOut() {
+        let body = Data(#"{"detail":"access code does not match this job"}"#.utf8)
+        let error = APIError.from(status: 401, data: body, path: "/jobs/x")
+        XCTAssertEqual(error.kind, .other)
+        XCTAssertEqual(APIError.from(status: 401, data: Data("{}".utf8), path: "/jobs/x").kind, .sessionExpired)
+    }
+
     func testClipShapeLikeTheWebsiteChips() throws {
         let wide = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":1,"width":1920,"height":1080}"#.utf8))
         let tall = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":2,"width":1080,"height":1920}"#.utf8))

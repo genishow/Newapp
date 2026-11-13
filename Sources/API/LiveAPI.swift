@@ -222,10 +222,11 @@ extension LiveAPI {
                          builder.post("/broll/estimate", body: ["text": script])).creditsEstimated
     }
 
-    func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit {
+    func planFootage(jobId: String, shape: Shape, source: FootageSource,
+                     shotLength: String) async throws -> PlanSubmit {
         try await decode(PlanSubmit.self, builder.post("/broll/plan", body: [
             "job_id": jobId, "model": "sonnet", "orientation": shape.rawValue,
-            "source": source.rawValue,
+            "source": source.rawValue, "shot_length": shotLength,
         ]))
     }
 
@@ -354,15 +355,12 @@ extension LiveAPI {
     }
 
     func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
-                  avatar: AvatarChoice?) async throws -> AssembleSubmit {
+                  avatar: AvatarChoice?, options: RenderOptions) async throws -> AssembleSubmit {
         var body: [String: Any] = [
             "plan_id": planId, "orientation": shape.rawValue, "captions": captions,
-            "quality": "1080p",
         ]
-        if let musicId {
-            body["music_id"] = musicId
-            body["music_level"] = "balanced"
-        }
+        body.merge(options.payload(music: musicId != nil, captions: captions)) { _, new in new }
+        if let musicId { body["music_id"] = musicId }
         if let avatar, avatar.enabled { body["avatar"] = avatar.payload }
         return try await decode(AssembleSubmit.self, builder.post("/assemble", body: body))
     }
@@ -533,7 +531,7 @@ extension LiveAPI {
     }
 
     func recentScripts() async throws -> [SavedScript] {
-        try await decode(SavedScripts.self, builder.get("/scripts?limit=10&full=true")).scripts
+        try await decode(SavedScripts.self, builder.get("/scripts?limit=20&full=true")).scripts
     }
 
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch {

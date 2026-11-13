@@ -239,6 +239,7 @@ struct JobView: View {
     private func poll() async {
         startedAt = Date()
         slow = false
+        var misses = 0
         while !Task.isCancelled {
             do {
                 let latest = try await state.api.job(id: jobId)
@@ -256,10 +257,16 @@ struct JobView: View {
                     await state.refresh()
                     return
                 }
+                misses = 0
             } catch {
                 if Task.isCancelled { return }
-                problem = state.report(error)
-                return
+                // One dropped check is not a failure, as on the website: keep checking.
+                misses += 1
+                let wrapped = APIError.wrap(error)
+                if misses >= 5 || wrapped.kind == .sessionExpired || wrapped.status == 404 {
+                    problem = state.report(error)
+                    return
+                }
             }
             if Date().timeIntervalSince(startedAt) > 180 { slow = true }
             try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))

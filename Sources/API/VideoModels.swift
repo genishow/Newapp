@@ -21,6 +21,39 @@ enum FootageSource: String, CaseIterable, Identifiable {
     }
 }
 
+/// The website's render choices beyond music and captions.
+struct RenderOptions: Equatable {
+    static let qualities = ["1080p", "4k", "8k"]
+    static let musicLevels: [(id: String, title: String)] = [
+        ("subtle", "Quiet"), ("balanced", "Normal"), ("prominent", "Loud"),
+    ]
+    static let fonts: [(id: String, title: String)] = [("standard", "Standard"), ("serif", "Serif")]
+    static let colors = ["gold", "blue", "red", "green", "purple", "white"]
+    static let shotLengths: [(id: String, title: String)] = [
+        ("auto", "Same as before"), ("quick", "Quick 2s"), ("normal", "Normal 3s"),
+        ("relaxed", "Relaxed 5s"), ("calm", "Calm 7s"), ("mixed", "Mixed"), ("smart", "Smart mix"),
+    ]
+
+    /// The website's default is 4K.
+    var quality = "4k"
+    var musicLevel = "balanced"
+    var captionFont = "standard"
+    var graphics = false
+    var graphicsColor = "gold"
+
+    /// What is added to the render request.
+    func payload(music: Bool, captions: Bool) -> [String: Any] {
+        var body: [String: Any] = ["quality": quality]
+        if music { body["music_level"] = musicLevel }
+        if captions { body["caption_font"] = captionFont }
+        if graphics {
+            body["graphics"] = true
+            body["graphics_color"] = graphicsColor
+        }
+        return body
+    }
+}
+
 struct Candidate: Codable, Identifiable, Equatable {
     let clipId: Int
     var poster: String?

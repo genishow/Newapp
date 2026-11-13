@@ -73,6 +73,63 @@ struct VideoFlowView: View {
     @State private var auto = false
     @StateObject private var musicPlayer = AudioPlayer()
 
+    @State private var render = RenderOptions()
+    @State private var shotLength = "auto"
+
+    /// The website's finishing choices: quality, music loudness, caption font, graphics.
+    @ViewBuilder private var renderRows: some View {
+        menuRow(T("Quality"), value: render.quality.uppercased()) {
+            ForEach(RenderOptions.qualities, id: \.self) { quality in
+                Button(quality.uppercased()) { render.quality = quality }
+            }
+        }
+        .accessibilityIdentifier("qualityMenu")
+        if musicId != nil {
+            menuRow(T("Music loudness"),
+                    value: T(RenderOptions.musicLevels.first { $0.id == render.musicLevel }?.title ?? "Normal")) {
+                ForEach(RenderOptions.musicLevels, id: \.id) { level in
+                    Button(T(level.title)) { render.musicLevel = level.id }
+                }
+            }
+        }
+        if captions {
+            menuRow(T("Caption font"),
+                    value: T(RenderOptions.fonts.first { $0.id == render.captionFont }?.title ?? "Standard")) {
+                ForEach(RenderOptions.fonts, id: \.id) { font in
+                    Button(T(font.title)) { render.captionFont = font.id }
+                }
+            }
+        }
+        Toggle(T("On-screen graphics"), isOn: $render.graphics)
+            .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
+        if render.graphics {
+            menuRow(T("Graphics colour"), value: T(render.graphicsColor.capitalized)) {
+                ForEach(RenderOptions.colors, id: \.self) { color in
+                    Button(T(color.capitalized)) { render.graphicsColor = color }
+                }
+            }
+        }
+    }
+
+    /// A label on the left and a menu on the right showing the current choice.
+    private func menuRow<Items: View>(_ title: String, value: String,
+                                      @ViewBuilder items: () -> Items) -> some View {
+        HStack {
+            Text(title).font(Theme.body).foregroundStyle(Theme.black)
+            Spacer()
+            Menu {
+                items()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(value).font(Theme.bodyMedium)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(Theme.black)
+                .frame(minHeight: 44)
+            }
+        }
+    }
+
     private var emptyShots: [Beat] { beats.filter { $0.isEmpty } }
 
     /// The shot before or after this one, skipping music breaks.
@@ -200,6 +257,14 @@ struct VideoFlowView: View {
                     if source != .stock {
                         clipsCard
                     }
+                    menuRow(T("Shot length"),
+                            value: T(RenderOptions.shotLengths.first { $0.id == shotLength }?.title ?? "Same as before")) {
+                        ForEach(RenderOptions.shotLengths, id: \.id) { item in
+                            Button(T(item.title)) { shotLength = item.id }
+                        }
+                    }
+                    .accessibilityIdentifier("shotLengthMenu")
+                    renderRows
                     Button {
                         showPresenter = true
                     } label: {
@@ -461,6 +526,7 @@ struct VideoFlowView: View {
             Toggle(T("Captions on the video"), isOn: $captions)
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .tint(Theme.black)
+            renderRows
         }
         .card(fill: Theme.grey)
         .onChange(of: musicId) { _, _ in musicPlayer.stop() }
@@ -500,7 +566,8 @@ struct VideoFlowView: View {
         problem = nil
         defer { starting = false }
         do {
-            let submit = try await state.api.planFootage(jobId: jobId, shape: shape, source: source)
+            let submit = try await state.api.planFootage(jobId: jobId, shape: shape, source: source,
+                                                         shotLength: shotLength)
             // Saved at once: planning is paid for, so it must never be submitted twice.
             UserDefaults.standard.set(submit.jobId, forKey: planJobKey)
             UserDefaults.standard.set(auto, forKey: planJobKey + ".auto")
@@ -703,7 +770,8 @@ struct VideoFlowView: View {
         do {
             let submit = try await state.api.assemble(planId: planId, shape: shape,
                                                       musicId: musicId, captions: captions,
-                                                      avatar: avatar.enabled ? avatar : nil)
+                                                      avatar: avatar.enabled ? avatar : nil,
+                                                      options: render)
             await state.refresh()
             stage = .video(submit.jobId)
         } catch {
