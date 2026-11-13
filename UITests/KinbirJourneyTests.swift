@@ -290,6 +290,24 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("playButton")
     }
 
+    /// A typed spelling stays listed under the word, so it can be heard and used again.
+    func testTypedSpellingIsRemembered() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("fixScreenHeading")
+        waitFor("word-0-0").tap()
+        waitFor("fixWayType").tap()
+        let field = waitFor("fixCustomField")
+        field.tap()
+        field.typeText("gebboch")
+        waitFor("fixUseTyped").tap()
+        waitFor("generateChangesButton")
+        waitFor("word-0-0").tap()
+        waitFor("fixTriedList")
+        waitFor("fixTryUse-0")
+    }
+
     /// An English project reads English as it is, with speed and emphasis.
     func testEnglishVoiceover() {
         launch()

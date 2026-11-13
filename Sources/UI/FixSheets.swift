@@ -57,9 +57,71 @@ struct WordFixSheet: View {
 
     private enum Ear { case idle, recording, matching }
     @State private var ear: Ear = .idle
+    /// Readings shown, best first. They add up across takes, as on the website: a new
+    /// take re-scores what is showing and adds up to three fresh ones.
     @State private var earMatches: [ByEarMatch] = []
+    /// The latest full ranking, so "Hear more readings" can add the rest.
+    @State private var earPool: [ByEarMatch] = []
     @State private var earMatchId: String?
     @State private var earProblem: String?
+    /// Spellings already tried for this word, newest first, kept on the phone so they can
+    /// be heard and used again later, even after the voiceover was regenerated.
+    @State private var tries: [String] = []
+
+    private var triesKey: String { "kinbir.tries." + target.word }
+    private var earKey: String { "kinbir.ear." + target.word }
+
+    private struct SavedEar: Codable {
+        var matchId: String
+        var shown: [ByEarMatch]
+        var pool: [ByEarMatch]
+    }
+
+    private func remember(_ spelling: String) {
+        let s = spelling.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty else { return }
+        tries.removeAll { $0 == s }
+        tries.insert(s, at: 0)
+        if tries.count > 10 { tries = Array(tries.prefix(10)) }
+        UserDefaults.standard.set(tries, forKey: triesKey)
+    }
+
+    private func forget(_ spelling: String) {
+        tries.removeAll { $0 == spelling }
+        UserDefaults.standard.set(tries, forKey: triesKey)
+    }
+
+    private func saveEar() {
+        guard let id = earMatchId,
+              let data = try? JSONEncoder().encode(SavedEar(matchId: id, shown: earMatches, pool: earPool))
+        else { return }
+        UserDefaults.standard.set(data, forKey: earKey)
+    }
+
+    private func restoreSaved() {
+        tries = UserDefaults.standard.stringArray(forKey: triesKey) ?? []
+        if let data = UserDefaults.standard.data(forKey: earKey),
+           let saved = try? JSONDecoder().decode(SavedEar.self, from: data) {
+            earMatchId = saved.matchId
+            earMatches = saved.shown
+            earPool = saved.pool
+        }
+    }
+
+    /// The website's merge: re-score what is showing, add up to three new ones, best first.
+    private func mergeTake(_ ranked: [ByEarMatch]) {
+        earPool = ranked
+        let shown = Set(earMatches.map(\.optionId))
+        let updated = earMatches.map { m in ranked.first { $0.optionId == m.optionId } ?? m }
+        let fresh = ranked.filter { !shown.contains($0.optionId) }.prefix(3)
+        earMatches = (updated + fresh).sorted { ($0.match ?? 0) > ($1.match ?? 0) }
+        saveEar()
+    }
+
+    private var earMore: Int {
+        let shown = Set(earMatches.map(\.optionId))
+        return earPool.filter { !shown.contains($0.optionId) }.count
+    }
 
     private var typed: String { custom.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -95,6 +157,9 @@ struct WordFixSheet: View {
                     if way == .say {
                         sayIt
                     }
+                    if !tries.isEmpty {
+                        triedList
+                    }
 
                     // The website's price line, before anything is spent.
                     NoteText(text: T("Hearing a reading is free once anyone has heard that spelling. A brand-new spelling costs up to 1 credit. Applying your changes costs 1.5 credits, however many."))
@@ -123,7 +188,12 @@ struct WordFixSheet: View {
             }
         }
         .tint(Theme.black)
-        .task { await open() }
+        .task {
+            restoreSaved()
+            // Readings found earlier by saying the word show straight away.
+            if !earMatches.isEmpty && way == .none { way = .say }
+            await open()
+        }
         // As on the website: what was typed starts being made 1.5 seconds after typing
         // stops (3 letters or more), so play is quick. Half-typed words are not sent.
         .task(id: typed) {
@@ -214,7 +284,7 @@ struct WordFixSheet: View {
                 NoteText(text: T("Comparing with the voice's own readings. The first time for a word can take a couple of minutes, stay here."))
             }
             if !earMatches.isEmpty {
-                NoteText(text: T("Closest to your reading. Listen from 1 down and keep the right one."))
+                NoteText(text: T("Closest to your reading. Listen from 1 down and keep the right one. Say it again as many times as you like: each take re-orders this list and adds new readings."))
                 ForEach(Array(earMatches.enumerated()), id: \.element.id) { index, match in
                     row(key: "o:\(match.optionId)",
                         title: "\(index + 1) · " + Tf("%@% match", "\(Int((match.match ?? 0).rounded()))"),
@@ -225,6 +295,15 @@ struct WordFixSheet: View {
                             onUse(.heard(word: target.word, optionId: match.optionId, matchId: earMatchId ?? ""),
                                   target.word + " · " + T("my reading"))
                         })
+                }
+                if earMore > 0 {
+                    Button(Tf("None of these? Hear %@ more readings", "\(earMore)")) {
+                        let shown = Set(earMatches.map(\.optionId))
+                        earMatches += earPool.filter { !shown.contains($0.optionId) }
+                        saveEar()
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("fixEarMore")
                 }
             }
             if let earProblem {
@@ -245,18 +324,61 @@ struct WordFixSheet: View {
                     .field()
                     .accessibilityIdentifier("fixCustomField")
                 playButton(key: "c:" + typed, id: "fixListenTyped") {
-                    await hear(key: "c:" + typed, optionId: nil, custom: typed)
+                    let spelling = typed
+                    remember(spelling)
+                    await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
                 }
                 .disabled(typed.isEmpty)
                 .opacity(typed.isEmpty ? 0.4 : 1)
             }
             Button(T("Use what I typed")) {
+                remember(typed)
                 onUse(.custom(word: target.word, spelling: typed), target.word + " · " + typed)
             }
             .buttonStyle(SecondaryButtonStyle())
             .disabled(typed.isEmpty)
             .accessibilityIdentifier("fixUseTyped")
         }
+    }
+
+    /// Every spelling tried for this word, so an earlier one can be heard and used again.
+    @ViewBuilder private var triedList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            eyebrow(T("Your spellings"))
+            NoteText(text: T("Every spelling you tried for this word. Tap play to hear one again."))
+            ForEach(Array(tries.enumerated()), id: \.element) { index, spelling in
+                HStack(spacing: 12) {
+                    playButton(key: "c:" + spelling, id: "fixTry-\(index)") {
+                        await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
+                    }
+                    Text(spelling).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Spacer()
+                    Button(T("Use")) {
+                        remember(spelling)
+                        onUse(.custom(word: target.word, spelling: spelling), target.word + " · " + spelling)
+                    }
+                    .font(Theme.smallMedium)
+                    .foregroundStyle(Theme.black)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 40)
+                    .background(Capsule().fill(Theme.lime))
+                    .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+                    .accessibilityIdentifier("fixTryUse-\(index)")
+                    Button {
+                        forget(spelling)
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.muted)
+                            .frame(width: 32, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(T("Remove"))
+                }
+                .card(fill: Theme.grey, padding: 10)
+            }
+        }
+        .accessibilityIdentifier("fixTriedList")
     }
 
     private func optionLetter(_ index: Int) -> String {
@@ -321,7 +443,7 @@ struct WordFixSheet: View {
                     result = try await state.api.fixByEarStatus(matchId: id)
                 }
                 if result.isDone, let ranked = result.ranked, !ranked.isEmpty {
-                    earMatches = ranked
+                    mergeTake(ranked)
                     await state.refresh()
                 } else {
                     earProblem = result.error.map(APIError.sentenceCase)

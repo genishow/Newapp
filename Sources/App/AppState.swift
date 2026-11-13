@@ -30,7 +30,8 @@ final class AppState: ObservableObject {
             UserDefaults.standard.removeObject(forKey: "kinbir.language")
             // Each UI test starts clean: nothing remembered from the test before it.
             for key in UserDefaults.standard.dictionaryRepresentation().keys
-            where key.hasPrefix("videojob.") || key.hasPrefix("planjob.") || key.hasPrefix("kinbir.fixBatch.") {
+            where key.hasPrefix("videojob.") || key.hasPrefix("planjob.") || key.hasPrefix("kinbir.fixBatch.")
+                || key.hasPrefix("kinbir.tries.") || key.hasPrefix("kinbir.ear.") {
                 UserDefaults.standard.removeObject(forKey: key)
             }
             let store = MemoryCodeStore()
