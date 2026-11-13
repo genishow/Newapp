@@ -207,14 +207,20 @@ struct CreateView: View {
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("clearButton")
                 }
-                // Speech to text understands Amharic only.
-                if language == .am && (work == .idle || work == .listening) {
-                    Button(work == .listening ? T("Stop") : T("Speak")) {
-                        Task { await toggleSpeech() }
+            }
+
+            // Speech to text understands Amharic only.
+            if language == .am && (work == .idle || work == .listening) {
+                Button {
+                    Task { await toggleSpeech() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: work == .listening ? "stop.fill" : "mic.fill")
+                        Text(work == .listening ? T("Stop") : T("Speak your script"))
                     }
-                    .buttonStyle(QuietButtonStyle())
-                    .accessibilityIdentifier("speakButton")
                 }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("speakButton")
             }
             if work == .listening {
                 NoteText(text: T("Listening. Speak in Amharic, then tap Stop."))

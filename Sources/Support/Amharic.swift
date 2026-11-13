@@ -317,5 +317,6 @@ enum Amharic {
         "Your recent scripts": "የቅርብ ጊዜ ስክሪፕቶችዎ", "Your script": "የእርስዎ ስክሪፕት",
         "Your script · tap a sentence": "ስክሪፕትዎ · ዓረፍተ ነገር ይንኩ", "Your script · tap a word": "ስክሪፕትዎ · ቃል ይንኩ",
         "Your voice": "የእርስዎ ድምፅ",
+        "Speak your script": "ስክሪፕትዎን ይናገሩ",
     ]
 }
