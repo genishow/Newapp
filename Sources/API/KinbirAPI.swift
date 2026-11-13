@@ -57,11 +57,21 @@ protocol KinbirAPI: AnyObject {
     func musicAudio(trackId: String) async throws -> URL
 
     // Finished video
-    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool) async throws -> AssembleSubmit
+    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
+                  avatar: AvatarChoice?) async throws -> AssembleSubmit
     func assembleStatus(id: String) async throws -> AssembleStatus
     func stopAssemble(id: String) async throws -> StopResult
     func downloadVideo(id: String) async throws -> URL
     func videos() async throws -> [VideoSummary]
+
+    // Avatar
+    func avatarInfo() async throws -> AvatarInfo
+    /// The stored photo as a local file.
+    func avatarPhoto() async throws -> URL
+    func uploadAvatarPhoto(jpeg: Data) async throws -> AvatarInfo
+    func deleteAvatarPhoto() async throws
+    /// The presenter clip, when it was delivered as a separate file.
+    func downloadAvatarClip(videoJobId: String) async throws -> URL
     /// The server answers with paths like "/assemble/x/preview.mp4?e=..". This makes them openable.
     func absoluteURL(_ path: String?) -> URL?
 }

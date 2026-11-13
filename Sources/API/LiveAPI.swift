@@ -355,8 +355,8 @@ extension LiveAPI {
         return try await downloadFile(builder.get("/music/\(safe)/audio"), name: "music-" + trackId)
     }
 
-    func assemble(planId: String, shape: Shape, musicId: String?,
-                  captions: Bool) async throws -> AssembleSubmit {
+    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
+                  avatar: AvatarChoice?) async throws -> AssembleSubmit {
         var body: [String: Any] = [
             "plan_id": planId, "orientation": shape.rawValue, "captions": captions,
             "quality": "1080p",
@@ -365,6 +365,7 @@ extension LiveAPI {
             body["music_id"] = musicId
             body["music_level"] = "balanced"
         }
+        if let avatar, avatar.enabled { body["avatar"] = avatar.payload }
         return try await decode(AssembleSubmit.self, builder.post("/assemble", body: body))
     }
 
@@ -378,7 +379,16 @@ extension LiveAPI {
 
     /// The full file, saved to a temporary .mp4 so the share sheet can offer Save Video.
     func downloadVideo(id: String) async throws -> URL {
-        let request = builder.get("/assemble/\(id)/video.mp4")
+        try await downloadMP4(path: "/assemble/\(id)/video.mp4", name: "kinbir-" + id)
+    }
+
+    func downloadAvatarClip(videoJobId: String) async throws -> URL {
+        try await downloadMP4(path: "/assemble/\(videoJobId)/avatar.mp4",
+                              name: "kinbir-avatar-" + videoJobId)
+    }
+
+    private func downloadMP4(path: String, name: String) async throws -> URL {
+        let request = builder.get(path)
         do {
             let (temp, response) = try await session.download(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -386,7 +396,7 @@ extension LiveAPI {
                 let data = (try? Data(contentsOf: temp)) ?? Data()
                 throw APIError.from(status: status, data: data, path: "/assemble")
             }
-            let target = TempFiles.url(name: "kinbir-" + id, ext: "mp4")
+            let target = TempFiles.url(name: name, ext: "mp4")
             try? FileManager.default.removeItem(at: target)
             try FileManager.default.moveItem(at: temp, to: target)
             return target
@@ -401,5 +411,34 @@ extension LiveAPI {
 
     func absoluteURL(_ path: String?) -> URL? {
         builder.absolute(path)
+    }
+
+    // MARK: avatar
+
+    func avatarInfo() async throws -> AvatarInfo {
+        try await decode(AvatarInfo.self, builder.get("/avatar"))
+    }
+
+    func avatarPhoto() async throws -> URL {
+        do {
+            let data = try await send(builder.get("/avatar/photo.jpg"))
+            let url = TempFiles.url(name: "avatar-photo", ext: "jpg")
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            throw APIError.wrap(error)
+        }
+    }
+
+    func uploadAvatarPhoto(jpeg: Data) async throws -> AvatarInfo {
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addField(name: "owned", value: "true")
+        form.addFile(name: "file", filename: "avatar.jpg", mimeType: "image/jpeg", data: jpeg)
+        return try await decode(AvatarInfo.self, builder.multipart("/avatar/photo", form: form))
+    }
+
+    func deleteAvatarPhoto() async throws {
+        _ = try await send(builder.get("/avatar/photo", method: "DELETE"))
     }
 }

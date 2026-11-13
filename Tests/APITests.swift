@@ -494,7 +494,7 @@ final class VideoDecodingTests: XCTestCase {
         let planId = try XCTUnwrap(plan.result?.planId)
 
         do {
-            _ = try await api.assemble(planId: planId, shape: .portrait, musicId: nil, captions: false)
+            _ = try await api.assemble(planId: planId, shape: .portrait, musicId: nil, captions: false, avatar: nil)
             XCTFail("a video with empty shots must be refused")
         } catch {}
 
@@ -508,12 +508,58 @@ final class VideoDecodingTests: XCTestCase {
         beats = try await api.plan(id: planId).beats ?? []
         XCTAssertEqual(beats[0].chosen?.clipId, second.clipId)
 
-        let submit = try await api.assemble(planId: planId, shape: .portrait, musicId: "calm.mp3", captions: true)
+        let submit = try await api.assemble(planId: planId, shape: .portrait, musicId: "calm.mp3", captions: true, avatar: nil)
         var status = try await api.assembleStatus(id: submit.jobId)
         XCTAssertFalse(status.isOver)
         status = try await api.assembleStatus(id: submit.jobId)
         XCTAssertTrue(status.isDone)
         let list = try await api.videos()
         XCTAssertEqual(list.first?.videoJobId, submit.jobId)
+    }
+}
+
+final class AvatarTests: XCTestCase {
+    func testCreditsMatchTheServerFormula() {
+        // api/avatar.py: 14 s is 5.5 credits as a side panel and 22 full frame.
+        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: false), 5.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: true), 22)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 1, fullFrame: false), 0.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 0, fullFrame: true), 0)
+    }
+
+    func testTotalSeconds() {
+        var a = AvatarChoice()
+        XCTAssertEqual(a.totalSeconds(audioSec: 60), 0, "off means nothing")
+        a.enabled = true
+        XCTAssertEqual(a.totalSeconds(audioSec: 60), 14)
+        a.atEnd = true
+        XCTAssertEqual(a.totalSeconds(audioSec: 60), 28)
+        XCTAssertEqual(a.totalSeconds(audioSec: 40), 14, "start and end too close: only one fits")
+        a.wholeVideo = true
+        XCTAssertEqual(a.totalSeconds(audioSec: 60), 60)
+        a.wholeVideo = false
+        a.atEnd = false
+        XCTAssertEqual(a.totalSeconds(audioSec: 6), 6, "never longer than the voiceover")
+    }
+
+    func testPayload() {
+        var a = AvatarChoice()
+        a.enabled = true
+        a.seconds = 8
+        a.mode = .separate
+        let p = a.payload
+        XCTAssertEqual(p["seconds"] as? Int, 8)
+        XCTAssertEqual(p["mode"] as? String, "separate")
+        XCTAssertEqual((p["placements"] as? [String: Any])?["start"] as? Bool, true)
+    }
+
+    func testDecoding() throws {
+        let none = try JSON.decoder.decode(AvatarInfo.self, from: Data(#"{"has_photo":false,"verified":false}"#.utf8))
+        XCTAssertFalse(none.isReady)
+        let ok = try JSON.decoder.decode(AvatarInfo.self, from: Data(#"{"has_photo":true,"verified":true,"face_checked":false,"needs_review":false,"checked_at":"2026-11-12T10:00:00Z"}"#.utf8))
+        XCTAssertTrue(ok.isReady)
+        let s = try JSON.decoder.decode(AssembleStatus.self, from: Data(#"{"status":"done","avatar_seconds":14,"avatar_skipped":"the end appearance did not fit","avatar_mode":"separate","avatar_file":true,"avatar_files":[[0,14]]}"#.utf8))
+        XCTAssertEqual(s.avatarFile, true)
+        XCTAssertEqual(s.avatarSkipped, "the end appearance did not fit")
     }
 }

@@ -42,6 +42,11 @@ final class KinbirJourneyTests: XCTestCase {
                        file: file, line: line)
     }
 
+    /// Flips a switch. The switch itself sits at the right edge of its row.
+    private func flip(_ id: String) {
+        waitFor(id).coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+    }
+
     private func signIn(code: String = "123456") {
         waitFor("startButton").tap()
         let email = waitFor("emailField")
@@ -188,6 +193,28 @@ final class KinbirJourneyTests: XCTestCase {
         // The Library lists the video.
         app.tabBars.buttons["Library"].tap()
         waitFor("videoRow")
+    }
+
+    /// A video with the presenter, delivered as a separate clip.
+    func testVideoWithPresenter() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("makeVideoLink").tap()
+        waitFor("planButton").tap()
+        waitFor("shotsHeading", timeout: 30)
+
+        // Upload a photo, then switch the presenter on.
+        flip("avatarDeclare")
+        waitFor("samplePhotoButton").tap()
+        waitFor("avatarReady")
+        flip("avatarToggle")
+        waitFor("avatarQuote")
+        app.buttons["Separate file"].tap()
+
+        waitFor("makeVideoButton").tap()
+        waitFor("videoReadyHeading", timeout: 30)
+        waitFor("saveAvatarButton")
     }
 
     /// When stock footage is unavailable the app says so and own clips fill the shots.

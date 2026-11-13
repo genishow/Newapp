@@ -28,6 +28,8 @@ struct VideoFlowView: View {
     @State private var tracks: [MusicTrack] = []
     @State private var musicId: String?
     @State private var captions = false
+    @State private var avatar = AvatarChoice()
+    @State private var audioSec = 0.0
     @State private var starting = false
     @StateObject private var musicPlayer = AudioPlayer()
 
@@ -239,6 +241,8 @@ struct VideoFlowView: View {
 
             finishCard
 
+            AvatarCard(choice: $avatar, audioSec: audioSec, shape: shape)
+
             if let problem {
                 ProblemCard(message: problem)
             }
@@ -294,6 +298,7 @@ struct VideoFlowView: View {
         do {
             let job = try await state.api.job(id: jobId)
             script = job.scriptText
+            audioSec = job.audioSec ?? 0
             uploads = (try? await state.api.uploads(jobId: jobId)) ?? []
             tracks = (try? await state.api.music()) ?? []
             if let existing = job.brollPlanId {
@@ -472,7 +477,8 @@ struct VideoFlowView: View {
         defer { starting = false }
         do {
             let submit = try await state.api.assemble(planId: planId, shape: shape,
-                                                      musicId: musicId, captions: captions)
+                                                      musicId: musicId, captions: captions,
+                                                      avatar: avatar.enabled ? avatar : nil)
             await state.refresh()
             stage = .video(submit.jobId)
         } catch {

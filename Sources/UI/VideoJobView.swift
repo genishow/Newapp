@@ -11,6 +11,7 @@ struct VideoJobView: View {
     @State private var attempt = 0
     @State private var player: AVPlayer?
     @State private var saving = false
+    @State private var savingAvatar = false
     @State private var stopping = false
     @State private var shared: SharedFile?
     @State private var refundNote: String?
@@ -97,6 +98,20 @@ struct VideoJobView: View {
             .disabled(saving)
             .accessibilityIdentifier("saveVideoButton")
 
+            if status.avatarFile == true {
+                Button {
+                    Task { await saveAvatar() }
+                } label: {
+                    BusyLabel(title: "Save the presenter clip", busy: savingAvatar)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(savingAvatar)
+                .accessibilityIdentifier("saveAvatarButton")
+            }
+            if let skipped = status.avatarSkipped, !skipped.isEmpty {
+                NoteText(text: "Presenter: " + APIError.sentenceCase(skipped))
+            }
+
             if let problem {
                 ProblemCard(message: problem)
             }
@@ -143,6 +158,18 @@ struct VideoJobView: View {
             }
             attempt += 1
             await state.refresh()
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func saveAvatar() async {
+        savingAvatar = true
+        problem = nil
+        defer { savingAvatar = false }
+        do {
+            let url = try await state.api.downloadAvatarClip(videoJobId: videoJobId)
+            shared = SharedFile(url: url)
         } catch {
             problem = state.report(error)
         }

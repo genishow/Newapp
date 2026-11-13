@@ -332,6 +332,8 @@ final class MockVideoState {
     var planPolls = 0
     /// Set by the `-mockStockLimit` launch argument: stock search answers "not now".
     var stockLimited = Launch.mockStockLimit
+    var hasAvatarPhoto = false
+    var lastAvatar: AvatarChoice?
 }
 
 extension MockAPI {
@@ -454,9 +456,17 @@ extension MockAPI {
         return try ToneFile.write(name: "music-" + trackId)
     }
 
-    func assemble(planId: String, shape: Shape, musicId: String?,
-                  captions: Bool) async throws -> AssembleSubmit {
+    func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
+                  avatar: AvatarChoice?) async throws -> AssembleSubmit {
         await pause()
+        if let avatar, avatar.enabled {
+            guard video.hasAvatarPhoto else {
+                throw APIError(kind: .other, status: 400, message: "Upload an avatar photo first")
+            }
+            video.lastAvatar = avatar
+        } else {
+            video.lastAvatar = nil
+        }
         if video.beats.contains(where: { $0.isEmpty }) {
             throw APIError(kind: .other, status: 409,
                            message: "Some shots have no footage yet. Nothing was charged.")
@@ -472,7 +482,8 @@ extension MockAPI {
         video.assemblePolls[id] = polls
         guard polls >= 2 else {
             return AssembleStatus(status: "running", filesDone: 1, filesTotal: 2, durationSec: nil,
-                                  error: nil, previewUrl: nil, streamUrl: nil, downloadUrl: nil)
+                                  error: nil, previewUrl: nil, streamUrl: nil, downloadUrl: nil,
+                                  avatarSkipped: nil, avatarMode: nil, avatarFile: nil)
         }
         if !video.videos.contains(where: { $0.videoJobId == id }) {
             video.videos.insert(VideoSummary(videoJobId: id, planId: "bp-mock", jobId: nil,
@@ -480,9 +491,12 @@ extension MockAPI {
                                              finishedAt: "2026-11-12T10:05:00Z", preview: "ሰላም ለሁላችሁ።"),
                                 at: 0)
         }
+        let separate = video.lastAvatar?.mode == .separate
         return AssembleStatus(status: "done", filesDone: 2, filesTotal: 2, durationSec: 6, error: nil,
                               previewUrl: nil, streamUrl: nil,
-                              downloadUrl: "/assemble/\(id)/video.mp4")
+                              downloadUrl: "/assemble/\(id)/video.mp4", avatarSkipped: nil,
+                              avatarMode: video.lastAvatar?.mode.rawValue,
+                              avatarFile: separate)
     }
 
     func stopAssemble(id: String) async throws -> StopResult {
@@ -503,4 +517,32 @@ extension MockAPI {
     }
 
     func absoluteURL(_ path: String?) -> URL? { nil }
+
+    func avatarInfo() async throws -> AvatarInfo {
+        await pause()
+        return AvatarInfo(hasPhoto: video.hasAvatarPhoto, verified: video.hasAvatarPhoto)
+    }
+
+    func avatarPhoto() async throws -> URL {
+        await pause()
+        throw APIError(kind: .other, status: 404, message: "No avatar photo on this account")
+    }
+
+    func uploadAvatarPhoto(jpeg: Data) async throws -> AvatarInfo {
+        await pause()
+        video.hasAvatarPhoto = true
+        return AvatarInfo(hasPhoto: true, verified: true)
+    }
+
+    func deleteAvatarPhoto() async throws {
+        await pause()
+        video.hasAvatarPhoto = false
+    }
+
+    func downloadAvatarClip(videoJobId: String) async throws -> URL {
+        await pause()
+        let url = TempFiles.url(name: "kinbir-avatar-" + videoJobId, ext: "mp4")
+        try Data("mock avatar".utf8).write(to: url)
+        return url
+    }
 }

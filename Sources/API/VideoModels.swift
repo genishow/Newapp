@@ -151,6 +151,11 @@ struct AssembleStatus: Codable, Equatable {
     var previewUrl: String?
     var streamUrl: String?
     var downloadUrl: String?
+    /// A sentence to show when some or all presenter appearances were dropped.
+    var avatarSkipped: String?
+    var avatarMode: String?
+    /// True when the presenter was delivered as its own clip.
+    var avatarFile: Bool?
 
     var isDone: Bool { status == "done" }
     var isOver: Bool { status == "done" || status == "failed" || status == "cancelled" }
