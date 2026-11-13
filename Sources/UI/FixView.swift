@@ -12,6 +12,11 @@ struct FixView: View {
     private enum Mode { case words, sentences }
 
     @State private var job: JobStatus?
+    /// The server only lets a part of the script be read again in pieces. Past that it asks
+    /// for one fresh recording of the whole script, which this offers to start.
+    @State private var freshOffer = false
+    @State private var freshBusy = false
+    @State private var freshJob: String?
     @State private var mode: Mode = .words
     @State private var fixingWord: FixTarget?
     @State private var fixingSentence: SentenceTarget?
@@ -119,6 +124,10 @@ struct FixView: View {
                     .accessibilityIdentifier("fixDoneNote")
                 }
             }
+        // The fresh recording opens on its own page, like any new voiceover.
+        .navigationDestination(item: $freshJob) { id in
+            JobView(jobId: id)
+        }
         .task {
             await load()
             // The voice engine goes to sleep 2 minutes after its last use, and waking it
@@ -214,6 +223,8 @@ struct FixView: View {
                     .accessibilityIdentifier("fixStopButton")
             }
             .card(fill: Theme.black, padding: 14)
+        } else if freshOffer {
+            freshCard
         } else if job != nil {
             // One button at a time: your changes when there are some, otherwise a fresh
             // reading of the whole script.
@@ -476,6 +487,72 @@ struct FixView: View {
             // buttons are off while this runs, so it cannot be paid for twice.
             await state.refresh()
             await follow(batch, id: id, sent: sent)
+        } catch {
+            let message = APIError.wrap(error).message.lowercased()
+            if message.contains("re-record the whole script") {
+                problem = nil
+                freshOffer = true
+            } else {
+                problem = state.report(error)
+            }
+        }
+    }
+
+    /// The script as it reads with every sentence change applied.
+    private var scriptWithEdits: String {
+        var edits: [Int: [(Script.Sentence, String)]] = [:]
+        for item in pending {
+            if case .edit(let sentence, let text) = item {
+                edits[sentence.segment, default: []].append((sentence, text))
+            }
+        }
+        return segments.enumerated().map { index, segment in
+            edits[index].map { PendingFix.segmentText(segment, with: $0) } ?? segment
+        }
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
+    }
+
+    private var hasWordFixes: Bool {
+        pending.contains { if case .word = $0 { return true } else { return false } }
+    }
+
+    @ViewBuilder private var freshCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Record the whole script fresh"))
+                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            NoteText(text: T("You picked most of the script. One fresh recording of all of it is cleaner and costs less than reading it again in pieces. It is made as a new voiceover, priced like any other, and this one stays in your Library."))
+            if hasWordFixes {
+                NoteText(text: T("Word fixes do not carry over. Fix those words again in the new take."))
+            }
+            Button {
+                Task { await recordFresh() }
+            } label: {
+                HStack(spacing: 8) {
+                    if freshBusy { ProgressView().tint(Theme.black) }
+                    Text(T("Record the whole script fresh"))
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(freshBusy)
+            .accessibilityIdentifier("recordFreshButton")
+            Button(T("Back to my changes")) { freshOffer = false }
+                .buttonStyle(QuietButtonStyle())
+                .accessibilityIdentifier("freshBackButton")
+        }
+        .accessibilityIdentifier("freshCard")
+    }
+
+    private func recordFresh() async {
+        guard !freshBusy else { return }
+        freshBusy = true
+        problem = nil
+        defer { freshBusy = false }
+        do {
+            let submit = try await state.api.generate(text: scriptWithEdits, draftId: nil, voice: VoiceOptions())
+            await state.refresh()
+            freshOffer = false
+            freshJob = submit.jobId
         } catch {
             problem = state.report(error)
         }
