@@ -330,8 +330,8 @@ extension LiveAPI {
         return try await decode(BeatsResult.self, builder.post("/broll/shot-length", body: body)).beats ?? []
     }
 
-    func autofill(planId: String) async throws -> PlanSubmit {
-        try await decode(PlanSubmit.self, builder.post("/broll/autofill", body: ["plan_id": planId]))
+    func autofill(planId: String) async throws -> AutofillSubmit {
+        try await decode(AutofillSubmit.self, builder.post("/broll/autofill", body: ["plan_id": planId]))
     }
 
     func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult {

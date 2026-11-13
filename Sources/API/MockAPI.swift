@@ -138,7 +138,7 @@ final class MockAPI: KinbirAPI {
             credits += granted
             return EnrollResult(status: "approved", voiceId: id, advice: [], needsReview: false,
                                 creditsGranted: granted, creditsBalance: credits,
-                                message: "your voice is ready")
+                                message: "your voice is ready", active: first)
         }
     }
 
@@ -166,6 +166,14 @@ final class MockAPI: KinbirAPI {
                  onDelta: @escaping @MainActor (String) -> Void) async throws -> RewriteResult {
         await pause()
         video.lastScriptOptions = options
+        // As on the server: text already in the output language comes back unchanged and
+        // free, unless the rewrite is forced.
+        if !options.force, !options.fromIdea, (options.refineInstruction ?? "").isEmpty,
+           ScriptOptions.sameLanguage(text, as: options.language) {
+            return RewriteResult(skipped: true, reason: "input is already in that language",
+                                 amharic: text, draftId: nil, warnings: [], creditsCharged: nil,
+                                 creditsBalance: nil)
+        }
         let enough = locked { credits >= 1 }
         guard enough else {
             throw APIError.from(status: 402,
@@ -569,13 +577,13 @@ extension MockAPI {
         return video.beats
     }
 
-    func autofill(planId: String) async throws -> PlanSubmit {
+    func autofill(planId: String) async throws -> AutofillSubmit {
         await pause()
         for i in video.beats.indices where video.beats[i].candidates?.isEmpty != false {
             video.beats[i].candidates = [MockAPI.stockClip(700 + i)]
         }
         video.planPolls = 2
-        return PlanSubmit(jobId: "fill-mock", status: "queued", creditsEstimated: nil)
+        return AutofillSubmit(jobId: "fill-mock", status: "queued", note: nil)
     }
 
     func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult {

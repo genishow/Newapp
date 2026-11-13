@@ -150,6 +150,9 @@ final class KinbirJourneyTests: XCTestCase {
         writeAmharicScript()
         waitFor("scriptCounter", timeout: 20)
         waitForLabel("creditsPill", contains: "19")
+        // What the script cost, and what the voiceover will leave.
+        waitForLabel("scriptNote", contains: "Charged 1 credit")
+        waitForLabel("leavesLine", contains: "of 19 credits")
 
         // Make the voiceover.
         waitForLabel("voiceButton", contains: "Make voiceover")
@@ -296,6 +299,8 @@ final class KinbirJourneyTests: XCTestCase {
         app.buttons["English"].tap()
         waitFor("englishCard")
         waitFor("moreDone").tap()
+        // The row on the main screen says which language the voiceover is in.
+        waitForLabel("moreOptionsButton", contains: "English")
         type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
         waitFor("scriptCounter")
         el("voiceButton").tap()
@@ -389,6 +394,10 @@ final class KinbirJourneyTests: XCTestCase {
         launch(["-mockNoCredits"])
         signIn()
         waitForLabel("creditsPill", contains: "0")
+        // The Create screen says so before anything is tapped.
+        waitForLabel("outOfCreditsCard", contains: "out of credits")
+        waitForLabel("outOfCreditsCard", contains: "coming soon")
+        // A paid step is still refused with the server's own sentence.
         writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
         waitForLabel("problemCard", contains: "coming soon")

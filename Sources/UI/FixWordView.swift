@@ -96,6 +96,7 @@ struct ScriptRulesView: View {
     @State private var busy = false
     @State private var saved = false
     @State private var problem: String?
+    @FocusState private var typing: Bool
 
     private let limit = 4000
 
@@ -113,6 +114,7 @@ struct ScriptRulesView: View {
                     .foregroundStyle(Theme.black)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 220)
+                    .focused($typing)
                     .card(fill: Theme.grey, padding: 12)
                     .accessibilityIdentifier("rulesEditor")
                     .onChange(of: rules) { _, new in
@@ -120,11 +122,20 @@ struct ScriptRulesView: View {
                         if new.count > limit { rules = String(new.prefix(limit)) }
                     }
 
+                // A clear way to put the keyboard away, right under the box.
+                if typing {
+                    HStack {
+                        Spacer()
+                        KeyboardDoneButton(id: "rulesKeyboardDone") { typing = false }
+                    }
+                }
+
                 if let problem {
                     ProblemCard(message: problem)
                 }
 
                 Button {
+                    typing = false
                     Task { await save() }
                 } label: {
                     BusyLabel(title: saved ? T("Saved") : T("Save rules"), busy: busy)

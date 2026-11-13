@@ -83,6 +83,9 @@ struct EnrollResult: Codable, Equatable {
     var creditsGranted: Double?
     var creditsBalance: Double?
     var message: String?
+    /// True when the new voice is the one in use. A second voice is added but not
+    /// switched to, so this is false for it.
+    var active: Bool?
 
     var isApproved: Bool { status == "approved" }
 }

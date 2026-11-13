@@ -36,6 +36,17 @@ struct CreateView: View {
     /// The voiceover's language. It starts as the app's language and lives in More options.
     @AppStorage("kinbir.language") private var languageRaw = ""
 
+    /// One quiet line under the script: what a rewrite cost, or that the voiceover
+    /// language was changed. It belongs to the text it was said about, so the next edit
+    /// clears it.
+    @State private var note: String?
+    @State private var noteText = ""
+    /// What was typed in "Write it for me", kept while the app is open so closing the
+    /// sheet or a failed write does not lose it.
+    @State private var writerDraft = WriterDraft()
+    /// Speaking stopped by itself at the longest length of one take.
+    @State private var speechCapped = false
+
     private var language: Lang {
         Lang(rawValue: languageRaw) ?? Lang.matchingInterface
     }
@@ -43,15 +54,33 @@ struct CreateView: View {
     private var script: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var needsVoice: Bool { state.me != nil && state.me?.hasVoice == false }
     private var seconds: Double { ScriptMath.seconds(script, language: language) }
+    private var voiceCost: Double { ScriptMath.voiceCredits(seconds: seconds) }
+    /// As on the website, the balance is the gate: nothing can be voiced at zero.
+    private var outOfCredits: Bool { state.me != nil && !needsVoice && state.balance <= 0 }
+    private var shownNote: String? { noteText == text ? note : nil }
+
+    /// The website's sentence when a free-trial script is over the limit. Nil when it fits.
+    private var trialLine: String? {
+        guard !needsVoice, !outOfCredits,
+              let line = TrialRule.problem(script, language: language,
+                                           trialMaxChars: state.me?.trialMaxChars) else { return nil }
+        return T(line) + " " + T(APIError.buyingNote)
+    }
+
+    /// The website's line by the button: what is left afterwards, and how long the audio is.
+    private var leavesLine: String? {
+        guard !needsVoice, !outOfCredits, !script.isEmpty, state.me != nil else { return nil }
+        return Tf("Leaves you %@ of %@ credits · ≈ %@s of audio",
+                  Fmt.credits(ScriptMath.balanceAfter(balance: state.balance, credits: voiceCost)),
+                  Fmt.credits(state.balance), "\(max(1, Int(seconds.rounded())))")
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
 
-                if needsVoice {
-                    voiceHero
-                }
+                topCard
 
                 Text(T("What will you say?")).screenTitle(amharic: A("What will you say?"))
 
@@ -106,8 +135,9 @@ struct CreateView: View {
                     editing = false
                     showMore = true
                 } label: {
+                    // The voiceover language lives in there, so the row says which it is.
                     OptionRow(icon: "slider.horizontal.3", title: T("More options"),
-                              detail: nil)
+                              detail: nil, value: language == .en ? "English" : "አማርኛ")
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
@@ -132,10 +162,15 @@ struct CreateView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            BottomBar(problem: problem) { mainButton }
+            BottomBar(problem: problem ?? trialLine) {
+                mainButton
+                if let line = leavesLine {
+                    NoteText(text: line).accessibilityIdentifier("leavesLine")
+                }
+            }
         }
         .sheet(isPresented: $showWriter) {
-            WriteSheet(language: language) { request in
+            WriteSheet(language: language, draft: $writerDraft) { request in
                 showWriter = false
                 Task { await write(request) }
             }
@@ -150,6 +185,7 @@ struct CreateView: View {
         }
         .sheet(isPresented: $showMore) {
             MoreOptionsSheet(languageRaw: $languageRaw, voice: $voice, hasScript: !script.isEmpty,
+                             script: script,
                              amharicVoice: state.activeVoice?.isAmharic == true,
                              onImprove: { instruction in
                                  showMore = false
@@ -162,7 +198,8 @@ struct CreateView: View {
         }
         .onChange(of: text) { old, new in
             // Type-to-Amharic: one Latin letter typed at the end becomes Ethiopic.
-            if ethOn, work == .idle, new.count == old.count + 1, new.hasPrefix(old),
+            // Only for an Amharic voiceover: an English one keeps its Latin letters.
+            if ethOn, language == .am, work == .idle, new.count == old.count + 1, new.hasPrefix(old),
                let typed = new.last {
                 let turned = Ethiopic.type(old, typed: typed)
                 if turned != new {
@@ -171,12 +208,21 @@ struct CreateView: View {
                 }
             }
             // An Amharic script is read in Amharic, whatever was chosen for an earlier one.
-            if language == .en, TextKind.detect(new) == .amharic { useAmharic() }
+            if language == .en, TextKind.detect(new) == .amharic,
+               TextKind.ethiopicLetterCount(new) > 0 { useAmharic(about: new) }
             state.saveDraft(new)
             if new != draftText { draftId = nil }
             // A failed rewrite puts the old text back, and the reason it failed must stay
             // on screen.
             if keepProblem { keepProblem = false } else { problem = nil }
+        }
+        .onChange(of: languageRaw) { _, new in
+            // English keeps its own letters: Amharic typing and the letter pad go away.
+            if Lang(rawValue: new) == .en {
+                ethOn = false
+                fidelOpen = false
+                note = nil
+            }
         }
         .onChange(of: state.me) { _, me in seedVoice(from: me) }
         // A script is ready and a voice exists: wake the voice engine now, so the
@@ -185,6 +231,8 @@ struct CreateView: View {
             if !script.isEmpty, state.me?.hasVoice == true { await state.api.warmEngine() }
         }
         .task {
+            // Amharic typing remembered from an Amharic script must not change English.
+            if language == .en { ethOn = false }
             await state.refresh()
             recent = (try? await state.api.recentScripts()) ?? []
         }
@@ -219,6 +267,32 @@ struct CreateView: View {
                 .accessibilityIdentifier("cloneVoiceButton")
         }
         .card(fill: Theme.lime)
+    }
+
+    @ViewBuilder private var topCard: some View {
+        if needsVoice {
+            voiceHero
+        } else if outOfCredits {
+            creditsCard
+        }
+    }
+
+    /// The website's out-of-credits card, shown before a tap can be refused.
+    private var creditsCard: some View {
+        let paid = state.me?.hasPaid == true
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(paid ? T("You've used all your credits") : T("You're out of credits"))
+                .font(Theme.heading).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(paid ? T("Your scripts and voices are safe. Add credits to keep generating.")
+                      : T("Pick a plan or grab a top-up to start generating with your voice."))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            NoteText(text: T(APIError.buyingNote))
+        }
+        .card(fill: Theme.grey)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("outOfCreditsCard")
     }
 
     private var placeholder: String {
@@ -270,21 +344,7 @@ struct CreateView: View {
                 // The keyboard's own Done bar does not always show on this screen, so there is
                 // a clear way to put the keyboard away right in the box.
                 if editing {
-                    Button {
-                        editing = false
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "keyboard.chevron.compact.down")
-                            Text(T("Done"))
-                        }
-                        .font(Theme.smallMedium).foregroundStyle(Theme.black)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 40)
-                        .background(Capsule().fill(Theme.lime))
-                        .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("hideKeyboardButton")
+                    KeyboardDoneButton { editing = false }
                 }
                 if !text.isEmpty && !busy {
                     Button(T("Clear")) {
@@ -296,6 +356,10 @@ struct CreateView: View {
                 }
             }
             .frame(minHeight: 28)
+
+            if let line = shownNote {
+                NoteText(text: line).accessibilityIdentifier("scriptNote")
+            }
         }
         .card(fill: Theme.grey, padding: 14)
     }
@@ -311,8 +375,24 @@ struct CreateView: View {
     }
 
     /// Speaking, Amharic typing and the letter pad all make an Amharic script.
-    private func useAmharic() {
-        if language != .am { languageRaw = Lang.am.rawValue }
+    /// When that changes the voiceover language, a line under the script says so.
+    private func useAmharic(about current: String? = nil) {
+        guard language != .am else { return }
+        languageRaw = Lang.am.rawValue
+        say(T("Voiceover language set to Amharic."), for: current ?? text)
+    }
+
+    /// Shows a line under the script until the script changes again.
+    private func say(_ line: String, for current: String) {
+        note = line
+        noteText = current
+    }
+
+    /// The website's line after Kinbir wrote or changed a script.
+    private func chargeLine(_ charged: Double, balance: Double) -> String {
+        Tf(charged == 1 ? "Charged %@ credit, leaves you %@ credits"
+                        : "Charged %@ credits, leaves you %@ credits",
+           Fmt.credits(charged), Fmt.credits(balance))
     }
 
     /// A small control above the script box. It turns lime while it is on.
@@ -374,7 +454,7 @@ struct CreateView: View {
                 BusyLabel(title: mainTitle, busy: work == .starting)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(busy || script.isEmpty)
+            .disabled(busy || script.isEmpty || outOfCredits || trialLine != nil)
             .accessibilityIdentifier("voiceButton")
         }
     }
@@ -382,8 +462,7 @@ struct CreateView: View {
     private var mainTitle: String {
         if work == .starting { return T("Starting") }
         if script.isEmpty { return T("Make voiceover") }
-        return T("Make voiceover") + " · ≈ " + Fmt.credits(ScriptMath.voiceCredits(seconds: seconds))
-            + " " + T("credits")
+        return T("Make voiceover") + " · ≈ " + Fmt.credits(voiceCost) + " " + T("credits")
     }
 
     private var recentList: some View {
@@ -450,9 +529,18 @@ struct CreateView: View {
             case .source:
                 options.faithful = request.faithful
                 if request.faithful { options.targetSec = nil }
+                // Text already in the output language is still rewritten. Without this
+                // the server hands it back unchanged.
+                options.force = ScriptOptions.sameLanguage(input, as: language)
             case .link:
-                work = .fetching
-                input = try await state.api.extract(url: input).text
+                if let ready = request.fetchedText, !ready.isEmpty {
+                    // The sheet already fetched the article, to show the price first.
+                    input = ready
+                } else {
+                    work = .fetching
+                    input = try await state.api.extract(url: input).text
+                }
+                options.force = ScriptOptions.sameLanguage(input, as: language)
             case .refine:
                 options.refineInstruction = input
                 options.targetSec = nil
@@ -471,7 +559,14 @@ struct CreateView: View {
             draftId = result.draftId
             work = .idle
             Haptics.success()
+            // What was typed in the sheet has done its job. After a failure it is kept.
+            if request.kind != .refine { writerDraft = WriterDraft() }
             await state.refresh()
+            if result.skipped == true {
+                say(T("Nothing was changed."), for: final)
+            } else if let charged = result.creditsCharged, charged > 0 {
+                say(chargeLine(charged, balance: result.creditsBalance ?? state.balance), for: final)
+            }
         } catch {
             work = .idle
             keepProblem = text != old
@@ -494,6 +589,11 @@ struct CreateView: View {
             problem = T("This script is in Amharic. Switch the voiceover language to Amharic in More options.")
             return
         }
+        // The free trial voices a limited script at a time. Said here, before the server refuses.
+        if let line = trialLine {
+            problem = line
+            return
+        }
         do {
             var options = voice
             options.language = language
@@ -513,7 +613,7 @@ struct CreateView: View {
             defer { work = .idle }
             let final = await dictation.stop()
             if let final, !final.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                showSpoken(final)
+                noteCap(showSpoken(final))
                 return
             }
             // The live socket was not there (or gave nothing): send the whole take once.
@@ -521,7 +621,7 @@ struct CreateView: View {
                 do {
                     let heard = try await state.api.transcribe(audioURL: file)
                     if !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        showSpoken(heard)
+                        noteCap(showSpoken(heard))
                         return
                     }
                 } catch {
@@ -537,9 +637,17 @@ struct CreateView: View {
         editing = false
         spokenBase = text
         spokenLive = ""
+        speechCapped = false
         dictation.onPartial = { partial in
             guard work == .listening else { return }
             showSpoken(partial)
+        }
+        // The take reached 10 minutes, or the server stopped: finish it as if Stop was
+        // tapped, so the screen does not stay on "Keep talking".
+        dictation.onEnded = {
+            guard work == .listening else { return }
+            speechCapped = true
+            Task { await toggleSpeech() }
         }
         let address = state.api.dictationAddress()
         Task { await state.api.warmDictation() }
@@ -553,12 +661,22 @@ struct CreateView: View {
 
     /// Puts what has been heard so far after the text that was there before speaking.
     /// Each update replaces the last one, so words can still be corrected as you go.
-    private func showSpoken(_ heard: String) {
+    @discardableResult
+    private func showSpoken(_ heard: String) -> String {
         let words = heard.trimmingCharacters(in: .whitespacesAndNewlines)
         spokenLive = words
         let before = spokenBase
         let gap = before.isEmpty || before.last?.isWhitespace == true ? "" : " "
-        text = before + gap + words
+        let whole = before + gap + words
+        text = whole
+        return whole
+    }
+
+    /// Says why listening stopped by itself, under the words that were heard.
+    private func noteCap(_ shown: String) {
+        guard speechCapped else { return }
+        speechCapped = false
+        say(T("Stopped at 10 minutes, the longest one take can be."), for: shown)
     }
 }
 
@@ -569,20 +687,36 @@ struct WriteRequest {
     var input: String
     var targetSec: Int?
     var faithful = false
+    /// The article behind a link, when the sheet already fetched it to show the price.
+    var fetchedText: String?
+}
+
+/// What has been typed in "Write it for me". It lives on the Create screen, so closing the
+/// sheet, going back, or a failed write does not lose it.
+struct WriterDraft: Equatable {
+    var kind: WriteRequest.Kind?
+    var idea = ""
+    var source = ""
+    var link = ""
+    var targetSec: Int? = 60
+    var faithful = false
+    var ownsLink = false
+    /// The article behind `articleLink`, once it has been fetched.
+    var article: String?
+    var articleLink = ""
+    var articleTitle: String?
 }
 
 /// Three ways to get a script without writing it: an idea, English text, or a link.
 struct WriteSheet: View {
     @EnvironmentObject private var state: AppState
     let language: Lang
+    @Binding var draft: WriterDraft
     let onWrite: (WriteRequest) -> Void
 
-    @State private var kind: WriteRequest.Kind?
-    @State private var input = ""
-    @State private var targetSec: Int? = 60
-    @State private var faithful = false
-    @State private var ownsLink = false
     @State private var estimate: Double?
+    @State private var fetching = false
+    @State private var problem: String?
     @FocusState private var typing: Bool
 
     private static let ideas: [(title: String, am: String, en: String)] = [
@@ -593,13 +727,31 @@ struct WriteSheet: View {
         ("Tips", "ገንዘብ ለመቆጠብ ሦስት ቀላል መንገዶች", "Three easy ways to save money"),
     ]
 
+    private var kind: WriteRequest.Kind? { draft.kind }
+
+    private var input: String {
+        switch draft.kind {
+        case .idea: return draft.idea
+        case .source: return draft.source
+        case .link: return draft.link
+        case .refine, .none: return ""
+        }
+    }
+
     private var clean: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
 
+    /// The fetched article, for as long as the link is still the one it was fetched for.
+    private var article: String? {
+        guard draft.kind == .link, draft.articleLink == clean, let text = draft.article,
+              !text.isEmpty else { return nil }
+        return text
+    }
+
     private var ready: Bool {
-        switch kind {
+        switch draft.kind {
         case .idea: return clean.count >= 4
         case .source: return !clean.isEmpty
-        case .link: return ownsLink && TextKind.isLink(clean)
+        case .link: return draft.ownsLink && TextKind.isLink(clean) && !fetching
         case .refine, .none: return false
         }
     }
@@ -621,11 +773,14 @@ struct WriteSheet: View {
             .toolbar {
                 if kind != nil {
                     ToolbarItem(placement: .topBarLeading) {
+                        // Going back keeps what was typed.
                         Button(T("Back")) {
-                            kind = nil
-                            input = ""
+                            typing = false
+                            draft.kind = nil
                             estimate = nil
+                            problem = nil
                         }
+                        .accessibilityIdentifier("writerBack")
                     }
                 }
                 ToolbarItemGroup(placement: .keyboard) {
@@ -636,14 +791,11 @@ struct WriteSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 if kind != nil {
-                    BottomBar {
+                    BottomBar(problem: problem) {
                         Button {
-                            guard let kind else { return }
-                            let length = (kind == .source && faithful) ? nil : targetSec
-                            onWrite(WriteRequest(kind: kind, input: clean, targetSec: length,
-                                                 faithful: kind == .source && faithful))
+                            submit()
                         } label: {
-                            Text(buttonTitle)
+                            BusyLabel(title: buttonTitle, busy: fetching)
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(!ready)
@@ -654,6 +806,20 @@ struct WriteSheet: View {
         }
         .tint(Theme.black)
         .task(id: estimateKey) { await loadEstimate() }
+    }
+
+    /// A link is fetched first, which is free, so the price can be shown before the
+    /// script is written.
+    private func submit() {
+        guard let kind = draft.kind else { return }
+        typing = false
+        if kind == .link && article == nil {
+            Task { await fetchArticle() }
+            return
+        }
+        let faithful = kind == .source && draft.faithful
+        onWrite(WriteRequest(kind: kind, input: clean, targetSec: faithful ? nil : draft.targetSec,
+                             faithful: faithful, fetchedText: article))
     }
 
     private var chooser: some View {
@@ -674,7 +840,7 @@ struct WriteSheet: View {
 
     private func choice(_ value: WriteRequest.Kind, icon: String, title: String, detail: String) -> some View {
         Button {
-            kind = value
+            draft.kind = value
         } label: {
             OptionRow(icon: icon, title: title, detail: detail)
         }
@@ -686,7 +852,7 @@ struct WriteSheet: View {
         switch kind {
         case .idea:
             Text(T("What is the video about?")).screenTitle(amharic: A("What is the video about?"))
-            TextField(T("For example: the history of Ethiopian coffee"), text: $input, axis: .vertical)
+            TextField(T("For example: the history of Ethiopian coffee"), text: $draft.idea, axis: .vertical)
                 .lineLimit(3...6)
                 .padding(.vertical, 8)
                 .field()
@@ -694,14 +860,14 @@ struct WriteSheet: View {
                 .accessibilityIdentifier("ideaField")
             ChipRow {
                 ForEach(WriteSheet.ideas, id: \.title) { item in
-                    Chip(title: T(item.title)) { input = language == .en ? item.en : item.am }
+                    Chip(title: T(item.title)) { draft.idea = language == .en ? item.en : item.am }
                 }
             }
             lengthRow
         case .source:
             Text(language == .en ? T("Paste the text") : T("Paste the English text"))
                 .screenTitle()
-            TextEditor(text: $input)
+            TextEditor(text: $draft.source)
                 .font(Theme.body)
                 .foregroundStyle(Theme.black)
                 .scrollContentBackground(.hidden)
@@ -709,31 +875,47 @@ struct WriteSheet: View {
                 .focused($typing)
                 .card(fill: Theme.grey, padding: 12)
                 .accessibilityIdentifier("sourceEditor")
-            Toggle(T("Keep it close to the original"), isOn: $faithful)
+            Toggle(T("Keep it close to the original"), isOn: $draft.faithful)
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-            if !faithful { lengthRow }
+            if !draft.faithful { lengthRow }
         case .link:
             Text(T("Paste the link")).screenTitle(amharic: A("Paste the link"))
-            TextField("https://", text: $input)
+            TextField("https://", text: $draft.link)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .field()
                 .focused($typing)
                 .accessibilityIdentifier("linkField")
-            Toggle(T("This page is mine, or I have permission to use it"), isOn: $ownsLink)
+            Toggle(T("This page is mine, or I have permission to use it"), isOn: $draft.ownsLink)
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
             lengthRow
+            linkNote
         case .refine:
             EmptyView()
         }
+    }
+
+    /// Under the link: what happens next, and what it costs.
+    @ViewBuilder private var linkNote: some View {
+        if article != nil {
+            NoteText(text: articleLine).accessibilityIdentifier("articleReady")
+        } else {
+            NoteText(text: T("Getting the article is free. You see the price before the script is written."))
+        }
+    }
+
+    private var articleLine: String {
+        let title = (draft.articleTitle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let price = estimate.map { " " + Tf("Writing the script costs about %@ credits.", Fmt.credits($0)) } ?? ""
+        return (title.isEmpty ? T("The article is ready.") : Tf("The article is ready: %@.", title)) + price
     }
 
     private var lengthRow: some View {
         HStack {
             Text(T("Video length")).font(Theme.body).foregroundStyle(Theme.black)
             Spacer()
-            Picker(T("Video length"), selection: $targetSec) {
+            Picker(T("Video length"), selection: $draft.targetSec) {
                 Text(T("Automatic")).tag(Int?.none)
                 ForEach(ScriptOptions.lengths, id: \.self) { sec in
                     Text(Fmt.length(Double(sec))).tag(Int?.some(sec))
@@ -747,13 +929,25 @@ struct WriteSheet: View {
     }
 
     private var buttonTitle: String {
+        if kind == .link && article == nil {
+            return fetching ? T("Getting the article") : T("Get the article")
+        }
         let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T("credits") } ?? ""
         return T("Write the script") + price
     }
 
+    /// What the price depends on. Empty while there is nothing to price yet.
     private var estimateKey: String {
-        guard kind == .idea || kind == .source, !clean.isEmpty else { return "" }
-        return clean + "|\(targetSec ?? 0)|\(faithful)"
+        switch draft.kind {
+        case .idea, .source:
+            guard !clean.isEmpty else { return "" }
+            return clean + "|\(draft.targetSec ?? 0)|\(draft.faithful)"
+        case .link:
+            guard article != nil else { return "" }
+            return "link|" + clean + "|\(draft.targetSec ?? 0)"
+        case .refine, .none:
+            return ""
+        }
     }
 
     private func loadEstimate() async {
@@ -761,24 +955,67 @@ struct WriteSheet: View {
         guard !estimateKey.isEmpty else { return }
         try? await Task.sleep(nanoseconds: 800_000_000)
         if Task.isCancelled { return }
+        let faithful = draft.kind == .source && draft.faithful
         estimate = try? await state.api.rewriteEstimate(
-            text: clean, options: ScriptOptions(language: language, targetSec: faithful ? nil : targetSec))
+            text: article ?? clean,
+            options: ScriptOptions(language: language, targetSec: faithful ? nil : draft.targetSec))
+    }
+
+    private func fetchArticle() async {
+        guard !fetching else { return }
+        let link = clean
+        fetching = true
+        problem = nil
+        defer { fetching = false }
+        do {
+            let found = try await state.api.extract(url: link)
+            draft.article = found.text
+            draft.articleLink = link
+            draft.articleTitle = found.title
+        } catch {
+            problem = state.report(error)
+        }
     }
 }
 
 /// The things most people never need, kept off the main screen.
 struct MoreOptionsSheet: View {
     @Binding var languageRaw: String
+    @EnvironmentObject private var state: AppState
     @Binding var voice: VoiceOptions
     let hasScript: Bool
+    /// The script a change would be applied to, for its price.
+    let script: String
     let amharicVoice: Bool
     let onImprove: (String) -> Void
     let onClose: () -> Void
 
     @State private var instruction = ""
+    @State private var estimate: Double?
     @FocusState private var typing: Bool
 
     private var language: Lang { Lang(rawValue: languageRaw) ?? Lang.matchingInterface }
+    private var wanted: String { instruction.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var applyTitle: String {
+        let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T("credits") } ?? ""
+        return T("Apply change") + price + " →"
+    }
+
+    /// The price of a change follows the script, and is asked for once something is typed.
+    private var estimateKey: String {
+        guard hasScript, !wanted.isEmpty else { return "" }
+        return languageRaw + "|" + script
+    }
+
+    private func loadEstimate() async {
+        guard !estimateKey.isEmpty else {
+            estimate = nil
+            return
+        }
+        estimate = try? await state.api.rewriteEstimate(
+            text: script, options: ScriptOptions(language: language, refineInstruction: wanted))
+    }
 
     /// The website's small capital labels: LANGUAGE, SPEED, EMPHASIS.
     private func label(_ text: String) -> some View {
@@ -845,9 +1082,9 @@ struct MoreOptionsSheet: View {
                                 .field()
                                 .focused($typing)
                                 .accessibilityIdentifier("refineField")
-                            Button(T("Apply change") + " →") { onImprove(instruction) }
+                            Button(applyTitle) { onImprove(instruction) }
                                 .buttonStyle(SecondaryButtonStyle())
-                                .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .disabled(wanted.isEmpty)
                                 .accessibilityIdentifier("refineButton")
                             NoteText(text: T("Everything you do not mention comes back exactly as it is."))
                         }
@@ -878,21 +1115,6 @@ struct MoreOptionsSheet: View {
             }
         }
         .tint(Theme.black)
-    }
-}
-
-/// Reading time and voiceover price, by the website's own rules of thumb.
-enum ScriptMath {
-    /// About 7.17 syllables a second for Amharic, 2.2 words a second for English.
-    static func seconds(_ script: String, language: Lang) -> Double {
-        if language == .en {
-            return Double(script.split(whereSeparator: { $0.isWhitespace }).count) / 2.2
-        }
-        return Double(TextKind.ethiopicLetterCount(script)) / 7.17
-    }
-
-    /// About 2.5 credits a minute, in half credits, never under half a credit.
-    static func voiceCredits(seconds: Double) -> Double {
-        max(0.5, ((seconds / 60 * 2.5) * 2).rounded(.up) / 2)
+        .task(id: estimateKey) { await loadEstimate() }
     }
 }

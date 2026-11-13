@@ -55,6 +55,7 @@ struct WelcomeView: View {
                 .page()
             }
             .background(Theme.white)
+            .scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom) {
                 BottomBar {
                     Button(T("Start free")) { showSignIn = true }
@@ -79,6 +80,7 @@ struct DemoCard: View {
     @State private var reading = false
     @State private var ready = false
     @State private var problem: String?
+    @FocusState private var typing: Bool
 
     private var clean: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var over: Bool { DemoRules.isOver(clean) }
@@ -93,11 +95,20 @@ struct DemoCard: View {
                 .lineSpacing(Theme.amharicLineSpacing)
                 .padding(.vertical, 8)
                 .field()
+                .focused($typing)
                 .accessibilityIdentifier("demoField")
                 .onChange(of: text) { _, new in
                     if new.count > DemoRules.maxChars { text = String(new.prefix(DemoRules.maxChars)) }
                     ready = false
                 }
+
+            // A clear way to put the keyboard away, right under the field.
+            if typing {
+                HStack {
+                    Spacer()
+                    KeyboardDoneButton(id: "demoKeyboardDone") { typing = false }
+                }
+            }
 
             ChipRow {
                 Chip(title: T("Amharic sample")) { useSample(DemoRules.sampleAmharic) }
@@ -108,6 +119,7 @@ struct DemoCard: View {
             .disabled(busy)
 
             Button {
+                typing = false
                 if ready { player.toggle() } else { Task { await play() } }
             } label: {
                 BusyLabel(title: buttonTitle, busy: busy)
@@ -149,6 +161,7 @@ struct DemoCard: View {
     /// renders each once and keeps it, so they come back at once.
     private func useSample(_ sample: String) {
         guard !busy else { return }
+        typing = false
         player.stop()
         text = sample
         Task { await play(sample) }

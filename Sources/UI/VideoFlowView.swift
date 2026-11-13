@@ -38,6 +38,17 @@ struct LoopingPreview: View {
     }
 }
 
+/// Tells work started from a button whether its screen is still open. A screen that is
+/// left and opened again is a new one, and the old one's work must not carry on and pay
+/// for a second video.
+final class ScreenLife: ObservableObject {
+    var gone = false
+    var polling = false
+    /// True when "Make my video" was tapped on this very screen, with these options.
+    var startedOneTap = false
+    var stopCheck = false
+}
+
 /// Turns a finished voiceover into a video: choose the shape and footage, plan the
 /// shots, fill them with clips, pick music, then render.
 struct VideoFlowView: View {
@@ -76,6 +87,9 @@ struct VideoFlowView: View {
     @State private var auto = false
     @StateObject private var musicPlayer = AudioPlayer()
 
+    @StateObject private var life = ScreenLife()
+    @State private var confirmNewList = false
+    @State private var checking = false
     @State private var render = RenderOptions()
     @State private var shotLength = "auto"
     @State private var breaks = MusicBreaks()
@@ -124,12 +138,35 @@ struct VideoFlowView: View {
                 problem = T("That picture could not be opened. Choose another.")
                 return
             }
-            // PNG keeps a see-through background, which a logo usually has.
-            guard let png = image.pngData(), png.count <= 2 * 1024 * 1024 else {
-                problem = T("That logo is over 2 MB. Choose a smaller one.")
-                return
+            // The picture is sent as it is when it is small enough. A big one is made
+            // smaller first, as PNG so a see-through background is kept.
+            var bytes = raw
+            var name = "logo.png"
+            var mime = "image/png"
+            let isPNG = raw.starts(with: [0x89, 0x50, 0x4E, 0x47])
+            let isJPEG = raw.starts(with: [0xFF, 0xD8])
+            if raw.count <= 2 * 1024 * 1024 && (isPNG || isJPEG) {
+                if isJPEG {
+                    name = "logo.jpg"
+                    mime = "image/jpeg"
+                }
+            } else {
+                let longest = max(image.size.width, image.size.height)
+                let scale = min(1, 1024 / max(longest, 1))
+                let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                format.opaque = false
+                let small = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+                    image.draw(in: CGRect(origin: .zero, size: size))
+                }
+                guard let png = small.pngData(), png.count <= 2 * 1024 * 1024 else {
+                    problem = T("That logo is too big. Choose a smaller picture.")
+                    return
+                }
+                bytes = png
             }
-            hasLogo = try await state.api.uploadLogo(image: png, filename: "logo.png", mimeType: "image/png")
+            hasLogo = try await state.api.uploadLogo(image: bytes, filename: name, mimeType: mime)
         } catch {
             problem = state.report(error)
         }
@@ -209,6 +246,10 @@ struct VideoFlowView: View {
     /// A new shape needs footage in that shape: the search runs again, as on the website.
     private func changeShape(_ new: Shape) async {
         guard new != shape else { return }
+        guard source != .own else {
+            problem = T("The shape can only be changed here when stock footage is used. Start a new shot list to change it.")
+            return
+        }
         shape = new
         flags = [:]
         await fillShots(stock: source != .own, own: false)
@@ -220,8 +261,14 @@ struct VideoFlowView: View {
         working = T("Placing your clips.")
         defer { working = nil }
         do {
-            _ = try await state.api.placeAllClips(planId: planId)
+            let result = try await state.api.placeAllClips(planId: planId)
             await reloadPlan()
+            if let note = result.note, !note.isEmpty {
+                checkNote = APIError.sentenceCase(note)
+            } else if let placed = result.placed {
+                checkNote = placed > 0 ? Tf("Placed %@ of your clips.", "\(placed)")
+                                       : T("None of your clips fit a shot. Open a shot to place one by hand.")
+            }
         } catch {
             problem = state.report(error)
         }
@@ -246,7 +293,7 @@ struct VideoFlowView: View {
                 problem = job.error.map(APIError.sentenceCase) ?? T("The check did not finish. Try again.")
                 return
             }
-            let wrong = job.result?.mismatched ?? []
+            let wrong = job.wrongShots
             flags = [:]
             for item in wrong { flags[item.beat] = T("May not match the words") }
             await reloadPlan()
@@ -270,7 +317,11 @@ struct VideoFlowView: View {
         defer { working = nil }
         do {
             var start = 0
+            life.stopCheck = false
+            checking = true
+            defer { checking = false }
             while start < all.count {
+                if life.stopCheck || life.gone { break }
                 let chunk = Array(all[start..<min(start + 30, all.count)])
                 working = Tf("Checked %@ of %@ shots", "\(done)", "\(all.count)")
                 let result = try await state.api.verifyShots(planId: planId, beats: chunk)
@@ -302,7 +353,10 @@ struct VideoFlowView: View {
     @ViewBuilder private var renderRows: some View {
         menuRow(T("Quality"), value: render.quality.uppercased()) {
             ForEach(RenderOptions.qualities, id: \.self) { quality in
-                Button(quality.uppercased()) { render.quality = quality }
+                // The server makes 8K only for videos up to 7 minutes.
+                if quality != "8k" || audioSec <= 420 {
+                    Button(quality.uppercased()) { render.quality = quality }
+                }
             }
         }
         .accessibilityIdentifier("qualityMenu")
@@ -367,6 +421,25 @@ struct VideoFlowView: View {
         return shots.indices.contains(j) ? shots[j].beat : nil
     }
     private var planJobKey: String { "planjob." + jobId }
+    /// A video being made for this voiceover, so leaving and coming back finds it again.
+    private var videoJobKey: String { "videojob." + jobId }
+
+    /// What the presenter adds to the price. It costs four times more when the photo has
+    /// the same shape as the video and fills the frame.
+    private var presenterNote: String? {
+        guard avatar.enabled else { return nil }
+        let seconds = avatar.totalSeconds(audioSec: audioSec)
+        guard seconds > 0 else {
+            return T("The presenter is on but has no place in the video. Open the presenter and pick one, or turn it off.")
+        }
+        let side = Fmt.credits(AvatarChoice.credits(seconds: seconds, fullFrame: false))
+        let full = Fmt.credits(AvatarChoice.credits(seconds: seconds, fullFrame: true))
+        return Tf("The presenter adds about %@ credits, or about %@ if your photo fills the frame.", side, full)
+    }
+
+    private var presenterBlocked: Bool {
+        avatar.enabled && avatar.totalSeconds(audioSec: audioSec) <= 0
+    }
 
     var body: some View {
         ScrollView {
@@ -394,13 +467,21 @@ struct VideoFlowView: View {
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .onDisappear { musicPlayer.stop() }
+        .onAppear {
+            life.gone = false
+            // Back on this screen while a plan is still being made: keep checking on it.
+            if stage == .planning { Task { await resumePlanning() } }
+        }
+        .onDisappear {
+            life.gone = true
+            musicPlayer.stop()
+        }
         .safeAreaInset(edge: .bottom) {
             if stage == .setup {
                 BottomBar(problem: problem) { setupBar }
             }
         }
-        .fileImporter(isPresented: $showMusicImporter, allowedContentTypes: [.audio]) { result in
+        .fileImporter(isPresented: $showMusicImporter, allowedContentTypes: [.mp3, .mpeg4Audio, .wav]) { result in
             if case .success(let url) = result { Task { await uploadMusic(url) } }
         }
         .onChange(of: logoItem) { _, item in
@@ -569,6 +650,7 @@ struct VideoFlowView: View {
         guard let estimate else { return T("Make my video") }
         let price: String = Fmt.credits(estimate + 2)
         return T("Make my video") + " · ≈ " + price + " " + T("credits")
+            + (avatar.enabled ? " " + T("+ presenter") : "")
     }
 
     @ViewBuilder private var setupBar: some View {
@@ -579,8 +661,15 @@ struct VideoFlowView: View {
             BusyLabel(title: setupTitle, busy: starting && auto)
         }
         .buttonStyle(PrimaryButtonStyle())
-        .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+        .disabled(starting || working != nil || (source == .own && uploads.isEmpty) || presenterBlocked)
         .accessibilityIdentifier("autoVideoButton")
+        if source == .own && uploads.isEmpty {
+            NoteText(text: T("Add your clips in More options first, or set Footage to Stock."))
+        }
+        if let presenterNote {
+            Text(presenterNote).font(Theme.small).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var sourceNote: String {
@@ -685,8 +774,21 @@ struct VideoFlowView: View {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.black)
                     Text(working).font(Theme.body).foregroundStyle(Theme.black)
+                    Spacer(minLength: 0)
+                    if checking {
+                        // The paid check runs 30 shots at a time. Stop ends it after the
+                        // group being checked; what is already checked is kept.
+                        Button(T("Stop")) { life.stopCheck = true }
+                            .buttonStyle(QuietButtonStyle())
+                            .accessibilityIdentifier("stopCheckButton")
+                    }
                 }
                 .card(fill: Theme.grey, padding: 14)
+            }
+
+            // Shown here too, so a message is seen next to where the tap was.
+            if let problem {
+                ProblemCard(message: problem)
             }
 
             ForEach(beats.filter { $0.needsFootage }) { beat in
@@ -727,20 +829,36 @@ struct VideoFlowView: View {
             Button {
                 Task { await makeVideo() }
             } label: {
-                BusyLabel(title: T("Make video · 2 credits"), busy: starting)
+                BusyLabel(title: avatar.enabled ? T("Make video · 2 credits + presenter")
+                                                : T("Make video · 2 credits"), busy: starting)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(starting || working != nil || !emptyShots.isEmpty)
+            .disabled(starting || working != nil || !emptyShots.isEmpty || presenterBlocked)
             .accessibilityIdentifier("makeVideoButton")
+
+            if let presenterNote {
+                Text(presenterNote).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("presenterCostNote")
+            }
 
             if !emptyShots.isEmpty {
                 NoteText(text: T("Every shot needs footage before the video can be made."))
             }
 
-            Button(T("Start a new shot list")) {
-                planId = nil
-                beats = []
-                stage = .setup
+            Button(T("Start a new shot list")) { confirmNewList = true }
+            .confirmationDialog(T("Start a new shot list?"), isPresented: $confirmNewList,
+                                titleVisibility: .visible) {
+                Button(T("Plan the shots again")) {
+                    planId = nil
+                    beats = []
+                    flags = [:]
+                    stage = .setup
+                    Task { estimate = try? await state.api.footageEstimate(script: script) }
+                }
+                Button(T("Keep this list"), role: .cancel) {}
+            } message: {
+                Text(T("Planning again costs credits, and the clips you picked for this list are not kept."))
             }
             .buttonStyle(QuietButtonStyle())
             .disabled(starting || working != nil)
@@ -795,6 +913,17 @@ struct VideoFlowView: View {
             tracks = (try? await state.api.music()) ?? []
             // A video with music feels finished, so the first track is chosen to start with.
             if musicId == nil { musicId = tracks.first?.trackId }
+            if let running = UserDefaults.standard.string(forKey: videoJobKey) {
+                // A video was started for this voiceover. If it is still being made, show
+                // it, so it is never started (and paid for) a second time.
+                if let status = try? await state.api.assembleStatus(id: running), !status.isOver {
+                    planId = job.brollPlanId
+                    if planId != nil { await reloadPlan() }
+                    stage = .video(running)
+                    return
+                }
+                UserDefaults.standard.removeObject(forKey: videoJobKey)
+            }
             if let existing = job.brollPlanId {
                 planId = existing
                 await reloadPlan()
@@ -822,6 +951,7 @@ struct VideoFlowView: View {
             // Saved at once: planning is paid for, so it must never be submitted twice.
             UserDefaults.standard.set(submit.jobId, forKey: planJobKey)
             UserDefaults.standard.set(auto, forKey: planJobKey + ".auto")
+            life.startedOneTap = auto
             stage = .planning
         } catch {
             problem = state.report(error)
@@ -836,8 +966,13 @@ struct VideoFlowView: View {
             return
         }
         auto = auto || UserDefaults.standard.bool(forKey: planJobKey + ".auto")
+        // Only one check at a time, and none from a screen that has been left.
+        guard !life.polling else { return }
+        life.polling = true
+        defer { life.polling = false }
         var misses = 0
         while !Task.isCancelled {
+            if life.gone { return }
             do {
                 let latest = try await state.api.planJob(id: planJob)
                 misses = 0
@@ -848,9 +983,17 @@ struct VideoFlowView: View {
                     await state.refresh()
                     await fillShots(stock: source != .own, own: source != .stock)
                     stage = .shots
-                    if auto && emptyShots.isEmpty && !beats.isEmpty {
+                    // The one-tap token is used up before the video is started, so it can
+                    // never start two.
+                    let oneTap = auto
+                    auto = false
+                    UserDefaults.standard.removeObject(forKey: planJobKey + ".auto")
+                    if oneTap && !life.startedOneTap {
+                        // This screen was reopened, so the options chosen before are gone.
+                        problem = T("Your shots are ready. Check the options below, then tap Make video.")
+                    } else if oneTap && emptyShots.isEmpty && !beats.isEmpty && !life.gone {
                         await makeVideo()
-                    } else if auto {
+                    } else if oneTap {
                         problem = T("Some shots have no footage yet, so the video was not made. Add footage to them, then tap Make video.")
                     }
                     auto = false
@@ -866,6 +1009,16 @@ struct VideoFlowView: View {
                 }
             } catch {
                 if Task.isCancelled { return }
+                let wrapped = APIError.wrap(error)
+                if wrapped.status == 404 {
+                    // The plan job is gone (it expires). Start again instead of asking forever.
+                    UserDefaults.standard.removeObject(forKey: planJobKey)
+                    UserDefaults.standard.removeObject(forKey: planJobKey + ".auto")
+                    problem = T("That shot list could not be found any more. Plan the shots again.")
+                    stage = .setup
+                    estimate = try? await state.api.footageEstimate(script: script)
+                    return
+                }
                 misses += 1
                 if misses >= 4 {
                     problem = state.report(error)
@@ -946,8 +1099,15 @@ struct VideoFlowView: View {
         defer { working = nil }
         do {
             let submit = try await state.api.autofill(planId: planId)
+            guard let fillJob = submit.jobId else {
+                // Nothing to search, for example on an "Only mine" plan. Say why.
+                checkNote = submit.note.map(APIError.sentenceCase)
+                    ?? T("There is nothing to search for these shots. Add your own clips, or change Footage to Stock.")
+                return
+            }
             for _ in 0..<90 {
-                let job = try await state.api.planJob(id: submit.jobId)
+                if life.gone { return }
+                let job = try await state.api.planJob(id: fillJob)
                 if job.status == "done" { break }
                 if job.status == "failed" {
                     problem = job.error.map(APIError.sentenceCase) ?? T("No footage was found. Try your own words on each shot.")
@@ -1013,7 +1173,7 @@ struct VideoFlowView: View {
     }
 
     private func makeVideo() async {
-        guard let planId else { return }
+        guard let planId, !starting else { return }
         starting = true
         problem = nil
         musicPlayer.stop()
@@ -1023,6 +1183,7 @@ struct VideoFlowView: View {
                                                       musicId: musicId, captions: captions,
                                                       avatar: avatar.enabled ? avatar : nil,
                                                       options: render)
+            UserDefaults.standard.set(submit.jobId, forKey: videoJobKey)
             await state.refresh()
             stage = .video(submit.jobId)
         } catch {

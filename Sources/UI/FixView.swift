@@ -211,7 +211,11 @@ struct FixView: View {
                 Task { await applyFixes(whole: true) }
             }
             .buttonStyle(SecondaryButtonStyle())
+            .disabled(wholeTooLong)
             .accessibilityIdentifier("generateWholeButton")
+            if wholeTooLong {
+                NoteText(text: FixView.tooLongNote).accessibilityIdentifier("wholeTooLongNote")
+            }
         }
     }
 
@@ -219,13 +223,112 @@ struct FixView: View {
 
     private var sentences: [Script.Sentence] { Script.sentences(segments) }
 
+    /// The server takes at most this many changes in one go, and a whole-script take is
+    /// one change for every part of the audio.
+    private var wholeTooLong: Bool { segments.count > FixEdit.maxPerBatch }
+
+    private static var tooLongNote: String {
+        T("This script is too long to read again in one go. Re-record the sentences you want instead.")
+    }
+
     private func load() async {
         loadFailed = false
         do {
             job = try await state.api.job(id: jobId)
         } catch {
             loadFailed = true
+            return
         }
+        await resumeBatch(loud: false)
+    }
+
+    // MARK: the running batch
+
+    /// Where the id of a batch that is still recording is kept, so leaving this screen
+    /// does not lose it and the same changes cannot be paid for twice.
+    private var batchKey: String { "kinbir.fixBatch." + jobId }
+
+    private var storedBatch: String? {
+        // UI tests share one simulator, so nothing is carried from one test to the next.
+        guard !Launch.isMock else { return nil }
+        let id = UserDefaults.standard.string(forKey: batchKey) ?? ""
+        return id.isEmpty ? nil : id
+    }
+
+    private func rememberBatch(_ id: String) {
+        guard !Launch.isMock else { return }
+        UserDefaults.standard.set(id, forKey: batchKey)
+    }
+
+    private func forgetBatch() {
+        UserDefaults.standard.removeObject(forKey: batchKey)
+    }
+
+    /// Picks up a batch that was started earlier and may still be recording.
+    private func resumeBatch(loud: Bool) async {
+        guard !applying, let id = storedBatch else { return }
+        applying = true
+        batchId = id
+        defer { applying = false }
+        do {
+            let batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
+            await follow(batch, id: id, sent: [])
+        } catch {
+            if Task.isCancelled { return }
+            let wrapped = APIError.wrap(error)
+            if wrapped.status == 404 {
+                // The server no longer knows it, so it is over.
+                forgetBatch()
+                if loud { problem = T("Your earlier changes are finished. Tap again to send these.") }
+            } else if loud || wrapped.kind == .sessionExpired {
+                problem = state.report(error)
+            }
+        }
+    }
+
+    /// Watches a batch until it is over, for as long as this screen is open. The buttons
+    /// stay off meanwhile, so it cannot be paid for twice.
+    private func follow(_ first: FixBatch, id: String, sent: [PendingFix]) async {
+        var batch = first
+        var misses = 0
+        while !batch.isOver {
+            try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
+            if Task.isCancelled { return }
+            do {
+                batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
+                misses = 0
+            } catch {
+                if Task.isCancelled { return }
+                misses += 1
+                let wrapped = APIError.wrap(error)
+                if wrapped.status == 404 {
+                    forgetBatch()
+                    problem = state.report(error)
+                    return
+                }
+                if misses >= 8 || wrapped.kind == .sessionExpired {
+                    // The id stays stored: it is checked again before anything new is sent.
+                    problem = state.report(error)
+                    return
+                }
+            }
+        }
+        forgetBatch()
+        switch batch.status {
+        case "done":
+            pending.removeAll { item in sent.contains { $0.id == item.id } }
+            done = true
+            Haptics.success()
+            job = (try? await state.api.job(id: jobId)) ?? job
+            onRegenerated()
+        case "cancelled":
+            problem = T("Stopped. Your credits were returned.")
+        default:
+            Haptics.failure()
+            problem = batch.error.map(APIError.sentenceCase)
+                ?? T("The changes did not finish. Your credits were returned.")
+        }
+        await state.refresh()
     }
 
     private var pendingWords: [String] {
@@ -300,6 +403,13 @@ struct FixView: View {
 
     private func applyFixes(whole: Bool) async {
         guard !applying else { return }
+        // A batch from earlier may still be recording. It is finished first, so the same
+        // changes are never paid for twice.
+        if storedBatch != nil {
+            problem = nil
+            await resumeBatch(loud: true)
+            return
+        }
         applying = true
         problem = nil
         done = false
@@ -308,49 +418,22 @@ struct FixView: View {
         let fixes = whole ? PendingFix.wholeScript(sent, segments: segments)
                           : PendingFix.wire(sent, segments: segments)
         guard fixes.count <= FixEdit.maxPerBatch else {
-            problem = T("That is the most changes for one go. Generate these first.")
+            problem = whole ? FixView.tooLongNote
+                            : T("That is the most changes for one go. Generate these first.")
             return
         }
         do {
-            var batch = try await state.api.fixApply(jobId: jobId, fixes: fixes)
+            let batch = try await state.api.fixApply(jobId: jobId, fixes: fixes)
             guard let id = batch.batchId else {
                 problem = T("The changes could not be started. Try again.")
                 return
             }
             batchId = id
+            rememberBatch(id)
             // The list is kept until the new take is really done, as on the website. The
             // buttons are off while this runs, so it cannot be paid for twice.
             await state.refresh()
-            var misses = 0
-            var tries = 0
-            while !batch.isOver && tries < 180 {
-                tries += 1
-                try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
-                do {
-                    batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
-                    misses = 0
-                } catch {
-                    misses += 1
-                    if misses >= 8 { throw error }
-                }
-            }
-            switch batch.status {
-            case "done":
-                pending.removeAll { item in sent.contains { $0.id == item.id } }
-                done = true
-                Haptics.success()
-                job = (try? await state.api.job(id: jobId)) ?? job
-                onRegenerated()
-            case "cancelled":
-                problem = T("Stopped. Your credits were returned.")
-            case "failed":
-                Haptics.failure()
-                problem = batch.error.map(APIError.sentenceCase)
-                    ?? T("The changes did not finish. Your credits were returned.")
-            default:
-                problem = T("This is taking longer than usual. Check your voiceover again in a few minutes.")
-            }
-            await state.refresh()
+            await follow(batch, id: id, sent: sent)
         } catch {
             problem = state.report(error)
         }

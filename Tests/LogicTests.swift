@@ -217,6 +217,22 @@ final class FootageExtrasTests: XCTestCase {
         XCTAssertEqual(VerifyResult.credits(shots: 300), 10)
     }
 
+    func testFreeCheckAnswerIsAtTheTopLevel() throws {
+        // What GET /jobs/{id} really returns for a footage rescan.
+        let job = try JSON.decoder.decode(FootageCheckJob.self, from: Data(#"{"job_id":"j","status":"done","scanned":4,"mismatched":[{"beat":3,"score":0.2,"line":"x"}],"note":"1 shot may not match"}"#.utf8))
+        XCTAssertEqual(job.wrongShots.map(\.beat), [3])
+        let clean = try JSON.decoder.decode(FootageCheckJob.self, from: Data(#"{"status":"done","scanned":4,"mismatched":[]}"#.utf8))
+        XCTAssertTrue(clean.wrongShots.isEmpty)
+    }
+
+    func testAutofillWithNothingToSearch() throws {
+        let none = try JSON.decoder.decode(AutofillSubmit.self, from: Data(#"{"job_id":null,"status":"skipped","empty":2,"note":"this plan uses only your own clips"}"#.utf8))
+        XCTAssertNil(none.jobId)
+        XCTAssertEqual(none.note, "this plan uses only your own clips")
+        let some = try JSON.decoder.decode(AutofillSubmit.self, from: Data(#"{"job_id":"f1","status":"queued","empty":2,"note":""}"#.utf8))
+        XCTAssertEqual(some.jobId, "f1")
+    }
+
     func testChecksDecode() throws {
         let job = try JSON.decoder.decode(FootageCheckJob.self, from: Data(#"{"status":"done","result":{"scanned":4,"mismatched":[{"beat":2,"score":0.1,"line":"x"}],"note":""}}"#.utf8))
         XCTAssertEqual(job.result?.mismatched?.first?.beat, 2)

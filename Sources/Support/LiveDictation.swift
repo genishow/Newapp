@@ -11,6 +11,14 @@ import Foundation
 final class LiveDictation {
     /// The text so far. Called on the main thread.
     var onPartial: ((String) -> Void)?
+    /// Listening is over although nobody tapped Stop: the take reached its longest length,
+    /// or the server said it has stopped. Called once, on the main thread. The view then
+    /// stops and transcribes what was heard.
+    var onEnded: (() -> Void)?
+
+    /// The longest one take can be: 10 minutes of 16 kHz, 16-bit, one-channel sound.
+    static let maxSeconds = 600
+    static let maxBytes = 16_000 * 2 * maxSeconds
 
     private let engine = AVAudioEngine()
     private var converter: AVAudioConverter?
@@ -19,6 +27,9 @@ final class LiveDictation {
     private let queue = DispatchQueue(label: "kinbir.dictation")
     // Only touched on `queue`.
     private var pcm = Data()
+    /// How much of `pcm` the server has been given.
+    private var sentBytes = 0
+    private var endTold = false
     private var socketAlive = false
     private var waiter: CheckedContinuation<String?, Never>?
     private var running = false
@@ -39,7 +50,11 @@ final class LiveDictation {
                   let made = AVAudioConverter(from: inFormat, to: target) else { return false }
             converter = made
             outFormat = target
-            queue.sync { pcm = Data() }
+            queue.sync {
+                pcm = Data()
+                sentBytes = 0
+                endTold = false
+            }
             openSocket(base: base, accessCode: accessCode)
             input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { [weak self] buffer, _ in
                 self?.heard(buffer)
@@ -65,6 +80,8 @@ final class LiveDictation {
         let text: String? = await withCheckedContinuation { continuation in
             queue.async {
                 self.waiter = continuation
+                // Anything heard but not yet sent goes first, so the final text is whole.
+                self.flush()
                 self.socket?.send(.string("stop")) { [weak self] error in
                     if error != nil { self?.finish(nil) }
                 }
@@ -83,6 +100,7 @@ final class LiveDictation {
         queue.async {
             self.socketAlive = false
             self.pcm = Data()
+            self.sentBytes = 0
         }
         finish(nil)
     }
@@ -157,12 +175,35 @@ final class LiveDictation {
         guard failure == nil, out.frameLength > 0, let channel = out.int16ChannelData else { return }
         let data = Data(bytes: channel[0], count: Int(out.frameLength) * 2)
         queue.async {
+            // A take is at most 10 minutes, the server's own limit.
+            guard self.pcm.count < LiveDictation.maxBytes else {
+                self.tellEnded()
+                return
+            }
             self.pcm.append(data)
-            guard self.socketAlive else { return }
-            self.socket?.send(.data(data)) { [weak self] error in
+            self.flush()
+        }
+    }
+
+    /// Only on `queue`. Sends everything heard that the server has not been given yet, in
+    /// order. What was heard before the socket was ready goes out as soon as it is.
+    private func flush() {
+        guard socketAlive, let socket else { return }
+        while sentBytes < pcm.count {
+            let end = min(pcm.count, sentBytes + 131_072)
+            let piece = pcm.subdata(in: sentBytes..<end)
+            sentBytes = end
+            socket.send(.data(piece)) { [weak self] error in
                 if error != nil { self?.queue.async { self?.socketAlive = false } }
             }
         }
+    }
+
+    /// Only on `queue`. Tells the view, once, that listening is over.
+    private func tellEnded() {
+        guard !endTold else { return }
+        endTold = true
+        DispatchQueue.main.async { self.onEnded?() }
     }
 
     private func openSocket(base: URL, accessCode: String) {
@@ -176,7 +217,12 @@ final class LiveDictation {
         task.resume()
         // The credential goes as the first message, never in the address.
         task.send(.string(first)) { [weak self] error in
-            self?.queue.async { self?.socketAlive = (error == nil) }
+            self?.queue.async {
+                guard let self else { return }
+                self.socketAlive = (error == nil)
+                // The first words were heard while the socket was still opening.
+                self.flush()
+            }
         }
         listen(task)
     }
@@ -197,7 +243,12 @@ final class LiveDictation {
                         self.finish(final)
                         return
                     } else if object["error"] != nil {
-                        self.queue.async { self.socketAlive = false }
+                        // The server has stopped (a take over 10 minutes, for one). The
+                        // view is told, so it does not stay on "Keep talking".
+                        self.queue.async {
+                            self.socketAlive = false
+                            self.tellEnded()
+                        }
                         self.finish(nil)
                         return
                     }

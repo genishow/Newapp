@@ -51,6 +51,21 @@ struct FootageCheckJob: Codable, Equatable {
     var status: String
     var error: String?
     var result: FootageCheckResult?
+    // The server puts the answer at the top level of the job, not under "result".
+    var scanned: Int?
+    var mismatched: [Mismatch]?
+    var note: String?
+
+    /// The shots that may not match, wherever the server put them.
+    var wrongShots: [Mismatch] { mismatched ?? result?.mismatched ?? [] }
+}
+
+/// The answer to "find footage for the empty shots". There is no job to wait for when
+/// nothing can be searched, for example on an "Only mine" plan: then `note` says why.
+struct AutofillSubmit: Codable, Equatable {
+    var jobId: String?
+    var status: String?
+    var note: String?
 }
 
 /// One verdict from the paid check: "yes", "weak" or "no", and why.

@@ -18,11 +18,18 @@ struct JobView: View {
     @State private var startedAt = Date()
     @State private var slow = false
     @State private var celebrate = false
+    /// The server no longer has this voiceover (a 404), so asking again cannot help.
+    @State private var lost = false
+    @State private var audioLoading = false
+    /// The emphasis just chosen, shown while the new reading is prepared.
+    @State private var pendingEmphasis: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                if let job, job.isDone {
+                if lost {
+                    notFound
+                } else if let job, job.isDone {
                     result(job)
                 } else if let job, job.isFailed {
                     failed(job)
@@ -107,6 +114,21 @@ struct JobView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
             }
+        }
+    }
+
+    /// The website's own words for a voiceover that is gone.
+    private var notFound: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text(T("This voiceover could not be found")).screenTitle()
+                .accessibilityIdentifier("lostHeading")
+            Text(T("This voiceover could not be found. It has expired (48 hours), or it was made under a different sign-in."))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+                .card(fill: Theme.grey, padding: 14)
+            Button(T("Back")) { dismiss() }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("lostBackButton")
         }
     }
 
@@ -208,9 +230,17 @@ struct JobView: View {
                         .font(Theme.small).monospacedDigit().foregroundStyle(Theme.grey)
                 }
             }
-            if let audioProblem {
+            if audioLoading {
+                Text(T("Loading the audio.")).font(Theme.small).foregroundStyle(Theme.grey)
+            } else if let audioProblem {
                 Text(audioProblem).font(Theme.small).foregroundStyle(Theme.white)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("audioProblem")
+                if !player.isReady {
+                    Button(T("Try again")) { Task { await loadAudio() } }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("audioRetryButton")
+                }
             } else if !player.isReady {
                 Text(T("Loading the audio.")).font(Theme.small).foregroundStyle(Theme.grey)
             }
@@ -234,12 +264,22 @@ struct JobView: View {
                 .textSelection(.enabled)
             Text(T("Emphasis on pauses")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             Picker(T("Emphasis"), selection: Binding(
-                get: { job.emphasis ?? "none" },
+                get: { pendingEmphasis ?? job.emphasis ?? "none" },
                 set: { level in Task { await changeEmphasis(level) } })
             ) {
                 ForEach(VoiceOptions.emphases, id: \.self) { Text(T($0.capitalized)).tag($0) }
             }
             .pickerStyle(.segmented)
+            .disabled(pendingEmphasis != nil)
+            .accessibilityIdentifier("emphasisPicker")
+            if pendingEmphasis != nil {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small).tint(Theme.black)
+                    Text(T("Reading it again with the new emphasis."))
+                        .font(Theme.small).foregroundStyle(Theme.black)
+                }
+                .accessibilityIdentifier("emphasisBusy")
+            }
         }
         .card(fill: Theme.white)
     }
@@ -273,7 +313,12 @@ struct JobView: View {
                 // One dropped check is not a failure, as on the website: keep checking.
                 misses += 1
                 let wrapped = APIError.wrap(error)
-                if misses >= 5 || wrapped.kind == .sessionExpired || wrapped.status == 404 {
+                if wrapped.status == 404 {
+                    // Gone for good: say so, with a way back, not a retry that fails again.
+                    lost = true
+                    return
+                }
+                if misses >= 5 || wrapped.kind == .sessionExpired {
                     problem = state.report(error)
                     return
                 }
@@ -291,6 +336,9 @@ struct JobView: View {
     }
 
     private func changeEmphasis(_ level: String) async {
+        guard pendingEmphasis == nil else { return }
+        pendingEmphasis = level
+        defer { pendingEmphasis = nil }
         do {
             try await state.api.setEmphasis(jobId: jobId, emphasis: level)
             await reloadAfterChange()
@@ -301,6 +349,8 @@ struct JobView: View {
 
     private func loadAudio() async {
         audioProblem = nil
+        audioLoading = true
+        defer { audioLoading = false }
         do {
             let url = try await state.api.playbackAudio(jobId: jobId)
             if !player.load(url: url) {

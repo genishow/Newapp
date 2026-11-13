@@ -156,6 +156,9 @@ struct MatchResult: Codable, Equatable {
     var matched: Int?
     var pendingLabels: Int?
     var beats: [Beat]?
+    /// "Place all my clips": how many were placed, and a sentence about the rest.
+    var placed: Int?
+    var note: String?
 }
 
 struct BeatsResult: Codable, Equatable {

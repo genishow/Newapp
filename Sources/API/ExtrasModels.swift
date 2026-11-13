@@ -21,6 +21,15 @@ struct ScriptOptions: Equatable {
     var fromIdea = false
     /// Keep the source's own order and wording, as the website's "Faithful mode" does.
     var faithful = false
+    /// Rewrite even when the text is already in the output language. Without it the
+    /// server hands the same text back unchanged.
+    var force = false
+
+    /// True when the text is already in the language the script will be written in.
+    static func sameLanguage(_ text: String, as language: Lang) -> Bool {
+        let kind = TextKind.detect(text)
+        return language == .en ? kind == .english : kind == .amharic
+    }
 
     static let lengths: [Int] = [15, 30, 45, 60, 90, 120, 180, 240, 300, 420, 600]
 
@@ -40,6 +49,7 @@ struct ScriptOptions: Equatable {
                 f["mode"] = "faithful"
             }
             if let targetSec { f["target_sec"] = min(600, max(15, targetSec)) }
+            if force { f["force"] = true }
         }
         return f
     }

@@ -187,6 +187,31 @@ struct NoteText: View {
     }
 }
 
+/// A clear way to put the keyboard away, shown in the page while a field is in use.
+/// The keyboard's own Done bar does not always show on a device.
+struct KeyboardDoneButton: View {
+    var id = "hideKeyboardButton"
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "keyboard.chevron.compact.down")
+                Text(T("Done"))
+            }
+            .font(Theme.smallMedium).foregroundStyle(Theme.black)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 40)
+            .background(Capsule().fill(Theme.lime))
+            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+}
+
 /// Amharic text with the looser line spacing it needs.
 struct AmharicText: View {
     let text: String

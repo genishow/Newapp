@@ -136,3 +136,56 @@ enum DemoRules {
         return "≈ \(Int((Double(syl) / 7.17).rounded()))s of the ~15s demo"
     }
 }
+
+/// Reading time and voiceover price, by the website's own formulas (studio page).
+enum ScriptMath {
+    /// English: 2.2 words a second. Amharic: syllables / 7.87 * 1.12.
+    static func seconds(_ script: String, language: Lang) -> Double {
+        if language == .en {
+            let words = script.split(whereSeparator: { $0.isWhitespace }).count
+            return words > 0 ? Double(words) / 2.2 : 0
+        }
+        let syllables = TextKind.ethiopicLetterCount(script)
+        return syllables > 0 ? Double(syllables) / 7.87 * 1.12 : 0
+    }
+
+    /// The server's estimate: engine time at 5.3 times the audio, plus overhead, times
+    /// four, in half credits, never under half a credit. The real charge follows the job.
+    static func voiceCredits(seconds: Double) -> Double {
+        guard seconds > 0 else { return 1 }
+        let cost = seconds * 5.3 * 0.000164 + 0.03
+        return max(0.5, (cost * 4 / 0.155 * 2).rounded(.up) / 2)
+    }
+
+    /// What is left after this voiceover, to one decimal and never under zero.
+    static func balanceAfter(balance: Double, credits: Double) -> Double {
+        max(0, ((balance - credits) * 10).rounded() / 10)
+    }
+}
+
+/// The free trial voices a limited script at a time. `trialMaxChars` is nil once the
+/// account has paid, and then there is no limit here.
+enum TrialRule {
+    /// The English cap, in words (EN_TRIAL_MAX_WORDS on the server and the website).
+    static let maxWordsEnglish = 260
+
+    static func words(_ script: String) -> Int {
+        script.split(whereSeparator: { $0.isWhitespace }).count
+    }
+
+    static func isOver(_ script: String, language: Lang, trialMaxChars: Int?) -> Bool {
+        guard let limit = trialMaxChars else { return false }
+        if language == .en { return words(script) > maxWordsEnglish }
+        return TextKind.ethiopicLetterCount(script) > limit
+    }
+
+    /// The website's sentence for a script over the trial limit. Nil when it fits.
+    static func problem(_ script: String, language: Lang, trialMaxChars: Int?) -> String? {
+        guard let limit = trialMaxChars,
+              isOver(script, language: language, trialMaxChars: trialMaxChars) else { return nil }
+        if language == .en {
+            return "Your free credits voice up to \(maxWordsEnglish) English words at a time, about two minutes. This script is \(words(script)). Split it into two, or pick a plan for full-length scripts."
+        }
+        return "Your free credits voice up to \(limit) Amharic characters at a time, about two minutes. This script is \(TextKind.ethiopicLetterCount(script)). Split it into two, or pick a plan for full-length scripts."
+    }
+}

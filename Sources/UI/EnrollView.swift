@@ -29,6 +29,9 @@ struct EnrollView: View {
     @State private var voiceName = ""
     @State private var savedName: String?
     @State private var savingName = false
+    // A second voice is added but not switched to, so the switch is offered here.
+    @State private var activating = false
+    @State private var madeActive = false
     @FocusState private var nameFocused: Bool
 
     static let policyURL = URL(string: "https://kinbir.com/voice-policy")!
@@ -311,6 +314,7 @@ struct EnrollView: View {
                 }
                 if let voiceId = result.voiceId, !voiceId.isEmpty {
                     namePart(voiceId: voiceId)
+                    activePart(result, voiceId: voiceId)
                 }
             } else {
                 Text(T("Submitted, pending review")).screenTitle()
@@ -349,6 +353,51 @@ struct EnrollView: View {
             ForEach(result.advice ?? [], id: \.self) { line in
                 NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
             }
+        }
+    }
+
+    /// Says which voice the next voiceover will use. A first voice is in use at once; a
+    /// second one waits until the user switches to it.
+    @ViewBuilder private func activePart(_ result: EnrollResult, voiceId: String) -> some View {
+        if madeActive {
+            Text(T("This voice is now in use."))
+                .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                .accessibilityIdentifier("voiceNowActive")
+        } else if result.active == false {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(Tf("Your voiceovers still use \"%@\". The new voice is saved, and you can switch to it now or later in My voices.", currentVoiceName))
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("voiceInUseNote")
+                Button {
+                    Task { await useNow(voiceId: voiceId) }
+                } label: {
+                    BusyLabel(title: T("Use this voice now"), busy: activating)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(activating)
+                .accessibilityIdentifier("useVoiceNowButton")
+            }
+            .card(fill: Theme.grey, padding: 14)
+        }
+    }
+
+    private var currentVoiceName: String {
+        let name = (state.activeVoice?.name ?? "").trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? T("My voice") : name
+    }
+
+    private func useNow(voiceId: String) async {
+        guard !activating else { return }
+        activating = true
+        problem = nil
+        defer { activating = false }
+        do {
+            try await state.api.activateVoice(id: voiceId)
+            await state.refresh()
+            madeActive = true
+        } catch {
+            problem = state.report(error)
         }
     }
 
