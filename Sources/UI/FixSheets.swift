@@ -33,6 +33,28 @@ struct WordFixSheet: View {
     @State private var clips: [String: URL] = [:]
     @State private var playingKey: String?
 
+    private enum Way { case none, type, say }
+    @State private var way: Way = .none
+
+    private func otherWay(_ value: Way, icon: String, title: String) -> some View {
+        Button {
+            Haptics.tap()
+            way = (way == value) ? .none : value
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 14, weight: .bold))
+                Text(title).font(Theme.smallMedium).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.black)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Capsule().fill(way == value ? Theme.lime : Theme.white))
+            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1.5))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(value == .type ? "fixWayType" : "fixWaySay")
+    }
+
     private enum Ear { case idle, recording, matching }
     @State private var ear: Ear = .idle
     @State private var earMatches: [ByEarMatch] = []
@@ -58,8 +80,21 @@ struct WordFixSheet: View {
                     }
 
                     suggestions
-                    sayIt
-                    typeIt
+
+                    // One thing at a time: the suggestions first, and the two other ways
+                    // open only when asked for.
+                    if loaded {
+                        HStack(spacing: 10) {
+                            otherWay(.type, icon: "keyboard", title: T("Type it my way"))
+                            otherWay(.say, icon: "mic.fill", title: T("Say it myself"))
+                        }
+                    }
+                    if way == .type || (loaded && options.isEmpty && way == .none) {
+                        typeIt
+                    }
+                    if way == .say {
+                        sayIt
+                    }
 
                     if marked {
                         Button(T("Unmark")) { onUnmark() }
@@ -85,13 +120,9 @@ struct WordFixSheet: View {
         }
         .tint(Theme.black)
         .task { await open() }
-        // A typed spelling is prepared after a short pause, so play is quick.
-        .task(id: typed) {
-            guard typed.count >= 3 else { return }
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            if Task.isCancelled { return }
-            _ = try? await state.api.fixPreview(word: target.word, optionId: nil, custom: typed)
-        }
+        // A typed spelling is only made when play is tapped. Making one for every pause in
+        // typing put half-typed words in line ahead of the finished one, which made the wait
+        // longer and could cost a credit each.
         .onDisappear {
             player.stop()
             _ = recorder.stop()
@@ -151,8 +182,7 @@ struct WordFixSheet: View {
     /// "Or say it yourself": say the word, and the closest readings are listed best first.
     @ViewBuilder private var sayIt: some View {
         VStack(alignment: .leading, spacing: 8) {
-            eyebrow(T("Or say it yourself"))
-            NoteText(text: T("Say the word once, naturally, the way it sounds inside a sentence. The video always keeps the cloned voice, never your recording."))
+            NoteText(text: T("Say the word once, naturally. The video keeps the cloned voice, never your recording."))
             Button {
                 Task { await toggleEar() }
             } label: {
@@ -198,8 +228,7 @@ struct WordFixSheet: View {
     /// "Not right? Type it your way": a field with its own play button, then Use.
     @ViewBuilder private var typeIt: some View {
         VStack(alignment: .leading, spacing: 8) {
-            eyebrow(options.isEmpty ? T("Type how it should sound") : T("Not right? Type it your way"))
-            NoteText(text: T("Spell it however it sounds to you. Press play to hear it. Double a letter to hold it longer."))
+            NoteText(text: T("Spell it how it sounds. Double a letter to hold it longer."))
             HStack(spacing: 10) {
                 TextField(T("e.g. gebboch"), text: $custom)
                     .textInputAutocapitalization(.never)
