@@ -74,6 +74,14 @@ struct VideoFlowView: View {
     @StateObject private var musicPlayer = AudioPlayer()
 
     private var emptyShots: [Beat] { beats.filter { $0.isEmpty } }
+
+    /// The shot before or after this one, skipping music breaks.
+    private func neighbour(of beat: Beat, step: Int) -> Int? {
+        let shots = beats.filter { $0.needsFootage }
+        guard let i = shots.firstIndex(where: { $0.beat == beat.beat }) else { return nil }
+        let j = i + step
+        return shots.indices.contains(j) ? shots[j].beat : nil
+    }
     private var planJobKey: String { "planjob." + jobId }
 
     var body: some View {
@@ -133,7 +141,8 @@ struct VideoFlowView: View {
             }
         }
         .sheet(item: $picking) { beat in
-            ShotSheet(planId: planId ?? "", beat: beat, uploads: uploads, shape: shape) {
+            ShotSheet(planId: planId ?? "", beat: beat, uploads: uploads, shape: shape,
+                      previous: neighbour(of: beat, step: -1), next: neighbour(of: beat, step: 1)) {
                 picking = nil
                 Task { await reloadPlan() }
             }
@@ -358,8 +367,9 @@ struct VideoFlowView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(Tf("%@ shots need footage", "\(emptyShots.count)"))
                         .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                    Text(T("Tap a shot to search with other words, or add your own clips."))
-                        .font(Theme.small).foregroundStyle(Theme.muted)
+                    Button(T("Find footage for the empty shots")) { Task { await autofill() } }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("autofillButton")
                 }
                 .card(fill: Theme.grey, padding: 14)
             }
@@ -415,6 +425,15 @@ struct VideoFlowView: View {
             if !emptyShots.isEmpty {
                 NoteText(text: T("Every shot needs footage before the video can be made."))
             }
+
+            Button(T("Start a new shot list")) {
+                planId = nil
+                beats = []
+                stage = .setup
+            }
+            .buttonStyle(QuietButtonStyle())
+            .disabled(starting || working != nil)
+            .accessibilityIdentifier("newShotListButton")
         }
     }
 
@@ -572,8 +591,7 @@ struct VideoFlowView: View {
             working = T("Placing your clips.")
             for _ in 0..<30 {
                 do {
-                    let match = try await state.api.matchOwnClips(planId: planId,
-                                                                  fill: source == .own || stockLimited)
+                    let match = try await state.api.matchOwnClips(planId: planId, fill: source == .own)
                     if (match.pendingLabels ?? 0) == 0 { break }
                     try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 8) * 1_000_000_000))
                 } catch {
@@ -583,7 +601,47 @@ struct VideoFlowView: View {
             }
         }
         await reloadPlan()
+        await preferRightShape()
         working = nil
+    }
+
+    /// When the clip in use has the wrong shape and one with the right shape was found,
+    /// the right one is put in use. The other stays in the list to pick by hand.
+    private func preferRightShape() async {
+        guard let planId else { return }
+        var changed = false
+        for beat in beats where beat.needsFootage {
+            guard let chosen = beat.chosen, !chosen.isOwn, !chosen.fits(shape),
+                  let better = beat.candidates?.first(where: { $0.fits(shape) }) else { continue }
+            if (try? await state.api.chooseClip(planId: planId, beat: beat.beat, clipId: better.clipId)) != nil {
+                changed = true
+            }
+        }
+        if changed { await reloadPlan() }
+    }
+
+    /// The website's "Find footage for all empty shots". Free.
+    private func autofill() async {
+        guard let planId else { return }
+        problem = nil
+        working = T("Finding footage for the empty shots.")
+        defer { working = nil }
+        do {
+            let submit = try await state.api.autofill(planId: planId)
+            for _ in 0..<90 {
+                let job = try await state.api.planJob(id: submit.jobId)
+                if job.status == "done" { break }
+                if job.status == "failed" {
+                    problem = job.error.map(APIError.sentenceCase) ?? T("No footage was found. Try your own words on each shot.")
+                    break
+                }
+                try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
+            }
+            await reloadPlan()
+            await preferRightShape()
+        } catch {
+            problem = state.report(error)
+        }
     }
 
     private func reloadPlan() async {
@@ -671,6 +729,8 @@ struct ShotRow: View {
                         Pill(text: T("Needs footage"), fill: Theme.white)
                     } else if beat.chosen?.isOwn == true {
                         Pill(text: T("Yours"))
+                    } else if let chosen = beat.chosen, !chosen.fits(shape), let label = chosen.aspectLabel {
+                        Pill(text: label, fill: Theme.white)
                     }
                 }
                 Text(beat.says ?? beat.mustShow ?? "")
@@ -685,47 +745,66 @@ struct ShotRow: View {
     }
 }
 
-/// A clip's picture. Stock clips have one; the user's own clips show a film mark.
+/// A clip's picture, cropped to fill the frame it is given. Stock clips have one; the
+/// user's own clips show a film mark.
 struct ClipThumb: View {
     let candidate: Candidate?
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.grey)
-            if let url = candidate?.posterURL {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    ProgressView().tint(Theme.black)
+        // The picture is an overlay of a box with a fixed size, so a wide picture is cropped
+        // to the box instead of spilling out of it.
+        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.grey)
+            .overlay {
+                if let url = candidate?.posterURL {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        ProgressView().tint(Theme.black)
+                    }
+                } else {
+                    Image(systemName: candidate == nil ? "questionmark" : "film")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(Theme.muted)
                 }
-            } else {
-                Image(systemName: candidate == nil ? "questionmark" : "film")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(Theme.muted)
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(Theme.black, lineWidth: 1))
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: 1))
     }
 }
 
-/// Change one shot: pick another clip, search with other words, or use your own clip.
+/// Change one shot the way the website lets you: watch a clip before using it, find
+/// different clips, search with your own words, use your own clip, remove the clip,
+/// move the shot, split it or merge it.
 struct ShotSheet: View {
     @EnvironmentObject private var state: AppState
     let planId: String
     @State var beat: Beat
     let uploads: [UploadMeta]
     var shape: Shape = .portrait
+    /// The shots before and after this one, for Move earlier / Move later.
+    var previous: Int?
+    var next: Int?
     let onClose: () -> Void
 
     @State private var query = ""
     @State private var busy = false
     @State private var problem: String?
     @State private var note: String?
+    /// The clip being watched. It is only used when "Use this clip" is tapped.
+    @State private var watching: Candidate?
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
                            GridItem(.flexible(), spacing: 12)]
+
+    /// Clips in the video's shape first; the other shape after them, marked.
+    private var clips: [Candidate] {
+        let list = beat.candidates ?? []
+        return list.filter { $0.fits(shape) } + list.filter { !$0.fits(shape) }
+    }
+
+    private var shown: Candidate? { watching ?? beat.chosen }
 
     var body: some View {
         NavigationStack {
@@ -741,23 +820,41 @@ struct ShotSheet: View {
                         ProblemCard(message: problem)
                     }
 
-                    if let link = beat.chosen?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
+                    if let link = shown?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
                         LoopingPreview(url: url, shape: shape).id(link)
                     }
+                    if let watching, watching.clipId != beat.chosen?.clipId {
+                        Button {
+                            Task { await choose(watching) }
+                        } label: {
+                            BusyLabel(title: T("Use this clip"), busy: busy)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(busy)
+                        .accessibilityIdentifier("useClipButton")
+                    }
 
-                    if let list = beat.candidates, !list.isEmpty {
-                        Text(T("Tap a clip to use it")).font(Theme.smallMedium)
-                            .foregroundStyle(Theme.black)
+                    if !clips.isEmpty {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(Array(list.enumerated()), id: \.element.id) { index, clip in
+                            ForEach(Array(clips.enumerated()), id: \.element.id) { index, clip in
                                 Button {
-                                    Task { await choose(clip) }
+                                    Haptics.tap()
+                                    watching = clip
                                 } label: {
                                     ClipThumb(candidate: clip)
                                         .aspectRatio(shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0, contentMode: .fit)
                                         .overlay(alignment: .topLeading) {
-                                            if index == 0 { Pill(text: T("In use")).padding(4) }
+                                            if clip.clipId == beat.chosen?.clipId {
+                                                Pill(text: T("In use")).padding(4)
+                                            }
                                         }
+                                        .overlay(alignment: .bottomTrailing) {
+                                            if !clip.fits(shape), let label = clip.aspectLabel {
+                                                Pill(text: label, fill: Theme.white).padding(4)
+                                            }
+                                        }
+                                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .strokeBorder(Theme.black, lineWidth: shown?.clipId == clip.clipId ? 3 : 0))
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(busy)
@@ -770,21 +867,30 @@ struct ShotSheet: View {
                             .card(fill: Theme.grey, padding: 14)
                     }
 
+                    Button {
+                        Task { await search(words: "") }
+                    } label: {
+                        BusyLabel(title: T("Find different clips"), busy: busy)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(busy)
+                    .accessibilityIdentifier("findDifferentButton")
+
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(T("Search with other words")).font(Theme.smallMedium)
+                        Text(T("Say what this shot should show")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
-                        TextField(beat.query ?? T("For example: coffee cup"), text: $query)
-                            .textInputAutocapitalization(.never)
-                            .field()
-                            .accessibilityIdentifier("shotQueryField")
-                        Button {
-                            Task { await search() }
-                        } label: {
-                            BusyLabel(title: T("Search stock footage"), busy: busy)
+                        HStack(spacing: 8) {
+                            TextField(beat.query ?? T("For example: coffee cup"), text: $query)
+                                .textInputAutocapitalization(.never)
+                                .field()
+                                .accessibilityIdentifier("shotQueryField")
+                            Button(T("Search")) {
+                                Task { await search(words: query.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                            }
+                            .buttonStyle(QuietButtonStyle())
+                            .disabled(busy || query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .accessibilityIdentifier("shotSearchButton")
                         }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .disabled(busy)
-                        .accessibilityIdentifier("shotSearchButton")
                         if let note { NoteText(text: note) }
                     }
 
@@ -810,6 +916,8 @@ struct ShotSheet: View {
                             .disabled(busy)
                         }
                     }
+
+                    tools
                 }
                 .page()
             }
@@ -825,42 +933,79 @@ struct ShotSheet: View {
         .tint(Theme.black)
     }
 
-    private func choose(_ clip: Candidate) async {
-        guard clip.clipId != beat.chosen?.clipId else {
-            onClose()
-            return
+    /// The website's shot tools.
+    private var tools: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Shot tools")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            ChipRow {
+                if let previous {
+                    Chip(title: "↑ " + T("Move earlier")) { Task { await tool("swap", with: previous) } }
+                }
+                if let next {
+                    Chip(title: "↓ " + T("Move later")) { Task { await tool("swap", with: next) } }
+                }
+                Chip(title: T("Split in two")) { Task { await tool("split", with: nil) } }
+                if next != nil {
+                    Chip(title: T("Merge with next")) { Task { await tool("merge", with: nil) } }
+                }
+                if beat.chosen != nil {
+                    Chip(title: T("Remove clip")) { Task { await tool("clear", with: nil) } }
+                }
+            }
+            .disabled(busy)
         }
+        .accessibilityIdentifier("shotTools")
+    }
+
+    private func choose(_ clip: Candidate) async {
         busy = true
         problem = nil
         defer { busy = false }
         do {
             try await state.api.chooseClip(planId: planId, beat: beat.beat, clipId: clip.clipId)
+            Haptics.success()
             onClose()
         } catch {
-            problem = state.report(error)
+            let wrapped = APIError.wrap(error)
+            if wrapped.status == 404 {
+                // The list changed on the server. Show the fresh one, as the website does.
+                await refresh()
+                watching = nil
+                problem = T("The clips changed. Pick again.")
+            } else {
+                problem = state.report(error)
+            }
         }
     }
 
-    private func search() async {
+    private func refresh() async {
+        if let fresh = try? await state.api.plan(id: planId).beats?.first(where: { $0.beat == beat.beat }) {
+            beat = fresh
+        }
+    }
+
+    private func search(words: String) async {
         busy = true
         problem = nil
         note = nil
         defer { busy = false }
         do {
-            let words = query.trimmingCharacters(in: .whitespacesAndNewlines)
             let result = try await state.api.searchFootage(planId: planId, shape: nil,
                                                            beat: beat.beat, query: words)
             if result.stockLimited {
                 note = T("Stock footage is not available right now. Use one of your own clips, or try again in a few minutes.")
                 return
             }
-            if let fresh = try await state.api.plan(id: planId).beats?.first(where: { $0.beat == beat.beat }) {
+            if let fresh = result.beats?.first(where: { $0.beat == beat.beat }) {
                 beat = fresh
+            } else {
+                await refresh()
             }
+            watching = nil
             if beat.candidates?.isEmpty != false {
                 note = T("Nothing found. Try simpler words, like one object or place.")
             } else if beat.exhausted == true {
-                note = T("No new clips for those words. Try different words.")
+                note = T("No new clips. Try your own words.")
             }
         } catch {
             problem = state.report(error)
@@ -873,6 +1018,20 @@ struct ShotSheet: View {
         defer { busy = false }
         do {
             _ = try await state.api.useUpload(planId: planId, beat: beat.beat, uploadId: upload.uploadId)
+            onClose()
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    /// Shots can be renumbered by these, so the sheet closes and the list is loaded again.
+    private func tool(_ action: String, with other: Int?) async {
+        busy = true
+        problem = nil
+        defer { busy = false }
+        do {
+            _ = try await state.api.shotTool(planId: planId, beat: beat.beat, action: action, withBeat: other)
+            Haptics.tap()
             onClose()
         } catch {
             problem = state.report(error)

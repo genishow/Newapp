@@ -484,6 +484,33 @@ extension MockAPI {
         video.beats[i].candidates = list
     }
 
+    func shotTool(planId: String, beat: Int, action: String, withBeat: Int?) async throws -> [Beat] {
+        await pause()
+        guard let i = video.beats.firstIndex(where: { $0.beat == beat }) else { return video.beats }
+        switch action {
+        case "clear":
+            video.beats[i].candidates = []
+        case "swap":
+            if let other = withBeat, let j = video.beats.firstIndex(where: { $0.beat == other }) {
+                let mine = video.beats[i].candidates
+                video.beats[i].candidates = video.beats[j].candidates
+                video.beats[j].candidates = mine
+            }
+        default:
+            break
+        }
+        return video.beats
+    }
+
+    func autofill(planId: String) async throws -> PlanSubmit {
+        await pause()
+        for i in video.beats.indices where video.beats[i].candidates?.isEmpty != false {
+            video.beats[i].candidates = [MockAPI.stockClip(700 + i)]
+        }
+        video.planPolls = 2
+        return PlanSubmit(jobId: "fill-mock", status: "queued", creditsEstimated: nil)
+    }
+
     func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult {
         await pause()
         guard !video.uploads.isEmpty else {

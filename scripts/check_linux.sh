@@ -25,4 +25,4 @@ PKGEOF
 
 docker run --rm -v "$PWD":/src -w /src swift:6.0-noble bash -c \
   'swiftc -frontend -parse $(find Sources Tests UITests -name "*.swift") && echo "All files parse"'
-docker run --rm -v "$PKG":/pkg -w /pkg swift:6.0-noble swift test 2>&1 | tail -5
+docker run --rm -v "$PKG":/pkg -w /pkg swift:6.0-noble swift test 2>&1 | grep -E "error:|Executed" | tail -12

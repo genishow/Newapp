@@ -70,6 +70,12 @@ protocol KinbirAPI: AnyObject {
     /// One slice of the stock search. Pass `beat` to search a single shot again.
     func searchFootage(planId: String, shape: Shape?, beat: Int?, query: String?) async throws -> SearchResult
     func chooseClip(planId: String, beat: Int, clipId: Int) async throws
+    /// The website's shot tools: "clear" (remove the clip), "split", "merge" (with the next
+    /// shot) and "swap" (trade places with `withBeat`). Shots may be renumbered, so the
+    /// whole new list comes back.
+    func shotTool(planId: String, beat: Int, action: String, withBeat: Int?) async throws -> [Beat]
+    /// Looks for footage for every empty shot. Free. Poll the job with `planJob(id:)`.
+    func autofill(planId: String) async throws -> PlanSubmit
     /// Places the user's own clips on the shots.
     func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult
     func useUpload(planId: String, beat: Int, uploadId: String) async throws -> [Beat]

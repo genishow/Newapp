@@ -30,8 +30,22 @@ struct Candidate: Codable, Identifiable, Equatable {
     var desc: String?
     var author: String?
     var ownUpload: Bool?
+    var width: Int?
+    var height: Int?
+    /// True when nothing was found in the asked shape, so the other shape was offered.
+    var shapeFallback: Bool?
 
     var id: Int { clipId }
+    /// Whether the clip has the video's shape. A clip with no size given counts as fitting.
+    func fits(_ shape: Shape) -> Bool {
+        guard let width, let height, width > 0, height > 0 else { return shapeFallback != true }
+        return shape == .portrait ? height > width : width >= height
+    }
+    /// "9:16" or "16:9", when the size is known.
+    var aspectLabel: String? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return height > width ? "9:16" : "16:9"
+    }
     var isOwn: Bool { ownUpload == true }
     var posterURL: URL? {
         guard let poster, poster.hasPrefix("http") else { return nil }

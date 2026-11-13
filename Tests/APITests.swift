@@ -558,6 +558,36 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual((p["placements"] as? [String: Any])?["start"] as? Bool, true)
     }
 
+    func testClipShapeLikeTheWebsiteChips() throws {
+        let wide = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":1,"width":1920,"height":1080}"#.utf8))
+        let tall = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":2,"width":1080,"height":1920}"#.utf8))
+        let unknown = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":3}"#.utf8))
+        let fallback = try JSON.decoder.decode(Candidate.self, from: Data(#"{"clip_id":4,"shape_fallback":true}"#.utf8))
+        XCTAssertFalse(wide.fits(.portrait))
+        XCTAssertTrue(wide.fits(.landscape))
+        XCTAssertTrue(tall.fits(.portrait))
+        XCTAssertEqual(wide.aspectLabel, "16:9")
+        XCTAssertEqual(tall.aspectLabel, "9:16")
+        XCTAssertTrue(unknown.fits(.portrait), "a clip with no size given counts as fitting")
+        XCTAssertFalse(fallback.fits(.portrait))
+    }
+
+    func testShotToolsOnTheMockServer() async throws {
+        let api = MockAPI()
+        _ = try await api.planFootage(jobId: "j", shape: .portrait, source: .stock)
+        _ = try await api.searchFootage(planId: "bp-mock", shape: .portrait, beat: nil, query: nil)
+        let before = try await api.plan(id: "bp-mock").beats ?? []
+        guard before.count >= 2 else { return XCTFail("the mock plan has two shots") }
+        let swapped = try await api.shotTool(planId: "bp-mock", beat: before[0].beat, action: "swap",
+                                             withBeat: before[1].beat)
+        XCTAssertEqual(swapped[0].chosen?.clipId, before[1].chosen?.clipId, "the two shots trade footage")
+        let cleared = try await api.shotTool(planId: "bp-mock", beat: before[0].beat, action: "clear", withBeat: nil)
+        XCTAssertTrue(cleared[0].isEmpty)
+        _ = try await api.autofill(planId: "bp-mock")
+        let filled = try await api.plan(id: "bp-mock").beats ?? []
+        XCTAssertFalse(filled[0].isEmpty, "autofill finds footage for the empty shot")
+    }
+
     func testDecoding() throws {
         let none = try JSON.decoder.decode(AvatarInfo.self, from: Data(#"{"has_photo":false,"verified":false}"#.utf8))
         XCTAssertFalse(none.isReady)

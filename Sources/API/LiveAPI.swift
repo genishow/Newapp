@@ -257,6 +257,16 @@ extension LiveAPI {
         ]))
     }
 
+    func shotTool(planId: String, beat: Int, action: String, withBeat: Int?) async throws -> [Beat] {
+        var body: [String: Any] = ["plan_id": planId, "beat": beat, "action": action]
+        if let withBeat { body["with_beat"] = withBeat }
+        return try await decode(BeatsResult.self, builder.post("/broll/shot-length", body: body)).beats ?? []
+    }
+
+    func autofill(planId: String) async throws -> PlanSubmit {
+        try await decode(PlanSubmit.self, builder.post("/broll/autofill", body: ["plan_id": planId]))
+    }
+
     func matchOwnClips(planId: String, fill: Bool) async throws -> MatchResult {
         try await decode(MatchResult.self,
                          builder.post("/broll/match", body: ["plan_id": planId, "fill": fill]))

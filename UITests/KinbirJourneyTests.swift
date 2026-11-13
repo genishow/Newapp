@@ -213,7 +213,18 @@ final class KinbirJourneyTests: XCTestCase {
         // Open a shot and pick the other clip.
         el("shotRow-1").tap()
         waitFor("shotSheetHeading")
+        // Tapping a clip only shows it; "Use this clip" puts it in the video.
         waitFor("clip-1").tap()
+        waitFor("useClipButton").tap()
+        waitFor("shotsHeading")
+
+        // The website's shot tools are there, and moving a shot comes back to the list.
+        el("shotRow-1").tap()
+        waitFor("shotSheetHeading")
+        waitFor("findDifferentButton")
+        app.swipeUp()
+        waitFor("shotTools")
+        app.buttons["↓ Move later"].tap()
         waitFor("shotsHeading")
 
         // Render.
