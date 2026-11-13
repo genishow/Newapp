@@ -91,6 +91,8 @@ struct SpeedControl: View {
                     .accessibilityIdentifier("speedProblem")
             }
         }
+        // keeps the buttons inside findable on their own
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("speedControl")
         .confirmationDialog(asking.map { Tf("Read it %@?", title($0).lowercased()) } ?? "",
                             isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }),

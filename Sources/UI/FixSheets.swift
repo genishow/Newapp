@@ -415,6 +415,8 @@ struct WordFixSheet: View {
                 .card(fill: Theme.grey, padding: 10)
             }
         }
+        // keeps the buttons inside findable on their own
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fixTriedList")
     }
 

@@ -540,6 +540,8 @@ struct FixView: View {
                 .buttonStyle(QuietButtonStyle())
                 .accessibilityIdentifier("freshBackButton")
         }
+        // keeps the buttons inside findable on their own
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("freshCard")
     }
 
