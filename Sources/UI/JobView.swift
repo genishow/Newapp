@@ -203,7 +203,8 @@ struct JobView: View {
 
     private func playerCard(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Waveform(active: player.isPlaying, bars: 30, color: Theme.lime)
+            Waveform(active: player.isPlaying, bars: 30, color: Theme.lime,
+                     progress: player.isReady && player.duration > 0 ? player.position / player.duration : nil)
             HStack(spacing: 14) {
                 Button {
                     Haptics.tap()

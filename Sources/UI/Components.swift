@@ -445,17 +445,25 @@ struct Waveform: View {
     var active = true
     var bars = 24
     var color: Color = Theme.black
+    /// How much has played, 0 to 1. Bars past it are dimmed, as on the website's player.
+    var progress: Double?
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 0.12, paused: !active)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            HStack(alignment: .center, spacing: 3) {
+            // Every bar sits in an equal share of the width, so the bars always reach from
+            // one side of the card to the other.
+            HStack(alignment: .center, spacing: 0) {
                 ForEach(0..<bars, id: \.self) { i in
                     let wave = active ? abs(sin(t * 3.1 + Double(i) * 0.55)) * abs(sin(t * 1.3 + Double(i) * 0.21)) : 0.15
+                    let lit = progress.map { Double(i) / Double(max(bars, 1)) < $0 } ?? true
                     Capsule().fill(color)
+                        .opacity(lit ? 1 : 0.3)
                         .frame(width: 4, height: 8 + 34 * wave)
+                        .frame(maxWidth: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity)
             .frame(height: 44)
         }
         .accessibilityHidden(true)

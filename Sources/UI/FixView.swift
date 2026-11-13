@@ -18,6 +18,8 @@ struct FixView: View {
     @State private var pending: [PendingFix] = []
     @State private var loadFailed = false
     @State private var applying = false
+    @State private var batchStatus = "queued"
+    @State private var batchStarted = Date()
     @State private var batchId: String?
     @State private var problem: String?
     @State private var done = false
@@ -189,34 +191,53 @@ struct FixView: View {
 
     @ViewBuilder private var bottom: some View {
         if applying {
-            HStack(spacing: 10) {
-                ProgressView().tint(Theme.black)
-                Text(T("Recording your changes. This takes a minute or two.")).font(Theme.small)
-                    .foregroundStyle(Theme.black)
+            // What is happening, how long it has taken, and that it is safe to leave.
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.lime)
+                    Text(batchStage).font(Theme.bodyMedium).foregroundStyle(Theme.white)
+                        .accessibilityIdentifier("fixStage")
+                    Spacer()
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(Fmt.clock(context.date.timeIntervalSince(batchStarted)))
+                            .font(Theme.small).monospacedDigit().foregroundStyle(Theme.grey)
+                    }
+                }
+                Waveform(color: Theme.lime)
+                Text(T("Usually 1 to 3 minutes. You can leave this screen: it keeps going, and the new take will be here when you open this voiceover again from your Library."))
+                    .font(Theme.small).foregroundStyle(Theme.grey)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer()
                 Button(T("Stop")) { Task { await stopFixes() } }
-                    .buttonStyle(QuietButtonStyle())
+                    .font(Theme.smallMedium).foregroundStyle(Theme.lime)
+                    .accessibilityIdentifier("fixStopButton")
             }
-            .frame(minHeight: 52)
+            .card(fill: Theme.black, padding: 14)
         } else if job != nil {
+            // One button at a time: your changes when there are some, otherwise a fresh
+            // reading of the whole script.
             if !pending.isEmpty {
                 Button(Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")) {
                     Task { await applyFixes(whole: false) }
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("generateChangesButton")
-            }
-            Button(Tf("Generate the whole script (%@ sentences) · 1.5 credits", "\(sentences.count)")) {
-                Task { await applyFixes(whole: true) }
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(wholeTooLong)
-            .accessibilityIdentifier("generateWholeButton")
-            if wholeTooLong {
-                NoteText(text: FixView.tooLongNote).accessibilityIdentifier("wholeTooLongNote")
+            } else {
+                Button(Tf("Read the whole script again (%@ sentences) · 1.5 credits", "\(sentences.count)")) {
+                    Task { await applyFixes(whole: true) }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(wholeTooLong)
+                .accessibilityIdentifier("generateWholeButton")
+                if wholeTooLong {
+                    NoteText(text: FixView.tooLongNote).accessibilityIdentifier("wholeTooLongNote")
+                }
             }
         }
+    }
+
+    /// The step the server says it is on.
+    private var batchStage: String {
+        batchStatus == "running" ? T("Recording your changes") : T("Waiting for the voice engine")
     }
 
     // MARK: helpers
@@ -258,16 +279,19 @@ struct FixView: View {
     private func rememberBatch(_ id: String) {
         guard !Launch.isMock else { return }
         UserDefaults.standard.set(id, forKey: batchKey)
+        UserDefaults.standard.set(Date(), forKey: batchKey + ".at")
     }
 
     private func forgetBatch() {
         UserDefaults.standard.removeObject(forKey: batchKey)
+        UserDefaults.standard.removeObject(forKey: batchKey + ".at")
     }
 
     /// Picks up a batch that was started earlier and may still be recording.
     private func resumeBatch(loud: Bool) async {
         guard !applying, let id = storedBatch else { return }
         applying = true
+        batchStarted = UserDefaults.standard.object(forKey: batchKey + ".at") as? Date ?? Date()
         batchId = id
         defer { applying = false }
         do {
@@ -291,11 +315,13 @@ struct FixView: View {
     private func follow(_ first: FixBatch, id: String, sent: [PendingFix]) async {
         var batch = first
         var misses = 0
+        batchStatus = batch.status
         while !batch.isOver {
             try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
             if Task.isCancelled { return }
             do {
                 batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
+                batchStatus = batch.status
                 misses = 0
             } catch {
                 if Task.isCancelled { return }
@@ -410,6 +436,8 @@ struct FixView: View {
             await resumeBatch(loud: true)
             return
         }
+        batchStarted = Date()
+        batchStatus = "queued"
         applying = true
         problem = nil
         done = false
