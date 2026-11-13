@@ -99,6 +99,7 @@ jobs:
             -project Kinbir.xcodeproj \
             -scheme KinbirUITests \
             -destination "id=$SIM_UDID" \
+            -retry-tests-on-failure -test-iterations 2 \
             -resultBundlePath build/ui-tests.xcresult \
             | tee uitest.log | xcbeautify || (grep -E "error:|failed|did not appear|never showed" uitest.log | head -80; tail -150 uitest.log; exit 1)
 

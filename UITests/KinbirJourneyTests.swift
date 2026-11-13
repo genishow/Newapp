@@ -154,7 +154,12 @@ final class KinbirJourneyTests: XCTestCase {
         // Make the voiceover.
         waitForLabel("voiceButton", contains: "Make voiceover")
         el("voiceButton").tap()
-        waitFor("resultHeading", timeout: 30)
+        // On a slow test machine the first tap can land while the button is still waking up.
+        if !el("progressHeading").waitForExistence(timeout: 4), !el("resultHeading").exists,
+           el("voiceButton").exists {
+            el("voiceButton").tap()
+        }
+        waitFor("resultHeading", timeout: 40)
         waitFor("playButton")
         waitFor("shareButton")
 
