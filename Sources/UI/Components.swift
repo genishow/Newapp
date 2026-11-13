@@ -539,11 +539,22 @@ struct CreditsSheet: View {
 /// The title at the top of a screen: large, bold, with a short lime stroke under it,
 /// the way headings are marked on the Kinbir website.
 private struct ScreenTitle: ViewModifier {
+    var amharic: String?
+
     func body(content: Content) -> some View {
-        content
-            .font(Theme.title)
-            .foregroundStyle(Theme.black)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 2) {
+            content
+                .font(Theme.title)
+                .foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            if let amharic {
+                Text(amharic)
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityHidden(true)
+            }
+        }
             .padding(.bottom, 12)
             .overlay(alignment: .bottomLeading) {
                 Capsule().fill(Theme.lime)
@@ -555,5 +566,5 @@ private struct ScreenTitle: ViewModifier {
 }
 
 extension View {
-    func screenTitle() -> some View { modifier(ScreenTitle()) }
+    func screenTitle(amharic: String? = nil) -> some View { modifier(ScreenTitle(amharic: amharic)) }
 }

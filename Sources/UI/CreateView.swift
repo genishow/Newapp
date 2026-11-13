@@ -47,7 +47,7 @@ struct CreateView: View {
                     voiceHero
                 }
 
-                Text(T("What will you say?")).screenTitle()
+                Text(T("What will you say?")).screenTitle(amharic: A("What will you say?"))
 
                 editorCard
 
@@ -81,7 +81,7 @@ struct CreateView: View {
                     showMore = true
                 } label: {
                     OptionRow(icon: "slider.horizontal.3", title: T("More options"),
-                              detail: T("Improve the script, voiceover language, reading speed"))
+                              detail: nil)
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
@@ -520,7 +520,7 @@ struct WriteSheet: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(T("Write it for me")).screenTitle()
+            Text(T("Write it for me")).screenTitle(amharic: A("Write it for me"))
                 .accessibilityIdentifier("writerHeading")
             Text(T("Kinbir writes the script. You can change it afterwards."))
                 .font(Theme.body).foregroundStyle(Theme.muted)
@@ -547,7 +547,7 @@ struct WriteSheet: View {
     @ViewBuilder private func form(_ kind: WriteRequest.Kind) -> some View {
         switch kind {
         case .idea:
-            Text(T("What is the video about?")).screenTitle()
+            Text(T("What is the video about?")).screenTitle(amharic: A("What is the video about?"))
             TextField(T("For example: the history of Ethiopian coffee"), text: $input, axis: .vertical)
                 .lineLimit(3...6)
                 .padding(.vertical, 8)
@@ -575,7 +575,7 @@ struct WriteSheet: View {
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
             if !faithful { lengthRow }
         case .link:
-            Text(T("Paste the link")).screenTitle()
+            Text(T("Paste the link")).screenTitle(amharic: A("Paste the link"))
             TextField("https://", text: $input)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
@@ -654,7 +654,7 @@ struct MoreOptionsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(T("More options")).screenTitle()
+                    Text(T("More options")).screenTitle(amharic: A("More options"))
                         .accessibilityIdentifier("moreHeading")
 
                     if hasScript {
@@ -675,7 +675,6 @@ struct MoreOptionsSheet: View {
                                     .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                                     .accessibilityIdentifier("refineButton")
                             }
-                            NoteText(text: T("Each change costs about 1 credit. Undo brings the old script back."))
                         }
                     }
 
@@ -689,7 +688,6 @@ struct MoreOptionsSheet: View {
                         }
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("languagePicker")
-                        NoteText(text: T("The language the voice reads in. Your script must be in the same language."))
                     }
 
                     if language == .en {

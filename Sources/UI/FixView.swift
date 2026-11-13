@@ -25,7 +25,7 @@ struct FixView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(T("Fix the voiceover")).screenTitle()
+                Text(T("Fix the voiceover")).screenTitle(amharic: A("Fix the voiceover"))
                     .accessibilityIdentifier("fixScreenHeading")
 
                 HStack(spacing: 10) {

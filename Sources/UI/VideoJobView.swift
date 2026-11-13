@@ -25,11 +25,11 @@ struct VideoJobView: View {
             if let status, status.isDone {
                 done(status)
             } else if let status, status.status == "cancelled" {
-                Text(T("Stopped")).screenTitle()
+                Text(T("Stopped")).screenTitle(amharic: A("Stopped"))
                 NoteText(text: refundNote ?? T("The video was stopped and the credits were returned."))
                 editShotsButton(primary: true)
             } else if let status, status.status == "failed" {
-                Text(T("This one did not work")).screenTitle()
+                Text(T("This one did not work")).screenTitle(amharic: A("This one did not work"))
                 ProblemCard(message: status.error.map(APIError.sentenceCase)
                             ?? T("The video could not be made. Your credits were returned."))
                 editShotsButton(primary: true)
@@ -46,7 +46,7 @@ struct VideoJobView: View {
 
     private var rendering: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Making your video")).screenTitle()
+            Text(T("Making your video")).screenTitle(amharic: A("Making your video"))
                 .accessibilityIdentifier("videoProgressHeading")
             if problem == nil {
                 StepList(steps: [T("In line"), T("Putting the clips together"), T("Finishing")],
@@ -54,7 +54,7 @@ struct VideoJobView: View {
                          detail: clipDetail,
                          estimate: T("usually 2 to 5 minutes"))
             }
-            NoteText(text: T("This takes a few minutes. You can leave this screen. The video will be in your Library when it is ready."))
+            NoteText(text: T("You can leave this screen. It will be in your Library."))
 
             if let problem {
                 ProblemCard(message: problem)
@@ -82,7 +82,7 @@ struct VideoJobView: View {
 
     private func done(_ status: AssembleStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Your video")).screenTitle()
+            Text(T("Your video")).screenTitle(amharic: A("Your video"))
                 .accessibilityIdentifier("videoReadyHeading")
 
             if let player {

@@ -61,7 +61,7 @@ struct JobView: View {
 
     private var progress: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Composing your voiceover")).screenTitle()
+            Text(T("Composing your voiceover")).screenTitle(amharic: A("Composing your voiceover"))
                 .accessibilityIdentifier("progressHeading")
 
             if problem == nil {
@@ -91,7 +91,7 @@ struct JobView: View {
                 }
             }
 
-            NoteText(text: T("The first one of the day takes about 2 minutes longer. You can leave this screen. It will be in your Library."))
+            NoteText(text: T("You can leave this screen. It will be in your Library."))
 
             if let problem {
                 ProblemCard(message: problem)
@@ -106,7 +106,7 @@ struct JobView: View {
 
     private func failed(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("This one did not work")).screenTitle()
+            Text(T("This one did not work")).screenTitle(amharic: A("This one did not work"))
             ProblemCard(message: job.error.map(APIError.sentenceCase)
                         ?? T("Something went wrong on our side. Your credits were returned."))
             Button(T("Back to my script")) { dismiss() }
@@ -133,7 +133,7 @@ struct JobView: View {
             }
             .accessibilityHidden(true)
 
-            Text(T("Your voiceover")).screenTitle()
+            Text(T("Your voiceover")).screenTitle(amharic: A("Your voiceover"))
                 .accessibilityIdentifier("resultHeading")
 
             playerCard(job)
@@ -154,7 +154,6 @@ struct JobView: View {
             .disabled(sharing)
             .accessibilityIdentifier("shareButton")
 
-            NoteText(text: T("Kept for 48 hours. Save it if you need it later."))
 
             if job.isEnglish {
                 englishScript(job)
@@ -253,7 +252,6 @@ struct JobView: View {
                 ForEach(VoiceOptions.emphases, id: \.self) { Text(T($0.capitalized)).tag($0) }
             }
             .pickerStyle(.segmented)
-            NoteText(text: T("Free. The audio is updated at once."))
         }
         .card(fill: Theme.white)
     }

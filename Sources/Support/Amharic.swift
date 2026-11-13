@@ -8,16 +8,10 @@ enum UILanguage: String, CaseIterable, Identifiable {
 
     static let key = "kinbir.ui"
 
-    /// What is in use right now. UI tests always run in English.
-    static var current: UILanguage {
-        if Launch.isMock { return .en }
-        return UILanguage(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .am
-    }
-
-    /// False until the user has picked a language on first launch.
-    static var chosen: Bool {
-        Launch.isMock || UserDefaults.standard.string(forKey: key) != nil
-    }
+    /// The owner tried the all-Amharic interface and preferred English, with Amharic shown
+    /// small under the big titles. So the interface is English; the table below is kept for
+    /// those subtitles (and for a full Amharic interface later, if wanted).
+    static var current: UILanguage { .en }
 }
 
 /// Translates interface text. English is the key; an Amharic line is looked up when the
@@ -25,6 +19,11 @@ enum UILanguage: String, CaseIterable, Identifiable {
 func T(_ english: String) -> String {
     guard UILanguage.current == .am else { return english }
     return Amharic.table[english] ?? english
+}
+
+/// The Amharic for a piece of interface text, shown small under big English titles.
+func A(_ english: String) -> String? {
+    Amharic.table[english]
 }
 
 /// The same for text with values in it: `Tf("Shot %@", "3")`.

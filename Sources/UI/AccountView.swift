@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject private var state: AppState
-    @AppStorage(UILanguage.key) private var uiLanguage = UILanguage.am.rawValue
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -14,7 +13,7 @@ struct AccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Account")).screenTitle()
+                Text(T("Account")).screenTitle(amharic: A("Account"))
                     .accessibilityIdentifier("accountHeading")
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -50,16 +49,6 @@ struct AccountView: View {
                     Link(destination: URL(string: "mailto:support@kinbir.com")!) { rowLabel(T("Support")) }
                 }
                 .card(fill: Theme.white, padding: 4)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(T("Interface language")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                    Picker(T("Interface language"), selection: $uiLanguage) {
-                        ForEach(UILanguage.allCases) { Text($0.name).tag($0.rawValue) }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("uiLanguagePicker")
-                }
-                .card(fill: Theme.white, padding: 14)
 
                 Button(T("Sign out")) { state.signOut() }
                     .buttonStyle(SecondaryButtonStyle())
@@ -119,7 +108,7 @@ struct DeleteAccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Delete my account")).screenTitle()
+                Text(T("Delete my account")).screenTitle(amharic: A("Delete my account"))
                     .accessibilityIdentifier("deleteHeading")
 
                 Text(T("This removes your account, your voices, your scripts and any credits left. It cannot be undone."))

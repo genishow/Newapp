@@ -145,7 +145,7 @@ struct VideoFlowView: View {
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(T("Make a video")).screenTitle()
+            Text(T("Make a video")).screenTitle(amharic: A("Make a video"))
                 .accessibilityIdentifier("videoSetupHeading")
 
             // The one real choice: where the video will be watched.
@@ -312,7 +312,7 @@ struct VideoFlowView: View {
 
     private var planning: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Planning your video")).screenTitle()
+            Text(T("Planning your video")).screenTitle(amharic: A("Planning your video"))
                 .accessibilityIdentifier("planningHeading")
             if problem == nil {
                 StepList(steps: auto
@@ -322,7 +322,7 @@ struct VideoFlowView: View {
                          detail: working ?? T("Deciding what each shot should show."),
                          estimate: T("usually 1 to 3 minutes"))
             }
-            NoteText(text: T("This can take a few minutes. You can leave this screen and come back."))
+            NoteText(text: T("You can leave this screen and come back."))
             if let problem {
                 ProblemCard(message: problem)
                 Button(T("Check again")) {
@@ -338,7 +338,7 @@ struct VideoFlowView: View {
 
     private var shots: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Your shots")).screenTitle()
+            Text(T("Your shots")).screenTitle(amharic: A("Your shots"))
                 .accessibilityIdentifier("shotsHeading")
 
             if stockLimited && !emptyShots.isEmpty {
