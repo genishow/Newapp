@@ -607,6 +607,12 @@ extension LiveAPI {
         ]))
     }
 
+    func changePace(jobId: String, pace: String) async throws -> FixBatch {
+        try await decode(FixBatch.self, builder.post("/fix-word/apply", body: [
+            "job_id": jobId, "fixes": [[String: Any]](), "pace": pace,
+        ]))
+    }
+
     func fixCancel(jobId: String, batchId: String) async throws {
         _ = try await send(builder.post("/fix-word/apply/\(batchId)/cancel", body: ["job_id": jobId]))
     }

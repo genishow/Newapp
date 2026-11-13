@@ -211,6 +211,12 @@ struct JobStatus: Codable, Equatable {
     var fixedWords: [String]?
     /// The voice this voiceover was made with.
     var voiceId: String?
+    /// The reading speed of the current audio: slow, normal or fast.
+    var pace: String?
+    /// Speeds already recorded for this script. Switching to one is free and instant.
+    var pacesReady: [PaceTake]?
+    /// Credits to record the script at a speed not yet made.
+    var pacePrice: Double?
 
     var isEnglish: Bool { language == "en" }
     var isDone: Bool { status == "done" }
@@ -218,6 +224,11 @@ struct JobStatus: Codable, Equatable {
     var isRunning: Bool { status == "running" }
     /// The customer's own script, as the server keeps it for display.
     var scriptText: String { (segments ?? []).joined(separator: " ") }
+}
+
+struct PaceTake: Codable, Equatable {
+    let pace: String
+    var audioSec: Double?
 }
 
 struct DemoRef: Codable, Equatable {

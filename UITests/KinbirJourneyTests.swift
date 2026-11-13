@@ -290,6 +290,21 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("playButton")
     }
 
+    /// The speed can be changed after listening: a new speed asks first and shows its price,
+    /// and going back to the speed it was made at is free and at once.
+    func testChangeReadingSpeed() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("speedControl")
+        waitForLabel("speedNow", contains: "Normal")
+        waitFor("speed-fast").tap()
+        waitFor("speedConfirm").tap()
+        waitForLabel("speedNow", contains: "Faster", timeout: 20)
+        waitFor("speed-normal").tap()
+        waitForLabel("speedNow", contains: "Normal", timeout: 20)
+    }
+
     /// A typed spelling stays listed under the word, so it can be heard and used again.
     func testTypedSpellingIsRemembered() {
         launch()

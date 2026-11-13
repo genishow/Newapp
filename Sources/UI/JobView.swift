@@ -177,6 +177,10 @@ struct JobView: View {
             .disabled(sharing)
             .accessibilityIdentifier("shareButton")
 
+            // Change the speed after listening (D-440). The download keeps it.
+            SpeedControl(jobId: jobId, job: job, onChanged: { Task { await reloadAfterChange() } })
+                .card(fill: Theme.white, padding: 14)
+
             if job.isEnglish {
                 englishScript(job)
             } else if !(job.segments ?? []).isEmpty {

@@ -1045,15 +1045,21 @@ struct MoreOptionsSheet: View {
                         .accessibilityIdentifier("languagePicker")
                     }
 
+                    // Reading speed, for Amharic as well as English (D-440). Choosing
+                    // it here is free; changing it after costs a new reading.
+                    VStack(alignment: .leading, spacing: 10) {
+                        label(T("Speed"))
+                        Picker(T("Speed"), selection: $voice.pace) {
+                            Text(T("Slower")).tag("slow")
+                            Text(T("Normal")).tag("normal")
+                            Text(T("Faster")).tag("fast")
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("speedPicker")
+                    }
+
                     if language == .en {
                         VStack(alignment: .leading, spacing: 10) {
-                            label(T("Speed"))
-                            Picker(T("Speed"), selection: $voice.pace) {
-                                Text(T("Slower")).tag("slow")
-                                Text(T("Normal")).tag("normal")
-                                Text(T("Faster")).tag("fast")
-                            }
-                            .pickerStyle(.segmented)
                             label(T("Emphasis"))
                             Picker(T("Emphasis"), selection: $voice.emphasis) {
                                 Text(T("None")).tag("none")

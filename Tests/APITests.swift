@@ -648,11 +648,26 @@ final class ExtrasTests: XCTestCase {
     }
 
     func testVoiceOptions() {
-        XCTAssertTrue(VoiceOptions().fields.isEmpty, "Amharic sends no language, pace or emphasis")
+        let am = VoiceOptions(language: .am, pace: "slow", emphasis: "punchy").fields
+        XCTAssertEqual(am["pace"] as? String, "slow", "Amharic sends its speed")
+        XCTAssertNil(am["language"], "Amharic is the default language")
+        XCTAssertNil(am["emphasis"], "emphasis is English only")
         let en = VoiceOptions(language: .en, pace: "fast", emphasis: "punchy").fields
         XCTAssertEqual(en["language"] as? String, "en")
         XCTAssertEqual(en["pace"] as? String, "fast")
         XCTAssertEqual(en["emphasis"] as? String, "punchy")
+    }
+
+    func testChangePaceIsFreeForASpeedAlreadyMade() async throws {
+        let api = MockAPI()
+        let submit = try await api.generate(text: "ሰላም ነው።", draftId: nil,
+                                            voice: VoiceOptions(language: .am, pace: "normal"))
+        let first = try await api.changePace(jobId: submit.jobId, pace: "fast")
+        XCTAssertFalse(first.isOver, "a new speed is recorded")
+        let job = try await api.job(id: submit.jobId)
+        XCTAssertEqual(job.pace, "fast")
+        let back = try await api.changePace(jobId: submit.jobId, pace: "normal")
+        XCTAssertEqual(back.status, "done", "the speed it was made at comes straight back")
     }
 
     func testFixPayloads() {
@@ -736,6 +751,10 @@ final class ExtrasTests: XCTestCase {
         XCTAssertTrue(me.hasVoice, "an English voice is a voice")
         let job = try JSON.decoder.decode(JobStatus.self, from: Data(#"{"job_id":"j","status":"done","language":"en","emphasis":"punchy","fixed_words":[]}"#.utf8))
         XCTAssertTrue(job.isEnglish)
+        let paced = try JSON.decoder.decode(JobStatus.self, from: Data(#"{"job_id":"j","status":"done","pace":"slow","paces_ready":[{"pace":"normal","audio_sec":30.5}],"pace_price":3.5}"#.utf8))
+        XCTAssertEqual(paced.pace, "slow")
+        XCTAssertEqual(paced.pacesReady?.first?.pace, "normal")
+        XCTAssertEqual(paced.pacePrice, 3.5)
     }
 
     func testEnglishJourneyOnTheMockServer() async throws {

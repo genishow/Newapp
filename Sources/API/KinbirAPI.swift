@@ -56,6 +56,8 @@ protocol KinbirAPI: AnyObject {
     func fixByEarStatus(matchId: String) async throws -> ByEarResult
     /// All the queued changes in one go, for one flat price.
     func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch
+    /// Reads the whole script again at another speed. A speed already made comes back done.
+    func changePace(jobId: String, pace: String) async throws -> FixBatch
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch
     func fixCancel(jobId: String, batchId: String) async throws
     /// Wakes the voice engine so the next voiceover or word preview starts sooner. Free.

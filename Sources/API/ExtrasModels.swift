@@ -64,8 +64,9 @@ struct VoiceOptions: Equatable {
     var pace = "normal"
     var emphasis = "none"
 
+    /// Amharic sends its speed too (D-440); emphasis is English only.
     var fields: [String: Any] {
-        guard language == .en else { return [:] }
+        guard language == .en else { return ["pace": pace] }
         return ["language": "en", "pace": pace, "emphasis": emphasis]
     }
 }

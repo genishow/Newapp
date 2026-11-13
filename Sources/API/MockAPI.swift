@@ -214,7 +214,8 @@ final class MockAPI: KinbirAPI {
                                  segmentsTotal: 2, error: nil, audioSec: nil, segments: [text],
                                  creditsCharged: nil, creditsBalance: credits, brollPlanId: nil,
                                  language: voice.language.rawValue, emphasis: voice.emphasis,
-                                 fixedWords: [], voiceId: activeVoiceId)
+                                 fixedWords: [], voiceId: activeVoiceId,
+                                 pace: voice.pace, pacesReady: nil, pacePrice: 2.5)
             jobOrder.insert(id, at: 0)
             jobPolls[id] = 0
             return GenerateSubmit(jobId: id, status: "queued", segmentsTotal: 2,
@@ -427,6 +428,34 @@ extension MockAPI {
         video.appliedFixes.append(contentsOf: fixes)
         video.fixPolls["fx-1"] = 0
         return FixBatch(batchId: "fx-1", status: "queued", error: nil)
+    }
+
+    func changePace(jobId: String, pace: String) async throws -> FixBatch {
+        await pause()
+        guard var job = jobStore[jobId] else {
+            throw APIError(kind: .other, status: 404, message: "That voiceover is gone")
+        }
+        let ready = (job.pacesReady ?? []).contains { $0.pace == pace }
+        if !ready {
+            let price = job.pacePrice ?? 2.5
+            guard credits >= price else {
+                throw APIError(kind: .needsCredits, status: 402, message: "Not enough credits")
+            }
+            credits -= price
+        }
+        var takes = job.pacesReady ?? []
+        if !takes.contains(where: { $0.pace == (job.pace ?? "normal") }) {
+            takes.append(PaceTake(pace: job.pace ?? "normal", audioSec: job.audioSec))
+        }
+        if !takes.contains(where: { $0.pace == pace }) {
+            takes.append(PaceTake(pace: pace, audioSec: job.audioSec))
+        }
+        job.pace = pace
+        job.pacesReady = takes
+        jobStore[jobId] = job
+        let id = "pace-" + pace
+        video.fixPolls[id] = ready ? 5 : 0
+        return FixBatch(batchId: id, status: ready ? "done" : "queued", error: nil)
     }
 
     func fixCancel(jobId: String, batchId: String) async throws {
