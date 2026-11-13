@@ -52,16 +52,21 @@ struct CreateView: View {
 
                 editorCard
 
-                HStack(spacing: 10) {
+                VStack(spacing: 10) {
                     if language == .am {
-                        pill(icon: work == .listening ? "stop.fill" : "mic.fill",
-                             title: work == .listening ? T("Stop") : T("Speak"),
-                             id: "speakButton") {
+                        helper(icon: work == .listening ? "stop.fill" : "mic.fill",
+                               title: work == .listening ? T("Stop listening") : T("Speak instead of typing"),
+                               detail: work == .listening ? T("Kinbir is typing what you say.")
+                                                           : T("Talk in Amharic. Kinbir types it for you."),
+                               active: work == .listening,
+                               id: "speakButton") {
                             Task { await toggleSpeech() }
                         }
                         .disabled(busy && work != .listening)
                     }
-                    pill(icon: "sparkles", title: T("Write it for me"), id: "writeForMeButton") {
+                    helper(icon: "sparkles", title: T("Write it for me"),
+                           detail: T("From an idea, English text or a link."),
+                           active: false, id: "writeForMeButton") {
                         editing = false
                         showWriter = true
                     }
@@ -250,18 +255,36 @@ struct CreateView: View {
         }
     }
 
-    private func pill(icon: String, title: String, id: String,
-                      action: @escaping () -> Void) -> some View {
+    /// A way to fill the script box without typing: a round icon, what it does, and one
+    /// plain line about it. It turns lime while it is working.
+    private func helper(icon: String, title: String, detail: String, active: Bool, id: String,
+                        action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 15, weight: .semibold))
-                Text(title).font(Theme.bodyMedium).lineLimit(1).minimumScaleFactor(0.8)
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(active ? Theme.lime : Theme.black)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(active ? Theme.black : Theme.lime))
+                    .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text(detail).font(Theme.small).foregroundStyle(active ? Theme.black : Theme.muted)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if active {
+                    Waveform(bars: 6)
+                }
             }
-            .foregroundStyle(Theme.black)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(Capsule().fill(Theme.white))
-            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1.5))
-            .contentShape(Capsule())
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .fill(active ? Theme.lime : Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: 1.5))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
