@@ -24,6 +24,7 @@ struct CreateView: View {
     @State private var showWriter = false
     @State private var showMore = false
     @State private var showCredits = false
+    @AppStorage("kinbir.recentOpen") private var recentOpen = true
     @State private var keepProblem = false
     @StateObject private var recorder = SpeechRecorder()
     @FocusState private var editing: Bool
@@ -293,7 +294,24 @@ struct CreateView: View {
 
     private var recentList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(T("Recent scripts")).font(Theme.heading).foregroundStyle(Theme.black)
+            Button {
+                Haptics.tap()
+                withAnimation(.easeInOut(duration: 0.2)) { recentOpen.toggle() }
+            } label: {
+                HStack {
+                    Text(T("Recent scripts")).font(Theme.heading).foregroundStyle(Theme.black)
+                    Text("\(min(recent.count, 5))").font(Theme.smallMedium).foregroundStyle(Theme.muted)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.black)
+                        .rotationEffect(.degrees(recentOpen ? 180 : 0))
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("recentToggle")
+            if recentOpen {
             ForEach(recent.prefix(5)) { item in
                 Button {
                     beforeRewrite = text.isEmpty ? nil : text
@@ -310,8 +328,8 @@ struct CreateView: View {
                 .buttonStyle(.plain)
                 .disabled(busy)
             }
+            }
         }
-        .accessibilityIdentifier("recentList")
     }
 
     // MARK: work
