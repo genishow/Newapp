@@ -614,10 +614,46 @@ final class ExtrasTests: XCTestCase {
         XCTAssertNotEqual(FixEdit.rereadSentence(segment: 2).id, FixEdit.rereadSentence(segment: 3).id)
     }
 
-    func testWordsKeepPunctuationForDisplayButNotForTheServer() {
+    func testWordsAreRunsOfEthiopicLettersLikeTheWebsite() {
         let tokens = Words.tokens(in: "ሰላም፣ ለሁላችሁ። AI 2026")
-        XCTAssertEqual(tokens.map(\.shown), ["ሰላም፣", "ለሁላችሁ።", "AI", "2026"])
-        XCTAssertEqual(tokens.map(\.word), ["ሰላም", "ለሁላችሁ", "", ""], "only Ethiopic words can be fixed")
+        XCTAssertEqual(tokens.map(\.shown), ["ሰላም", "፣", "ለሁላችሁ", "።", "AI", "2026"])
+        XCTAssertEqual(tokens.map(\.word), ["ሰላም", "", "ለሁላችሁ", "", "", ""], "only Ethiopic words can be fixed")
+        XCTAssertEqual(tokens.map(\.spaceBefore), [false, false, true, false, true, true])
+        // No space between two words: the website still sees two words, not one merged word.
+        XCTAssertEqual(Words.tokens(in: "ነው።ስለዚህ ስነ-ልቦና").map(\.word), ["ነው", "", "ስለዚህ", "ስነ", "", "ልቦና"])
+    }
+
+    func testSentencesAndClausesLikeTheWebsite() {
+        let segments = ["ሰላም፣ እንዴት ናችሁ። ዛሬ ስለ ቡና እናወራለን።", "ቡና ከኢትዮጵያ ነው"]
+        XCTAssertEqual(Script.clauses(segments[0]).count, 3)
+        let sentences = Script.sentences(segments)
+        XCTAssertEqual(sentences.map(\.text), ["ሰላም፣ እንዴት ናችሁ።", "ዛሬ ስለ ቡና እናወራለን።", "ቡና ከኢትዮጵያ ነው"])
+        XCTAssertEqual(sentences.map(\.parts), [[0, 1], [2], [0]])
+        XCTAssertEqual(sentences.map(\.segment), [0, 0, 1])
+    }
+
+    func testWhatIsSentForSentenceChanges() {
+        let segments = ["ሰላም፣ እንዴት ናችሁ። ዛሬ ስለ ቡና እናወራለን።", "ቡና ከኢትዮጵያ ነው።"]
+        let s = Script.sentences(segments)
+        // Read again: one entry per clause, with rerecord.
+        let reread = PendingFix.wire([.reread(s[0])], segments: segments)
+        XCTAssertEqual(reread, [.rereadPart(segment: 0, part: 0), .rereadPart(segment: 0, part: 1)])
+        XCTAssertEqual(reread[0].payload["rerecord"] as? Bool, true)
+        XCTAssertEqual(reread[1].payload["part"] as? Int, 1)
+        // Same number of clauses: clause by clause.
+        let same = PendingFix.wire([.edit(s[0], text: "ጤና ይስጥልኝ፣ እንዴት ናችሁ።")], segments: segments)
+        XCTAssertEqual(same.count, 2)
+        XCTAssertEqual(same[0].payload["text"] as? String, "ጤና ይስጥልኝ፣")
+        XCTAssertEqual(same[0].payload["part"] as? Int, 0)
+        // A comma removed: the whole segment once, and a re-read in that segment is dropped.
+        let changed = PendingFix.wire([.edit(s[0], text: "ሰላም እንዴት ናችሁ።"), .reread(s[1]), .reread(s[2])],
+                                      segments: segments)
+        XCTAssertEqual(changed.first, .editSentence(segment: 0, text: "ሰላም እንዴት ናችሁ። ዛሬ ስለ ቡና እናወራለን።"))
+        XCTAssertEqual(Array(changed.dropFirst()), [.rereadPart(segment: 1, part: 0)])
+        // The whole script: every segment.
+        let all = PendingFix.wholeScript([.word(.option(word: "ቡና", optionId: 1), label: "ቡና")], segments: segments)
+        XCTAssertEqual(all, [.option(word: "ቡና", optionId: 1), .rereadSentence(segment: 0), .rereadSentence(segment: 1)])
+        XCTAssertEqual(PendingFix.reread(s[1]).id, PendingFix.edit(s[1], text: "x").id)
     }
 
     func testDecoding() throws {

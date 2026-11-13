@@ -8,10 +8,13 @@ struct WordFixSheet: View {
     let target: FixTarget
     /// How many times this word appears, so the user knows one fix changes them all.
     let occurrences: Int
-    let onUse: (FixEdit) -> Void
+    /// The fix, and the short label shown for it in the list of changes.
+    let onUse: (FixEdit, String) -> Void
     let onClose: () -> Void
 
     @StateObject private var player = AudioPlayer()
+    /// Goes up with every Listen tap, so a newer tap takes over from one still preparing.
+    @State private var turn = 0
     @State private var options: [FixOption] = []
     @State private var loaded = false
     @State private var custom = ""
@@ -47,14 +50,17 @@ struct WordFixSheet: View {
                             Text(T("Preparing options")).font(Theme.body).foregroundStyle(Theme.black)
                         }
                     } else if options.isEmpty {
-                        NoteText(text: T("No other readings exist for this word yet. Type how it should sound below."))
+                        NoteText(text: T("Type how it should sound below."))
                     } else {
                         ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                             row(key: "o:\(option.optionId)",
                                 title: Tf("Option %@", optionLetter(index)),
                                 index: index,
                                 listen: { await hear(key: "o:\(option.optionId)", optionId: option.optionId, custom: nil) },
-                                use: { onUse(.option(word: target.word, optionId: option.optionId)) })
+                                use: {
+                                    onUse(.option(word: target.word, optionId: option.optionId),
+                                          target.word + " · " + optionLetter(index))
+                                })
                         }
                     }
 
@@ -77,15 +83,14 @@ struct WordFixSheet: View {
                             }
                             .buttonStyle(QuietButtonStyle())
                             Button(T("Use what I typed")) {
-                                onUse(.custom(word: target.word, spelling: typed))
+                                onUse(.custom(word: target.word, spelling: typed), target.word + " · " + typed)
                             }
                             .buttonStyle(QuietButtonStyle())
                         }
-                        .disabled(typed.count < 2)
+                        .disabled(typed.isEmpty)
                     }
                     .card(fill: Theme.white, padding: 14)
 
-                    NoteText(text: T("These clips are an example reading and may not be in your own voice. Listening is free when the reading has been made before. Your changes are recorded in your voice when you generate them: 1.5 credits for all of them together."))
                 }
                 .page()
             }
@@ -101,7 +106,7 @@ struct WordFixSheet: View {
         .task { await open() }
         // A typed spelling is prepared after a short pause, so Listen is quick.
         .task(id: typed) {
-            guard typed.count >= 2 else { return }
+            guard typed.count >= 3 else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if Task.isCancelled { return }
             _ = try? await state.api.fixPreview(word: target.word, optionId: nil, custom: typed)
@@ -150,7 +155,7 @@ struct WordFixSheet: View {
             options = try await state.api.fixCandidates(word: target.word)
         } catch {
             // "No other readings yet" is an answer, not a failure.
-            if APIError.wrap(error).status != 404 { problem = state.report(error) }
+            problem = state.report(error)
         }
         loaded = true
         guard let first = options.first else { return }
@@ -169,33 +174,55 @@ struct WordFixSheet: View {
             play(ready, key: key)
             return
         }
-        guard preparing == nil else { return }
+        // A newer tap takes over: the older request keeps going on the server (so its
+        // reading is ready later) but no longer touches the screen.
+        turn += 1
+        let mine = turn
         preparing = key
         waited = 0
         firstEver = false
-        defer { preparing = nil }
         do {
-            var preview = try await state.api.fixPreview(word: target.word, optionId: optionId,
-                                                         custom: custom)
-            // A reading made before comes back ready at once. Only a new one is waited for.
+            var preview = try await firstPreview(optionId: optionId, custom: custom)
             var tries = 0
             while !preview.isDone {
-                if preview.isFailed || tries >= 90 {
-                    problem = T("That reading could not be made. Try another.")
+                guard mine == turn else { return }
+                if preview.isFailed {
+                    preparing = nil
+                    problem = T("The voice engine could not say that spelling. Try typing it instead.")
+                    return
+                }
+                if tries >= 90 {
+                    preparing = nil
+                    problem = T("Still preparing after 3 minutes. Tap play to try again.")
                     return
                 }
                 firstEver = preview.firstEver ?? firstEver
                 tries += 1
                 let pause = Launch.isMock ? 0.2 : 2.0
                 try await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000))
-                waited += Int(pause.rounded(.up))
+                if mine == turn { waited += Int(pause.rounded(.up)) }
                 preview = try await state.api.fixPreviewStatus(id: preview.previewId)
             }
             let url = try await state.api.fixPreviewAudio(id: preview.previewId)
             clips[key] = url
+            guard mine == turn else { return }
+            preparing = nil
             play(url, key: key)
         } catch {
+            guard mine == turn else { return }
+            preparing = nil
             if !Task.isCancelled { problem = state.report(error) }
+        }
+    }
+
+    /// The website tries once more after a short pause when the network drops the first ask.
+    private func firstPreview(optionId: Int?, custom: String?) async throws -> FixPreview {
+        do {
+            return try await state.api.fixPreview(word: target.word, optionId: optionId, custom: custom)
+        } catch {
+            guard APIError.wrap(error).kind == .network else { throw error }
+            try await Task.sleep(nanoseconds: 700_000_000)
+            return try await state.api.fixPreview(word: target.word, optionId: optionId, custom: custom)
         }
     }
 
@@ -207,27 +234,30 @@ struct WordFixSheet: View {
     }
 }
 
-/// Change the words of one part of the script, or record it again as it is.
+/// Change the words of one sentence, or record it again as it is.
 struct SentenceSheet: View {
-    let segment: Int
-    let original: String
-    let onUse: (FixEdit) -> Void
+    let target: SentenceTarget
+    let onSave: (String) -> Void
+    let onReread: () -> Void
+    let onUndo: () -> Void
     let onClose: () -> Void
 
     @State private var text: String
     @FocusState private var editing: Bool
 
-    init(segment: Int, original: String, onUse: @escaping (FixEdit) -> Void,
-         onClose: @escaping () -> Void) {
-        self.segment = segment
-        self.original = original
-        self.onUse = onUse
+    init(target: SentenceTarget, onSave: @escaping (String) -> Void, onReread: @escaping () -> Void,
+         onUndo: @escaping () -> Void, onClose: @escaping () -> Void) {
+        self.target = target
+        self.onSave = onSave
+        self.onReread = onReread
+        self.onUndo = onUndo
         self.onClose = onClose
-        _text = State(initialValue: original)
+        _text = State(initialValue: target.pendingText ?? target.sentence.text)
     }
 
+    private var original: String { target.sentence.text }
     private var cleaned: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var changed: Bool { cleaned != original.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var changed: Bool { cleaned != original }
 
     var body: some View {
         NavigationStack {
@@ -241,25 +271,27 @@ struct SentenceSheet: View {
                         .lineSpacing(Theme.amharicLineSpacing)
                         .foregroundStyle(Theme.black)
                         .scrollContentBackground(.hidden)
-                        .frame(minHeight: 160)
+                        .frame(minHeight: 140)
                         .focused($editing)
                         .card(fill: Theme.grey, padding: 12)
                         .accessibilityIdentifier("sentenceEditor")
 
                     if changed {
-                        Button(T("Save this edit")) { onUse(.editSentence(segment: segment, text: cleaned)) }
+                        Button(T("Save this edit")) { onSave(cleaned) }
                             .buttonStyle(PrimaryButtonStyle())
                             .disabled(cleaned.isEmpty)
                             .accessibilityIdentifier("saveSentenceButton")
-                        Button(T("Put the old words back")) { text = original }
-                            .buttonStyle(QuietButtonStyle())
-                    } else {
-                        Button(T("Record this sentence again")) { onUse(.rereadSentence(segment: segment)) }
+                    } else if !target.queued {
+                        Button(T("Record this sentence again")) { onReread() }
                             .buttonStyle(PrimaryButtonStyle())
                             .accessibilityIdentifier("rereadButton")
-                        NoteText(text: T("Use this when the words are right but the reading came out too slow, too fast or flat."))
                     }
-                    NoteText(text: T("Nothing is recorded yet. Your changes wait in a list, and you generate them all together for 1.5 credits."))
+                    if target.queued {
+                        Button(T("Undo")) { onUndo() }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier("undoSentenceButton")
+                    }
+                    NoteText(text: T("Keep the ። at the end. Numbers are spoken as words."))
                 }
                 .page()
             }
@@ -281,7 +313,10 @@ struct SentenceSheet: View {
 
 /// A sentence the user tapped, for `.sheet(item:)`.
 struct SentenceTarget: Identifiable, Equatable {
-    let segment: Int
-    let text: String
-    var id: Int { segment }
+    let sentence: Script.Sentence
+    /// The new words already waiting in the list, if any.
+    let pendingText: String?
+    /// True when an edit or a re-read of this sentence is already in the list.
+    let queued: Bool
+    var id: String { sentence.id }
 }

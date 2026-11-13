@@ -48,22 +48,32 @@ struct TappableScript: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(segments.enumerated()), id: \.offset) { index, sentence in
-                FlowLayout(spacing: 6) {
+                FlowLayout(spacing: 0) {
                     ForEach(Words.tokens(in: sentence)) { token in
-                        Button {
-                            onTap(FixTarget(word: token.word, shown: token.shown, segment: index))
-                        } label: {
+                        if token.word.isEmpty {
+                            // Punctuation, numbers and Latin text: shown, not tappable.
                             Text(token.shown)
                                 .font(Theme.body)
                                 .foregroundStyle(Theme.black)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 3)
-                                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(fixedWords.contains(token.word) ? Theme.lime : Theme.grey))
+                                .padding(.vertical, 6)
+                                .padding(.leading, token.spaceBefore ? 6 : 1)
+                        } else {
+                            Button {
+                                onTap(FixTarget(word: token.word, shown: token.shown, segment: index))
+                            } label: {
+                                Text(token.shown)
+                                    .font(Theme.body)
+                                    .foregroundStyle(Theme.black)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 3)
+                                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(fixedWords.contains(token.word) ? Theme.lime : Theme.white))
+                                    .padding(.vertical, 3)
+                                    .padding(.leading, token.spaceBefore ? 6 : 0)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("word-\(index)-\(token.id)")
                         }
-                        .buttonStyle(.plain)
-                        .disabled(token.word.isEmpty)
-                        .accessibilityIdentifier("word-\(index)-\(token.id)")
                     }
                 }
             }
