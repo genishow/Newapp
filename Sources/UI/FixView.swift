@@ -126,7 +126,9 @@ struct FixView: View {
             // here, and kept awake for the first minutes on this screen, so the first
             // word is quick. This stops when the screen is left.
             for _ in 0..<5 {
-                await state.api.warmEngine()
+                // Not while changes are recording: the engine is awake then anyway, and an
+                // extra wake-up job would only queue in front of the real work.
+                if !applying { await state.api.warmEngine() }
                 try? await Task.sleep(nanoseconds: 95 * 1_000_000_000)
                 if Task.isCancelled { break }
             }
@@ -291,50 +293,58 @@ struct FixView: View {
     private func resumeBatch(loud: Bool) async {
         guard !applying, let id = storedBatch else { return }
         applying = true
-        batchStarted = UserDefaults.standard.object(forKey: batchKey + ".at") as? Date ?? Date()
         batchId = id
+        batchStarted = UserDefaults.standard.object(forKey: batchKey + ".at") as? Date ?? Date()
         defer { applying = false }
-        do {
-            let batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
-            await follow(batch, id: id, sent: [])
-        } catch {
-            if Task.isCancelled { return }
-            let wrapped = APIError.wrap(error)
-            if wrapped.status == 404 {
-                // The server no longer knows it, so it is over.
-                forgetBatch()
-                if loud { problem = T("Your earlier changes are finished. Tap again to send these.") }
-            } else if loud || wrapped.kind == .sessionExpired {
-                problem = state.report(error)
-            }
-        }
+        // Watched exactly like a new batch, so a slow server answer is not taken as the end.
+        await follow(FixBatch(batchId: id, status: "queued", error: nil), id: id, sent: [], checkFirst: true)
     }
 
     /// Watches a batch until it is over, for as long as this screen is open. The buttons
     /// stay off meanwhile, so it cannot be paid for twice.
-    private func follow(_ first: FixBatch, id: String, sent: [PendingFix]) async {
+    ///
+    /// Like the website, a failed check is not the end: the server sometimes answers
+    /// "unknown batch" for a little while right after a batch starts, before every part of
+    /// it has seen the new batch. Giving up on that first answer is what made changes look
+    /// as if they had stopped.
+    private func follow(_ first: FixBatch, id: String, sent: [PendingFix], checkFirst: Bool = false) async {
         var batch = first
         var misses = 0
+        var notFound = 0
         batchStatus = batch.status
+        var firstRound = checkFirst
         while !batch.isOver {
-            try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
+            if !firstRound {
+                try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2) * 1_000_000_000))
+            }
+            firstRound = false
             if Task.isCancelled { return }
             do {
                 batch = try await state.api.fixStatus(jobId: jobId, batchId: id)
                 batchStatus = batch.status
                 misses = 0
+                notFound = 0
             } catch {
                 if Task.isCancelled { return }
-                misses += 1
                 let wrapped = APIError.wrap(error)
-                if wrapped.status == 404 {
-                    forgetBatch()
+                if wrapped.kind == .sessionExpired {
                     problem = state.report(error)
                     return
                 }
-                if misses >= 8 || wrapped.kind == .sessionExpired {
-                    // The id stays stored: it is checked again before anything new is sent.
-                    problem = state.report(error)
+                if wrapped.status == 404 {
+                    notFound += 1
+                    // Two minutes of "unknown batch" in a row: it really is gone.
+                    if notFound >= 60 {
+                        forgetBatch()
+                        problem = T("These changes could not be found on the server any more. Check the voiceover, then try again if they are missing.")
+                        return
+                    }
+                    continue
+                }
+                misses += 1
+                if misses >= 30 {
+                    // The id stays stored: opening this voiceover again picks it up.
+                    problem = T("Lost contact while your changes were recording. They may still finish. Open this voiceover again in a minute.")
                     return
                 }
             }
