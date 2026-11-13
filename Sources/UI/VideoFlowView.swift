@@ -90,6 +90,8 @@ struct VideoFlowView: View {
     @StateObject private var life = ScreenLife()
     @State private var confirmNewList = false
     @State private var checking = false
+    /// True while a render request is being sent, so it can never be sent twice.
+    @State private var rendering = false
     @State private var render = RenderOptions()
     @State private var shotLength = "auto"
     @State private var breaks = MusicBreaks()
@@ -1173,7 +1175,11 @@ struct VideoFlowView: View {
     }
 
     private func makeVideo() async {
-        guard let planId, !starting else { return }
+        // Not `starting`: one-tap mode calls this while the plan button's own work is
+        // still running, and that must not stop the video from being made.
+        guard let planId, !rendering else { return }
+        rendering = true
+        defer { rendering = false }
         starting = true
         problem = nil
         musicPlayer.stop()
