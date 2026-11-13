@@ -29,6 +29,10 @@ struct FixView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(T("Want to change something?")).font(Theme.heading).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("fixScreenHeading")
+                Text(mode == .words ? T("Tap any word to fix how it sounds.")
+                                    : T("Tap any sentence to change its words or record it again."))
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 10) {
                     modeTile(.words, icon: "character.bubble", title: T("Fix pronunciation"))
