@@ -782,3 +782,216 @@ final class LibraryFilterTests: XCTestCase {
         XCTAssertEqual(o.fields["mode"] as? String, "brief", "an idea is written from scratch")
     }
 }
+
+/// The presenter's middle appearances and separate clips, mirrored from the website.
+final class AvatarPlacementTests: XCTestCase {
+    private func on() -> AvatarChoice {
+        var a = AvatarChoice()
+        a.enabled = true
+        return a
+    }
+
+    func testPayloadCarriesTheLengthsLikeTheWebsite() {
+        var a = on()
+        a.seconds = 8
+        var placements = a.payload["placements"] as? [String: Any]
+        XCTAssertEqual(placements?["middle"] as? Int, 0)
+        XCTAssertNil(placements?["middles"], "nothing extra until it is asked for")
+        XCTAssertNil(placements?["start_sec"])
+
+        a.startSeconds = 5
+        a.endSeconds = 10
+        a.atEnd = true
+        a.setMiddleCount(2)
+        a.middles[1] = 12
+        placements = a.payload["placements"] as? [String: Any]
+        XCTAssertEqual(placements?["start_sec"] as? Int, 5)
+        XCTAssertEqual(placements?["end_sec"] as? Int, 10)
+        XCTAssertEqual(placements?["middle"] as? Int, 2)
+        XCTAssertEqual(placements?["middles"] as? [Int], [8, 12], "a new one starts at the usual length")
+        XCTAssertEqual(placements?["end"] as? Bool, true)
+        XCTAssertEqual(placements?["full"] as? Bool, false)
+    }
+
+    func testMiddleCountStaysInsideWhatTheServerTakes() {
+        var a = on()
+        a.setMiddleCount(99)
+        XCTAssertEqual(a.middles.count, AvatarChoice.maxMiddles)
+        a.setMiddleCount(-3)
+        XCTAssertTrue(a.middles.isEmpty)
+    }
+
+    func testFitCountsLikeTheWebsite() {
+        var a = on()
+        a.atEnd = true
+        a.middles = [5, 5]
+        // Two minutes: start 0-14, end 106-120, middles at 40 and 80.
+        XCTAssertEqual(a.totalSeconds(audioSec: 120), 38)
+        XCTAssertEqual(a.middlesThatFit(audioSec: 120), 2)
+        XCTAssertTrue(a.endFits(audioSec: 120))
+        XCTAssertFalse(a.endFits(audioSec: 40), "under 20 seconds from the start one")
+
+        var b = on()
+        b.middles = [14]
+        XCTAssertFalse(b.middleFits(audioSec: 60), "30 is too close to a start that ends at 14")
+        XCTAssertEqual(b.middlesThatFit(audioSec: 60), 0)
+        XCTAssertEqual(b.totalSeconds(audioSec: 60), 14, "what does not fit is not charged")
+        XCTAssertTrue(b.middleFits(audioSec: 120))
+        XCTAssertEqual(b.totalSeconds(audioSec: 120), 28)
+    }
+
+    func testLengthsAreClampedLikeTheServer() {
+        XCTAssertEqual(AvatarChoice.clamp(1, audioSec: 60), 3)
+        XCTAssertEqual(AvatarChoice.clamp(30, audioSec: 60), 14)
+        XCTAssertEqual(AvatarChoice.clamp(14, audioSec: 6.9), 6)
+        var a = on()
+        a.startSeconds = 5
+        XCTAssertEqual(a.totalSeconds(audioSec: 60), 5)
+    }
+
+    func testWholeVideoIsCutInPieces() {
+        var a = on()
+        a.wholeVideo = true
+        XCTAssertEqual(a.totalSeconds(audioSec: 29.5), 29, "14, then 13 so the last 2 can be made")
+        XCTAssertEqual(a.totalSeconds(audioSec: 14.5), 14)
+    }
+
+    func testCreditsRoundTheDollarsFirst() {
+        // The totals where the website once quoted half a credit less than the charge.
+        XCTAssertEqual(AvatarChoice.credits(seconds: 155, fullFrame: false), 60.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 310, fullFrame: false), 120.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 38, fullFrame: false), 15)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 28, fullFrame: true), 43.5)
+    }
+
+    func testClipAddressesAndDecoding() throws {
+        XCTAssertEqual(AvatarClipList.path(videoJobId: "vid-1", index: 1), "/assemble/vid-1/avatar.mp4")
+        XCTAssertEqual(AvatarClipList.path(videoJobId: "vid-1", index: 3), "/assemble/vid-1/avatar-3.mp4")
+        let json = #"{"status":"done","avatar_file":true,"avatar_files":[[0,14],[40.5,5]],"avatar_mode":"separate"}"#
+        let list = try JSON.decoder.decode(AvatarClipList.self, from: Data(json.utf8))
+        XCTAssertEqual(list.clips, [[0, 14], [40.5, 5]])
+        let none = try JSON.decoder.decode(AvatarClipList.self, from: Data(#"{"status":"done"}"#.utf8))
+        XCTAssertTrue(none.clips.isEmpty)
+    }
+
+    func testSeparateClipsOnTheMockServer() async throws {
+        let api = MockAPI()
+        _ = try await api.uploadAvatarPhoto(jpeg: Data("x".utf8))
+        _ = try await api.planFootage(jobId: "job-1", shape: .portrait, source: .stock)
+        _ = try await api.searchFootage(planId: "bp-mock", shape: .portrait, beat: nil, query: nil)
+        var a = on()
+        a.mode = .separate
+        a.atEnd = true
+        a.setMiddleCount(1)
+        let submit = try await api.assemble(planId: "bp-mock", shape: .portrait, musicId: nil,
+                                            captions: false, avatar: a)
+        let clips = try await api.avatarClips(videoJobId: submit.jobId)
+        XCTAssertEqual(clips.count, 3)
+        let second = try await api.downloadAvatarClip(videoJobId: submit.jobId, index: 2)
+        XCTAssertTrue(second.lastPathComponent.contains("-2"))
+    }
+}
+
+/// Sign-in, the recording check, voice samples and the first-screen demo.
+final class ParityTests: XCTestCase {
+    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
+        try JSON.decoder.decode(T.self, from: Data(json.utf8))
+    }
+
+    func testRequestCodeAnswer() throws {
+        let sent = try decode(RequestCodeResult.self,
+                              #"{"sent":true,"email_configured":true,"expires_in_min":15}"#)
+        XCTAssertEqual(sent.notice(email: "a@b.co"), "We sent a 6-digit code to a@b.co. It works for 15 minutes.")
+        let off = try decode(RequestCodeResult.self,
+                             #"{"sent":true,"email_configured":false,"expires_in_min":15}"#)
+        XCTAssertTrue(off.notice(email: "a@b.co").contains("support@kinbir.com"))
+        XCTAssertTrue(RequestCodeResult().notice(email: "a@b.co").contains("10 minutes"),
+                      "an older server says nothing, so the usual ten minutes are shown")
+    }
+
+    func testRequestCodeOnTheMockServer() async throws {
+        let answer = try await MockAPI().requestCode(email: MockAPI.email)
+        XCTAssertEqual(answer.emailConfigured, true)
+        XCTAssertEqual(answer.expiresInMin, 10)
+    }
+
+    func testEnrollCheck() throws {
+        let check = try decode(EnrollCheck.self, #"""
+        {"badge":"yellow","quality":{"snr_db":15.2},"video_duration_sec":12.34,"duration_ok":true,
+         "advice":["some background noise - a quieter room would improve results"]}
+        """#)
+        XCTAssertEqual(check.title, "Good enough")
+        XCTAssertEqual(check.lengthLine, "12.3s recording")
+        XCTAssertEqual(check.durationOk, true)
+        XCTAssertEqual(check.advice?.count, 1)
+        XCTAssertEqual(EnrollCheck(badge: "green").title, "Great take")
+        XCTAssertEqual(EnrollCheck(badge: "red").title, "Needs a retake")
+    }
+
+    func testEnrollCheckOnTheMockServer() async throws {
+        let check = try await MockAPI().enrollCheck(videoURL: URL(fileURLWithPath: "/tmp/x.mov"),
+                                                    language: .am)
+        XCTAssertEqual(check.badge, "green")
+    }
+
+    func testVoiceSampleSaysWhichVoiceFailed() throws {
+        let batch = try decode(VoicePreviewBatch.self, #"""
+        {"clips":[{"voice_id":"v1","active":true,"cached":true,"ok":true,"url":"/voices/v1/preview.wav"},
+                  {"voice_id":"v2","active":false,"cached":false,"url":null,"ok":false,
+                   "error":"this voice's reference recording has no usable audio"}],
+         "credits_charged":0}
+        """#)
+        XCTAssertNil(batch.problem(voiceId: "v1"))
+        XCTAssertEqual(batch.problem(voiceId: "v2"), "this voice's reference recording has no usable audio")
+        XCTAssertNil(batch.problem(voiceId: "v3"), "a voice the server did not mention is not a failure")
+    }
+
+    func testJobCarriesItsOwnVoice() async throws {
+        let job = try decode(JobStatus.self, #"{"job_id":"job-1","status":"running","voice_id":"v9"}"#)
+        XCTAssertEqual(job.voiceId, "v9")
+        let api = MockAPI()
+        let submit = try await api.generate(text: "ሰላም", draftId: nil)
+        let made = try await api.job(id: submit.jobId)
+        XCTAssertEqual(made.voiceId, "v-mock-1")
+    }
+
+    func testWhoAmISubscription() throws {
+        let me = try decode(WhoAmI.self, #"{"email":"a@b.co","credits_balance":3.5,"has_subscription":true}"#)
+        XCTAssertEqual(me.hasSubscription, true)
+    }
+
+    func testDemoLimitsLikeTheWebsite() {
+        XCTAssertEqual(DemoRules.maxChars, 600)
+        XCTAssertEqual(DemoRules.syllables("ሰላም hello"), 3)
+        XCTAssertEqual(DemoRules.words("  one two\nthree "), 3)
+        XCTAssertTrue(DemoRules.looksEnglish("Hello there"))
+        XCTAssertFalse(DemoRules.looksEnglish("ሰላም hello"))
+        XCTAssertFalse(DemoRules.looksEnglish("123"))
+
+        let longAmharic = String(repeating: "ሰላም ", count: 41)       // 123 syllables
+        XCTAssertTrue(DemoRules.isOver(longAmharic))
+        XCTAssertFalse(DemoRules.isOver(String(repeating: "ሰላም ", count: 40)))
+        let longEnglish = String(repeating: "word ", count: 41)
+        XCTAssertTrue(DemoRules.isOver(longEnglish))
+        XCTAssertFalse(DemoRules.isOver(String(repeating: "word ", count: 40)))
+    }
+
+    func testOfficialSamplesAreNeverTooLong() {
+        XCTAssertGreaterThan(DemoRules.syllables(DemoRules.sampleAmharic), DemoRules.maxSyllables)
+        XCTAssertGreaterThan(DemoRules.words(DemoRules.sampleEnglish), DemoRules.maxWordsEnglish)
+        XCTAssertFalse(DemoRules.isOver(DemoRules.sampleAmharic))
+        XCTAssertFalse(DemoRules.isOver(DemoRules.sampleEnglish))
+        XCTAssertLessThanOrEqual(DemoRules.sampleAmharic.count, DemoRules.maxChars)
+        XCTAssertTrue(DemoRules.sampleEnglish.hasPrefix("This is the Kinbir voice, reading in English."))
+        XCTAssertTrue(DemoRules.sampleEnglish.hasSuffix("Try it free."))
+    }
+
+    func testDemoMetaLine() {
+        XCTAssertEqual(DemoRules.meta(""), "free · your own text up to ~15 seconds, or a full sample")
+        XCTAssertEqual(DemoRules.meta(DemoRules.sampleAmharic), "the full Kinbir story · ≈ 36s")
+        XCTAssertEqual(DemoRules.meta(DemoRules.sampleEnglish), "the Kinbir story in English · ≈ 20s")
+        XCTAssertEqual(DemoRules.meta("one two three four five"), "≈ 2s of the ~15s demo")
+        XCTAssertEqual(DemoRules.meta("ሰላም ለሁላችሁ ይህ ነው"), "≈ 2s of the ~15s demo")
+        XCTAssertTrue(DemoRules.meta(String(repeating: "word ", count: 50)).hasPrefix("The demo reads about 15 seconds"))
+    }
+}

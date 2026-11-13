@@ -40,6 +40,9 @@ struct RenderOptions: Equatable {
     var captionFont = "standard"
     var graphics = false
     var graphicsColor = "gold"
+    var logo = LogoChoice()
+    /// False leaves the planned music breaks out of the video.
+    var includeBreaks = true
 
     /// What is added to the render request.
     func payload(music: Bool, captions: Bool) -> [String: Any] {
@@ -50,6 +53,8 @@ struct RenderOptions: Equatable {
             body["graphics"] = true
             body["graphics_color"] = graphicsColor
         }
+        if logo.enabled { body["logo"] = logo.payload }
+        if !includeBreaks { body["gaps_enabled"] = false }
         return body
     }
 }

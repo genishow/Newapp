@@ -10,7 +10,7 @@ python3 scripts/check_strings.py
 
 PKG="$(mktemp -d)"
 mkdir -p "$PKG/Sources/Kinbir" "$PKG/Tests/KinbirTests"
-cp Sources/API/{Models,APIError,SSEParser,Multipart,KinbirAPI,MockAPI,VideoModels,AvatarModels,ExtrasModels}.swift \
+cp Sources/API/{Models,APIError,SSEParser,Multipart,KinbirAPI,MockAPI,VideoModels,AvatarModels,ExtrasModels,FootageExtras}.swift \
    Sources/Support/{TextKind,Formatters,Amharic,Launch,TempFiles,Ethiopic}.swift "$PKG/Sources/Kinbir/"
 cp Tests/*.swift "$PKG/Tests/KinbirTests/"
 cat > "$PKG/Package.swift" <<'PKGEOF'

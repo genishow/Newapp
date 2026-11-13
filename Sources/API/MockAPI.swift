@@ -55,12 +55,13 @@ final class MockAPI: KinbirAPI {
 
     // MARK: sign in
 
-    func requestCode(email: String) async throws {
+    func requestCode(email: String) async throws -> RequestCodeResult {
         await pause()
         guard email.contains("@") else {
             throw APIError(kind: .other, status: 400,
                            message: "That does not look like an email address")
         }
+        return RequestCodeResult(sent: true, expiresInMin: 10, emailConfigured: true)
     }
 
     func verify(email: String, code: String) async throws -> AuthResult {
@@ -141,6 +142,12 @@ final class MockAPI: KinbirAPI {
         }
     }
 
+    func enrollCheck(videoURL: URL, language: Lang) async throws -> EnrollCheck {
+        await pause()
+        return EnrollCheck(badge: "green", advice: ["looks good - this recording should clone well"],
+                           videoDurationSec: 12, durationOk: true)
+    }
+
     // MARK: script
 
     func extract(url: String) async throws -> ExtractResult {
@@ -199,7 +206,7 @@ final class MockAPI: KinbirAPI {
                                  segmentsTotal: 2, error: nil, audioSec: nil, segments: [text],
                                  creditsCharged: nil, creditsBalance: credits, brollPlanId: nil,
                                  language: voice.language.rawValue, emphasis: voice.emphasis,
-                                 fixedWords: [])
+                                 fixedWords: [], voiceId: activeVoiceId)
             jobOrder.insert(id, at: 0)
             jobPolls[id] = 0
             return GenerateSubmit(jobId: id, status: "queued", segmentsTotal: 2,
@@ -446,8 +453,50 @@ extension MockAPI {
         return 3
     }
 
+    func placeAllClips(planId: String) async throws -> MatchResult {
+        await pause()
+        return MatchResult(matched: video.uploads.count, pendingLabels: 0, beats: video.beats)
+    }
+
+    func changeSource(planId: String, source: FootageSource) async throws {
+        await pause()
+    }
+
+    func rescanFootage(planId: String) async throws -> PlanSubmit {
+        await pause()
+        return PlanSubmit(jobId: "scan-mock", status: "queued", creditsEstimated: nil)
+    }
+
+    func footageCheck(jobId: String) async throws -> FootageCheckJob {
+        await pause()
+        return FootageCheckJob(status: "done", error: nil,
+                               result: FootageCheckResult(scanned: video.beats.count, mismatched: [],
+                                                          note: nil))
+    }
+
+    func verifyShots(planId: String, beats: [Int]) async throws -> VerifyResult {
+        await pause()
+        return VerifyResult(checks: beats.map { ShotVerdict(beat: $0, verdict: "yes", why: nil) },
+                            autoReplaced: [], flagged: 0, beats: video.beats, creditsCharged: 2, note: nil)
+    }
+
+    func uploadMusic(fileURL: URL) async throws -> MusicTrack {
+        await pause()
+        return MusicTrack(trackId: "mine.mp3", kind: "yours", title: "My music")
+    }
+
+    func hasLogo() async throws -> Bool {
+        await pause()
+        return false
+    }
+
+    func uploadLogo(image: Data, filename: String, mimeType: String) async throws -> Bool {
+        await pause()
+        return true
+    }
+
     func planFootage(jobId: String, shape: Shape, source: FootageSource,
-                     shotLength: String) async throws -> PlanSubmit {
+                     shotLength: String, breaks: MusicBreaks) async throws -> PlanSubmit {
         await pause()
         video.planPolls = 0
         video.searches = 0
@@ -671,6 +720,21 @@ extension MockAPI {
         await pause()
         let url = TempFiles.url(name: "kinbir-avatar-" + videoJobId, ext: "mp4")
         try Data("mock avatar".utf8).write(to: url)
+        return url
+    }
+
+    /// One clip per appearance the last video asked for, 30 seconds apart.
+    func avatarClips(videoJobId: String) async throws -> [[Double]] {
+        await pause()
+        guard let avatar = video.lastAvatar, avatar.mode == .separate, !avatar.wholeVideo else { return [] }
+        let count = (avatar.atStart ? 1 : 0) + avatar.middles.count + (avatar.atEnd ? 1 : 0)
+        return (0..<count).map { [Double($0) * 30, Double(avatar.seconds)] }
+    }
+
+    func downloadAvatarClip(videoJobId: String, index: Int) async throws -> URL {
+        await pause()
+        let url = TempFiles.url(name: "kinbir-avatar-" + videoJobId + "-\(index)", ext: "mp4")
+        try Data("mock avatar \(index)".utf8).write(to: url)
         return url
     }
 }

@@ -81,3 +81,58 @@ enum EmailRules {
         return domain.index(after: dot) != domain.endIndex
     }
 }
+
+/// The no-account demo on the first screen. The server is the authority; these mirror its
+/// limits so the screen can say "too long" before the refusal.
+enum DemoRules {
+    /// The server's raw size wall (DEMO_MAX_CHARS).
+    static let maxChars = 600
+    /// Typed Amharic is capped by Ethiopic syllables (DEMO_MAX_SYL), about 15 seconds.
+    static let maxSyllables = 120
+    /// Typed English is capped by words (DEMO_MAX_WORDS_EN).
+    static let maxWordsEnglish = 40
+
+    /// The official samples. They must stay letter for letter what the server holds:
+    /// it only lets these two run past the caps.
+    static let sampleAmharic = "በቅንብር ዌብሳይት ተጠቅማችሁ ፅሁፋችሁን በዚህ መልኩ በኤአይ ማስነበብ ትችላላችሁ። ድምፁ የእናንተን እንዲመስል አካውንት ከፍታችሁ ድምፃችሁን መቅዳት ወይንም ክሎን ማድረግ ይኖርባችኋል። ድምፃችሁን ክሎን ካደረጋችሁ በህዋላ፣ ፅሁፋችሁን በራሳችሁ ድምፅ ማግኘት ትችላላችሁ። ቅንብር የሚለየውም የቪዲዮአችሁን ፅሁፍ ፅፎ፣ በድምፃችሁ አንብቦ፣ ቪዲዮን ካብሽንን ሙዚቃን እና አቫተርን አቀናብሮ ለሶሻል ሚዲያችሁ ፖስት ለመደረግ ዝግጁ የሆነ ቪዲዮዎችን በመስጠቱ ነው። በሶሻል ሚዲያ ገንዘብ ለመስራት አሁኑኑ በነፃ ይሞክሩት።"
+    static let sampleEnglish = "This is the Kinbir voice, reading in English. Type your script, or describe your idea and Kinbir writes it for you. Clone your own voice in about two minutes, and every video you make speaks as you. Music, captions, footage, one finished video, ready to post. Try it free."
+
+    /// Ethiopic syllable letters, ሀ to ፚ, as the website counts them.
+    static func syllables(_ text: String) -> Int {
+        text.unicodeScalars.filter { $0.value >= 0x1200 && $0.value <= 0x135A }.count
+    }
+
+    static func words(_ text: String) -> Int {
+        text.split(whereSeparator: { $0.isWhitespace }).count
+    }
+
+    /// No Ethiopic at all plus some Latin letters.
+    static func looksEnglish(_ text: String) -> Bool {
+        syllables(text) == 0 && text.unicodeScalars.contains {
+            ($0.value >= 0x41 && $0.value <= 0x5A) || ($0.value >= 0x61 && $0.value <= 0x7A)
+        }
+    }
+
+    /// Too long for the demo. The two official samples never are.
+    static func isOver(_ text: String) -> Bool {
+        if looksEnglish(text) {
+            return text != sampleEnglish && words(text) > maxWordsEnglish
+        }
+        return text != sampleAmharic && syllables(text) > maxSyllables
+    }
+
+    /// The small line under the field, with the website's wording.
+    static func meta(_ text: String) -> String {
+        if isOver(text) {
+            return "The demo reads about 15 seconds. Trim it, or sign up free for full scripts"
+        }
+        if text == sampleAmharic { return "the full Kinbir story · ≈ 36s" }
+        if text == sampleEnglish { return "the Kinbir story in English · ≈ 20s" }
+        if looksEnglish(text) {
+            return "≈ \(Int((Double(words(text)) / 2.5).rounded()))s of the ~15s demo"
+        }
+        let syl = syllables(text)
+        if syl == 0 { return "free · your own text up to ~15 seconds, or a full sample" }
+        return "≈ \(Int((Double(syl) / 7.17).rounded()))s of the ~15s demo"
+    }
+}

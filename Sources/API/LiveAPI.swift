@@ -63,9 +63,10 @@ final class LiveAPI: KinbirAPI {
 
     // MARK: sign in
 
-    func requestCode(email: String) async throws {
-        _ = try await send(builder.post("/auth/request-code", body: ["email": email],
-                                        authenticated: false))
+    func requestCode(email: String) async throws -> RequestCodeResult {
+        try await decode(RequestCodeResult.self,
+                         builder.post("/auth/request-code", body: ["email": email],
+                                      authenticated: false))
     }
 
     func verify(email: String, code: String) async throws -> AuthResult {
@@ -117,6 +118,22 @@ final class LiveAPI: KinbirAPI {
         form.addFile(name: "video", filename: "enroll." + ext,
                      mimeType: Multipart.mimeType(forExtension: ext), data: data)
         return try await decode(EnrollResult.self, builder.multipart("/enroll", form: form))
+    }
+
+    func enrollCheck(videoURL: URL, language: Lang) async throws -> EnrollCheck {
+        let data: Data
+        do {
+            data = try Data(contentsOf: videoURL, options: .mappedIfSafe)
+        } catch {
+            throw APIError(kind: .other, status: 0, message: "The video could not be read. Try again.")
+        }
+        let ext = videoURL.pathExtension.isEmpty ? "mov" : videoURL.pathExtension.lowercased()
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addField(name: "language", value: language.rawValue)
+        form.addFile(name: "video", filename: "enroll." + ext,
+                     mimeType: Multipart.mimeType(forExtension: ext), data: data)
+        return try await decode(EnrollCheck.self, builder.multipart("/enroll/check", form: form))
     }
 
     // MARK: script
@@ -223,11 +240,60 @@ extension LiveAPI {
     }
 
     func planFootage(jobId: String, shape: Shape, source: FootageSource,
-                     shotLength: String) async throws -> PlanSubmit {
+                     shotLength: String, breaks: MusicBreaks) async throws -> PlanSubmit {
         try await decode(PlanSubmit.self, builder.post("/broll/plan", body: [
             "job_id": jobId, "model": "sonnet", "orientation": shape.rawValue,
-            "source": source.rawValue, "shot_length": shotLength,
+            "source": source.rawValue, "shot_length": shotLength, "gaps": breaks.payload,
         ]))
+    }
+
+    func placeAllClips(planId: String) async throws -> MatchResult {
+        try await decode(MatchResult.self,
+                         builder.post("/broll/match", body: ["plan_id": planId, "use_all": true]))
+    }
+
+    func changeSource(planId: String, source: FootageSource) async throws {
+        _ = try await send(builder.post("/broll/source", body: ["plan_id": planId, "source": source.rawValue]))
+    }
+
+    func rescanFootage(planId: String) async throws -> PlanSubmit {
+        try await decode(PlanSubmit.self, builder.post("/broll/rescan", body: ["plan_id": planId]))
+    }
+
+    func footageCheck(jobId: String) async throws -> FootageCheckJob {
+        try await decode(FootageCheckJob.self, builder.get("/jobs/\(jobId)"))
+    }
+
+    func verifyShots(planId: String, beats: [Int]) async throws -> VerifyResult {
+        try await decode(VerifyResult.self, builder.post("/broll/verify", body: [
+            "plan_id": planId, "model": "sonnet", "beats": beats,
+        ]))
+    }
+
+    func uploadMusic(fileURL: URL) async throws -> MusicTrack {
+        guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else {
+            throw APIError(kind: .other, status: 0, message: "The music file could not be read.")
+        }
+        guard data.count <= 25 * 1024 * 1024 else {
+            throw APIError(kind: .other, status: 0, message: "That file is over 25 MB. Choose a smaller one.")
+        }
+        let ext = fileURL.pathExtension.lowercased()
+        let mime = ["mp3": "audio/mpeg", "m4a": "audio/mp4", "wav": "audio/wav", "ogg": "audio/ogg"][ext] ?? "audio/mpeg"
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addFile(name: "file", filename: fileURL.lastPathComponent, mimeType: mime, data: data)
+        return try await decode(MusicTrack.self, builder.multipart("/music/upload", form: form))
+    }
+
+    func hasLogo() async throws -> Bool {
+        try await decode(LogoStatus.self, builder.get("/logo")).hasLogo ?? false
+    }
+
+    func uploadLogo(image: Data, filename: String, mimeType: String) async throws -> Bool {
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addFile(name: "file", filename: filename, mimeType: mimeType, data: image)
+        return try await decode(LogoStatus.self, builder.multipart("/logo", form: form)).hasLogo ?? true
     }
 
     func planJob(id: String) async throws -> PlanJob {
@@ -383,6 +449,15 @@ extension LiveAPI {
                               name: "kinbir-avatar-" + videoJobId)
     }
 
+    func avatarClips(videoJobId: String) async throws -> [[Double]] {
+        try await decode(AvatarClipList.self, builder.get("/assemble/\(videoJobId)")).clips
+    }
+
+    func downloadAvatarClip(videoJobId: String, index: Int) async throws -> URL {
+        try await downloadMP4(path: AvatarClipList.path(videoJobId: videoJobId, index: index),
+                              name: "kinbir-avatar-" + videoJobId + "-\(index)")
+    }
+
     private func downloadMP4(path: String, name: String) async throws -> URL {
         let request = builder.get(path)
         do {
@@ -443,10 +518,20 @@ extension LiveAPI {
 
 extension LiveAPI {
     func voicePreview(voiceId: String) async throws -> URL {
-        // Renders any missing samples for the account's voices, then the file is ready.
-        _ = try await send(builder.post("/voices/preview", body: [:]))
-        return try await downloadFile(builder.get("/voices/\(voiceId)/preview.wav"),
-                                      name: "voice-" + voiceId)
+        // The saved sample first: it is free. Only a missing one (404) is made, which can
+        // cost credits, and the server says per voice when one cannot be made.
+        let saved = builder.get("/voices/\(voiceId)/preview.wav")
+        do {
+            return try await downloadFile(saved, name: "voice-" + voiceId)
+        } catch {
+            guard APIError.wrap(error).status == 404 else { throw error }
+        }
+        let batch = try await decode(VoicePreviewBatch.self,
+                                     builder.post("/voices/preview", body: [:]))
+        if let reason = batch.problem(voiceId: voiceId) {
+            throw APIError(kind: .other, status: 422, message: APIError.sentenceCase(reason))
+        }
+        return try await downloadFile(saved, name: "voice-" + voiceId)
     }
 
     func saveScriptRules(_ rules: String) async throws -> String {

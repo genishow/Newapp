@@ -55,6 +55,15 @@ struct JobView: View {
         return Tf("Voicing part %@ of %@", "\(min((job.segmentsDone ?? 0) + 1, total))", "\(total)")
     }
 
+    /// The voice this voiceover is being made with. That is the job's own voice, which is
+    /// not always the one in use now. Until the job has answered, the active voice stands in.
+    private var voiceName: String {
+        let voices = state.me?.allVoices ?? []
+        let mine = voices.first { $0.voiceId == job?.voiceId } ?? state.activeVoice
+        let name = (mine?.name ?? "").trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? T("My voice") : name
+    }
+
     private var progress: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             Text(T("Composing your voiceover")).screenTitle(amharic: A("Composing your voiceover"))
@@ -69,7 +78,8 @@ struct JobView: View {
                         .tint(Theme.lime)
                         .animation(.easeInOut(duration: 0.4), value: fraction)
                     HStack {
-                        Text(T("Voice: ") + (state.activeVoice?.name ?? T("My voice")))
+                        Text(T("Voice: ") + voiceName)
+                            .accessibilityIdentifier("jobVoiceName")
                         Spacer()
                         TimelineView(.periodic(from: .now, by: 1)) { context in
                             Text(Fmt.clock(context.date.timeIntervalSince(startedAt))).monospacedDigit()

@@ -184,3 +184,45 @@ final class EthiopicTypingTests: XCTestCase {
         XCTAssertTrue(Ethiopic.padLetters.contains("ፐ"))
     }
 }
+
+final class FootageExtrasTests: XCTestCase {
+    func testMusicBreaksLikeTheWebsite() {
+        XCTAssertEqual(MusicBreaks().payload["mode"] as? String, "none")
+        XCTAssertEqual(MusicBreaks(choice: "auto").payload["mode"] as? String, "auto")
+        let three = MusicBreaks(choice: "3").payload
+        XCTAssertEqual(three["mode"] as? String, "count")
+        XCTAssertEqual(three["count"] as? Int, 3)
+        XCTAssertEqual(MusicBreaks.choices.count, 10)
+    }
+
+    func testLogoAndBreaksInTheRenderRequest() {
+        var options = RenderOptions()
+        XCTAssertNil(options.payload(music: false, captions: false)["logo"])
+        XCTAssertNil(options.payload(music: false, captions: false)["gaps_enabled"])
+        options.logo.enabled = true
+        options.logo.corner = "bl"
+        options.logo.scale = 99
+        options.includeBreaks = false
+        let body = options.payload(music: false, captions: false)
+        let logo = body["logo"] as? [String: Any]
+        XCTAssertEqual(logo?["corner"] as? String, "bl")
+        XCTAssertEqual(logo?["scale"] as? Int, 30, "the size is kept between 5 and 30")
+        XCTAssertEqual(body["gaps_enabled"] as? Bool, false)
+    }
+
+    func testPaidCheckQuote() {
+        XCTAssertEqual(VerifyResult.credits(shots: 1), 2)
+        XCTAssertEqual(VerifyResult.credits(shots: 60), 2)
+        XCTAssertEqual(VerifyResult.credits(shots: 61), 3)
+        XCTAssertEqual(VerifyResult.credits(shots: 300), 10)
+    }
+
+    func testChecksDecode() throws {
+        let job = try JSON.decoder.decode(FootageCheckJob.self, from: Data(#"{"status":"done","result":{"scanned":4,"mismatched":[{"beat":2,"score":0.1,"line":"x"}],"note":""}}"#.utf8))
+        XCTAssertEqual(job.result?.mismatched?.first?.beat, 2)
+        let verify = try JSON.decoder.decode(VerifyResult.self, from: Data(#"{"plan_id":"p","checks":[{"beat":1,"verdict":"no","why":"shows a beach"}],"auto_replaced":[3],"flagged":1,"beats":[],"credits_charged":2}"#.utf8))
+        XCTAssertEqual(verify.checks?.first?.verdict, "no")
+        XCTAssertEqual(verify.autoReplaced, [3])
+    }
+}
+

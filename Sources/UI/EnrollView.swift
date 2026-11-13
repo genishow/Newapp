@@ -1,6 +1,7 @@
+import AVKit
 import SwiftUI
 
-/// Clone my voice: read a short script on camera, upload it, done.
+/// Clone my voice: read a short script on camera, look at the take, then send it.
 struct EnrollView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
@@ -11,15 +12,35 @@ struct EnrollView: View {
     @State private var showLibrary = false
     @State private var uploading = false
     @State private var problem: String?
-    @State private var advice: [String] = []
     @State private var result: EnrollResult?
     @State private var language: Lang = .am
+
+    // The take being looked at before it is sent.
+    @State private var take: URL?
+    @State private var takePlayer: AVPlayer?
+    @State private var checking = false
+    @State private var check: EnrollCheck?
+
+    // The two consent ticks. Both are needed before the take can be sent.
+    @State private var agreedVoice = false
+    @State private var agreedPolicy = false
+
+    // Naming the new voice once it exists.
+    @State private var voiceName = ""
+    @State private var savedName: String?
+    @State private var savingName = false
+    @FocusState private var nameFocused: Bool
+
+    static let policyURL = URL(string: "https://kinbir.com/voice-policy")!
+    static let maxNameLength = 40
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
                 if let result {
                     done(result)
+                } else if take != nil {
+                    review
                 } else {
                     form
                 }
@@ -28,97 +49,94 @@ struct EnrollView: View {
         }
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
         .task(id: language) { await loadScript() }
+        .onDisappear { takePlayer?.pause() }
         .fullScreenCover(isPresented: $showRecorder) {
             VideoRecorder(script: script) { url in
                 showRecorder = false
-                if let url { Task { await submit(url) } }
+                if let url { Task { await picked(url) } }
             }
             .ignoresSafeArea()
         }
         .sheet(isPresented: $showLibrary) {
             VideoLibraryPicker { url in
                 showLibrary = false
-                if let url { Task { await submit(url) } }
+                if let url { Task { await picked(url) } }
             }
         }
     }
+
+    // MARK: before recording
 
     private var form: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             Text(T("Clone your voice")).screenTitle(amharic: A("Clone your voice"))
                 .accessibilityIdentifier("enrollHeading")
 
-            Text(T("I am recording my own voice and face. I give permission for an AI voice of me to be created and used only by me."))
-                .font(Theme.small).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-                .card(fill: Theme.grey, padding: 14)
-
             Picker(T("Reading language"), selection: $language) {
                 ForEach(Lang.allCases) { Text(T($0.title)).tag($0) }
             }
             .pickerStyle(.segmented)
-            .disabled(uploading)
             .accessibilityIdentifier("enrollLanguagePicker")
             if language == .en {
                 NoteText(text: T("Read in English to get a voice with a native English sound."))
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(T("Read this aloud")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                if script.isEmpty && scriptProblem == nil {
-                    ProgressView().tint(Theme.black)
-                } else if let scriptProblem {
-                    NoteText(text: scriptProblem)
-                    Button(T("Try again")) { Task { await loadScript() } }
-                        .buttonStyle(QuietButtonStyle())
-                } else {
-                    AmharicText(text: script, font: .system(size: 19))
-                        .accessibilityIdentifier("enrollScript")
-                }
-            }
-            .card(fill: Theme.lime)
-
-            VStack(alignment: .leading, spacing: 6) {
-                tip(T("A quiet room, no music or TV."))
-                tip(T("Hold the phone close, about an arm's length."))
-                tip(T("Read naturally, the way you normally speak."))
-                tip(T("10 to 40 seconds."))
-                tip(T("The words stay on screen while you record."))
-            }
+            scriptCard
+            tips
 
             if let problem {
                 ProblemCard(message: problem)
             }
-            ForEach(advice, id: \.self) { line in
-                NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
-            }
+            recordButtons
+        }
+    }
 
-            if uploading {
-                HStack(spacing: 10) {
-                    ProgressView().tint(Theme.black)
-                    Text(T("Creating your voice. This can take a minute."))
-                        .font(Theme.body).foregroundStyle(Theme.black)
-                }
-                .card(fill: Theme.grey, padding: 14)
+    private var scriptCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Read this aloud")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            if script.isEmpty && scriptProblem == nil {
+                ProgressView().tint(Theme.black)
+            } else if let scriptProblem {
+                NoteText(text: scriptProblem)
+                Button(T("Try again")) { Task { await loadScript() } }
+                    .buttonStyle(QuietButtonStyle())
             } else {
-                if Launch.isMock {
-                    // The simulator has no camera, so the UI tests take this path.
-                    Button(T("Use sample video")) { Task { await submitSample() } }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("sampleVideoButton")
-                } else if VideoRecorder.isAvailable {
-                    Button(T("Record now")) { showRecorder = true }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(script.isEmpty)
-                        .accessibilityIdentifier("recordButton")
-                }
-                Button(T("Choose a video")) { showLibrary = true }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(script.isEmpty)
-                    .accessibilityIdentifier("chooseVideoButton")
+                AmharicText(text: script, font: .system(size: 19))
+                    .accessibilityIdentifier("enrollScript")
             }
         }
+        .card(fill: Theme.lime)
+    }
+
+    private var tips: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            tip(T("A quiet room, no music or TV."))
+            tip(T("Hold the phone close, about an arm's length."))
+            tip(T("Read naturally, the way you normally speak."))
+            tip(T("10 to 40 seconds."))
+            tip(T("The words stay on screen while you record."))
+            tip(T("You can watch the recording before you send it."))
+        }
+    }
+
+    @ViewBuilder private var recordButtons: some View {
+        if Launch.isMock {
+            // The simulator has no camera, so the UI tests take this path.
+            Button(T("Use sample video")) { useSample() }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("sampleVideoButton")
+        } else if VideoRecorder.isAvailable {
+            Button(T("Record now")) { showRecorder = true }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(script.isEmpty)
+                .accessibilityIdentifier("recordButton")
+        }
+        Button(T("Choose a video")) { showLibrary = true }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(script.isEmpty)
+            .accessibilityIdentifier("chooseVideoButton")
     }
 
     private func tip(_ text: String) -> some View {
@@ -128,6 +146,158 @@ struct EnrollView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
+
+    // MARK: the take, before it is sent
+
+    private var canSend: Bool { agreedVoice && agreedPolicy && !uploading }
+
+    private var review: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text(T("Check your recording")).screenTitle()
+                .accessibilityIdentifier("enrollReviewHeading")
+
+            takeCard
+            qualityPart
+            consent
+
+            if let problem {
+                ProblemCard(message: problem)
+            }
+            if uploading {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.black)
+                    Text(T("Cloning your voice from the recording. This takes about a minute, and this screen moves on by itself when it is done. Please keep the app open."))
+                        .font(Theme.small).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .card(fill: Theme.grey, padding: 14)
+            }
+            sendPart
+        }
+    }
+
+    private var takeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let takePlayer {
+                VideoPlayer(player: takePlayer)
+                    .frame(height: 260)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                        .strokeBorder(Theme.black, lineWidth: 1))
+                    .accessibilityIdentifier("takePlayer")
+            }
+            HStack {
+                NoteText(text: T("Play it back. If it sounds clear, send it."))
+                Spacer()
+                Button("↺ " + T("Redo")) { redo() }
+                    .buttonStyle(QuietButtonStyle())
+                    .disabled(uploading || checking)
+                    .accessibilityIdentifier("redoButton")
+            }
+        }
+    }
+
+    /// The optional, free check: a badge and what to fix, in the server's own words.
+    @ViewBuilder private var qualityPart: some View {
+        if checking {
+            HStack(spacing: 10) {
+                ProgressView().tint(Theme.black)
+                Text(T("Checking audio quality")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            }
+            .card(fill: Theme.grey, padding: 14)
+        } else if let check {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    Pill(text: T(check.title).uppercased(), fill: badgeFill(check.badge))
+                        .accessibilityIdentifier("qualityBadge")
+                    Text(check.lengthLine).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                }
+                ForEach(check.advice ?? [], id: \.self) { line in
+                    tip(APIError.sentenceCase(line))
+                }
+            }
+            .card(fill: Theme.white, padding: 14)
+        }
+    }
+
+    private func badgeFill(_ badge: String?) -> Color {
+        switch badge {
+        case "green": return Theme.lime
+        case "yellow": return Theme.white
+        default: return Theme.grey
+        }
+    }
+
+    private var consent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            tick(isOn: $agreedVoice,
+                 title: T("I agree: this is my voice"),
+                 detail: T("Kinbir may create a synthetic copy of my voice for my account only. It stays private to me and I can delete it at any time."))
+                .accessibilityIdentifier("consentVoiceTick")
+            tick(isOn: $agreedPolicy,
+                 title: T("I have read and agree to the Voice Policy"),
+                 detail: T("My own voice only, no impersonation, and Kinbir may revoke any voice that breaks the rules."))
+                .accessibilityIdentifier("consentPolicyTick")
+            Link(T("Read the Voice Policy"), destination: EnrollView.policyURL)
+                .font(Theme.smallMedium)
+                .foregroundStyle(Theme.black)
+                .accessibilityIdentifier("voicePolicyLink")
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private func tick(isOn: Binding<Bool>, title: String, detail: String) -> some View {
+        Button {
+            Haptics.tap()
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.black)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        .multilineTextAlignment(.leading)
+                    Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(uploading)
+        .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+    }
+
+    @ViewBuilder private var sendPart: some View {
+        Button {
+            Task { await send() }
+        } label: {
+            BusyLabel(title: uploading ? T("Cloning your voice") : T("Send my voice"), busy: uploading)
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(!canSend)
+        .accessibilityIdentifier("sendVoiceButton")
+
+        if !agreedVoice {
+            NoteText(text: T("Tick the consent statement above first."))
+        } else if !agreedPolicy {
+            NoteText(text: T("Agree to the Voice Policy above first."))
+        }
+
+        if check == nil && !checking {
+            Button(T("Check quality (optional)")) { Task { await runCheck() } }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(uploading)
+                .accessibilityIdentifier("checkQualityButton")
+        }
+    }
+
+    // MARK: ready
 
     private func done(_ result: EnrollResult) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
@@ -139,22 +309,89 @@ struct EnrollView: View {
                         .font(Theme.body).foregroundStyle(Theme.black)
                         .card(fill: Theme.lime, padding: 14)
                 }
-                if result.needsReview == true {
-                    NoteText(text: T("The recording was a little rough. If the voice does not sound right, record again in a quieter place."))
+                if let voiceId = result.voiceId, !voiceId.isEmpty {
+                    namePart(voiceId: voiceId)
                 }
             } else {
-                Text(T("Thanks")).screenTitle(amharic: A("Thanks"))
-                Text(T("Your video was received. You will get an email when it is approved."))
+                Text(T("Submitted, pending review")).screenTitle()
+                Text(result.message.map(APIError.sentenceCase)
+                     ?? T("You will get an email when it is approved."))
                     .font(Theme.body).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            ForEach(result.advice ?? [], id: \.self) { line in
-                NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
+            adviceNotes(result)
+            if let problem {
+                ProblemCard(message: problem)
             }
             Button(T("Continue")) { dismiss() }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("enrollContinueButton")
         }
     }
+
+    /// A weak recording is still approved, so this is the moment to say so plainly.
+    @ViewBuilder private func adviceNotes(_ result: EnrollResult) -> some View {
+        if result.isApproved, result.needsReview == true {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(T("Your voice works, but this recording is weak."))
+                    .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(T("Every video you make will carry it. Worth one more take:"))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(result.advice ?? [], id: \.self) { line in
+                    tip(APIError.sentenceCase(line))
+                }
+            }
+            .card(fill: Theme.grey, padding: 14)
+            .accessibilityIdentifier("weakRecordingCard")
+        } else {
+            ForEach(result.advice ?? [], id: \.self) { line in
+                NoteText(text: T("Tip: ") + APIError.sentenceCase(line))
+            }
+        }
+    }
+
+    private func namePart(voiceId: String) -> some View {
+        let trimmed = voiceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(T("Give it a name")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            NoteText(text: T("So you can tell it apart later. Something like \"My voice\" or \"Narration\". You can change it any time."))
+            if let savedName {
+                Text(Tf("Saved as \"%@\"", savedName))
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("voiceNameSaved")
+            } else {
+                // Side by side, so the button stays above the keyboard.
+                HStack(spacing: 10) {
+                    TextField(T("My voice"), text: $voiceName)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .focused($nameFocused)
+                        .field()
+                        .accessibilityIdentifier("voiceNameField")
+                        .onChange(of: voiceName) { _, new in
+                            if new.count > EnrollView.maxNameLength {
+                                voiceName = String(new.prefix(EnrollView.maxNameLength))
+                            }
+                        }
+                        .onSubmit { Task { await saveName(voiceId: voiceId, name: trimmed) } }
+                    Button {
+                        Task { await saveName(voiceId: voiceId, name: trimmed) }
+                    } label: {
+                        BusyLabel(title: T("Save name"), busy: savingName)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .fixedSize(horizontal: true, vertical: false)
+                    .disabled(trimmed.isEmpty || savingName)
+                    .accessibilityIdentifier("saveVoiceNameButton")
+                }
+            }
+        }
+        .card(fill: Theme.white, padding: 14)
+    }
+
+    // MARK: work
 
     private func loadScript() async {
         scriptProblem = nil
@@ -167,30 +404,75 @@ struct EnrollView: View {
         }
     }
 
-    private func submit(_ url: URL) async {
+    /// A fresh recording or a chosen video. It is only kept when it can be sent at all.
+    private func picked(_ url: URL) async {
         problem = nil
-        advice = []
         let seconds = await VideoFiles.seconds(of: url)
         if let issue = EnrollRules.problem(seconds: seconds, bytes: VideoFiles.bytes(of: url)) {
             problem = issue
             return
         }
-        await upload(url)
+        keep(url)
     }
 
-    private func submitSample() async {
+    private func useSample() {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("sample.mov")
         try? Data("sample".utf8).write(to: url)
-        await upload(url)
+        keep(url)
     }
 
-    private func upload(_ url: URL) async {
+    private func keep(_ url: URL) {
+        problem = nil
+        check = nil
+        take = url
+        takePlayer = AVPlayer(url: url)
+    }
+
+    private func redo() {
+        takePlayer?.pause()
+        takePlayer = nil
+        take = nil
+        check = nil
+        problem = nil
+    }
+
+    private func runCheck() async {
+        guard let take, !checking else { return }
+        checking = true
+        problem = nil
+        defer { checking = false }
+        do {
+            check = try await state.api.enrollCheck(videoURL: take, language: language)
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func send() async {
+        guard let take, canSend else { return }
+        takePlayer?.pause()
         uploading = true
+        problem = nil
         defer { uploading = false }
         do {
-            let answer = try await state.api.enroll(videoURL: url, language: language)
+            let answer = try await state.api.enroll(videoURL: take, language: language)
             await state.refresh()
             result = answer
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func saveName(voiceId: String, name: String) async {
+        guard !name.isEmpty else { return }
+        savingName = true
+        problem = nil
+        defer { savingName = false }
+        do {
+            try await state.api.renameVoice(id: voiceId, name: name)
+            nameFocused = false
+            savedName = name
+            await state.refresh()
         } catch {
             problem = state.report(error)
         }

@@ -24,8 +24,10 @@ struct AvatarCard: View {
         return (photo.size.width >= photo.size.height) == (shape == .landscape)
     }
 
+    private var presenterSeconds: Double { choice.totalSeconds(audioSec: audioSec) }
+
     private var quote: Double {
-        AvatarChoice.credits(seconds: choice.totalSeconds(audioSec: audioSec), fullFrame: fullFrame)
+        AvatarChoice.credits(seconds: presenterSeconds, fullFrame: fullFrame)
     }
 
     var body: some View {
@@ -80,28 +82,114 @@ struct AvatarCard: View {
 
     private var options: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Toggle(T("For the whole video"), isOn: $choice.wholeVideo)
-                .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-            if !choice.wholeVideo {
-                Toggle(T("At the start"), isOn: $choice.atStart)
-                    .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                Toggle(T("At the end"), isOn: $choice.atEnd)
-                    .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                Text(T("Seconds each time")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                Picker(T("Seconds"), selection: $choice.seconds) {
-                    ForEach(AvatarChoice.lengths, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .pickerStyle(.segmented)
+            Text(T("Length of each appearance")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            Picker(T("Seconds"), selection: $choice.seconds) {
+                ForEach(AvatarChoice.lengths, id: \.self) { Text("\($0)s").tag($0) }
             }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("avatarLengthPicker")
+
+            Text(T("Where do you appear?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            Toggle(T("The whole video"), isOn: $choice.wholeVideo)
+                .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
+                .accessibilityIdentifier("avatarWholeToggle")
+            if choice.wholeVideo {
+                NoteText(text: T("Generated in 14 second pieces. You will see a small jump between pieces."))
+            } else {
+                places
+                middlePart
+            }
+            delivery
+        }
+    }
+
+    private var endFits: Bool { choice.endFits(audioSec: audioSec) }
+    private var middleFits: Bool { choice.middleFits(audioSec: audioSec) }
+
+    /// At the start and at the end, each with its own length.
+    private var places: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(T("At the start"), isOn: $choice.atStart)
+                .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
+                .accessibilityIdentifier("avatarStartToggle")
+            if choice.atStart {
+                secondsStepper(Binding(get: { choice.startSeconds ?? choice.seconds },
+                                       set: { choice.startSeconds = $0 }))
+                    .accessibilityIdentifier("avatarStartSeconds")
+            }
+            Toggle(T("At the end"), isOn: Binding(get: { choice.atEnd && endFits },
+                                                  set: { choice.atEnd = $0 }))
+                .font(Theme.body).foregroundStyle(endFits ? Theme.black : Theme.muted).tint(Theme.black)
+                .disabled(!endFits)
+                .accessibilityIdentifier("avatarEndToggle")
+            if !endFits {
+                NoteText(text: T("Needs a longer video to fit with the start."))
+            } else if choice.atEnd {
+                secondsStepper(Binding(get: { choice.endSeconds ?? choice.seconds },
+                                       set: { choice.endSeconds = $0 }))
+                    .accessibilityIdentifier("avatarEndSeconds")
+            }
+        }
+    }
+
+    /// How many times in the middle, and how long each one is.
+    private var middlePart: some View {
+        let fitCount = choice.middlesThatFit(audioSec: audioSec)
+        return VStack(alignment: .leading, spacing: 10) {
+            Stepper(value: Binding(get: { choice.middles.count },
+                                   set: { choice.setMiddleCount($0) }),
+                    in: 0...AvatarChoice.maxMiddles) {
+                Text(Tf("In the middle: %@ times", "\(choice.middles.count)"))
+                    .font(Theme.body).foregroundStyle(middleFits ? Theme.black : Theme.muted)
+            }
+            .disabled(!middleFits && choice.middles.isEmpty)
+            .accessibilityIdentifier("avatarMiddleStepper")
+            ForEach(Array(choice.middles.indices), id: \.self) { index in
+                secondsStepper(Binding(
+                    get: { index < choice.middles.count ? choice.middles[index] : choice.seconds },
+                    set: { if index < choice.middles.count { choice.middles[index] = $0 } }),
+                               label: Tf("Middle %@", "\(index + 1)"))
+                    .accessibilityIdentifier("avatarMiddleSeconds-\(index + 1)")
+            }
+            if !middleFits {
+                NoteText(text: T("Needs a longer video to fit between the others."))
+            } else if fitCount < choice.middles.count {
+                NoteText(text: Tf("Only %@ fit in a video this long. The rest are not charged.", "\(fitCount)"))
+                    .accessibilityIdentifier("avatarMiddleNote")
+            }
+        }
+    }
+
+    private func secondsStepper(_ value: Binding<Int>, label: String? = nil) -> some View {
+        Stepper(value: value, in: AvatarChoice.minSeconds...AvatarChoice.maxSeconds) {
+            Text((label.map { $0 + ": " } ?? "") + Tf("%@ seconds", "\(value.wrappedValue)"))
+                .font(Theme.small).foregroundStyle(Theme.black)
+        }
+        .padding(.leading, 12)
+    }
+
+    private var delivery: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("How do you want it delivered?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             Picker(T("Delivery"), selection: $choice.mode) {
                 ForEach(AvatarChoice.Mode.allCases) { Text(T($0.title)).tag($0) }
             }
             .pickerStyle(.segmented)
+            NoteText(text: choice.mode == .inVideo
+                     ? T("The avatar plays inside your finished video at the places you picked.")
+                     : T("The video is built without it, and the avatar downloads on its own so you can cut it in yourself."))
             if quote > 0 {
+                Text(Tf("Avatar: %@s of %@", "\(Int(presenterSeconds))", Fmt.clock(audioSec.rounded(.down))))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("avatarSeconds")
                 NoteText(text: Tf("The presenter adds about %@ credits. Any part that cannot be made is refunded.", Fmt.credits(quote)))
                     .accessibilityIdentifier("avatarQuote")
+                NoteText(text: fullFrame
+                         ? T("Your photo fills the whole frame at 720p, which costs 4x the side-panel rate.")
+                         : T("Side panel at 480p. A photo shaped like the video fills the frame at 720p and costs 4x."))
             } else {
-                NoteText(text: T("Choose where the presenter appears."))
+                NoteText(text: T("Pick at least one place for your avatar, or turn it off."))
+                    .accessibilityIdentifier("avatarNothingPicked")
             }
         }
     }

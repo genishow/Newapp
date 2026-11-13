@@ -64,6 +64,7 @@ final class KinbirJourneyTests: XCTestCase {
         email.tap()
         email.typeText("tester@example.com")
         waitFor("sendCodeButton").tap()
+        waitForLabel("codeSentNotice", contains: "10 minutes")
         let field = waitFor("codeField")
         field.tap()
         field.typeText(code)
@@ -106,8 +107,11 @@ final class KinbirJourneyTests: XCTestCase {
         launch(["-mockNoVoice"])
 
         // Welcome and the demo.
+        // The field starts empty, so the play button waits for words or a sample.
         waitFor("welcomeHeading")
-        waitFor("demoPlayButton").tap()
+        XCTAssertFalse(waitFor("demoPlayButton").isEnabled, "nothing to read yet")
+        waitFor("demoSampleEn")
+        waitFor("demoSampleAm").tap()
         waitFor("demoReady")
 
         // Sign in.
@@ -118,7 +122,24 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("enrollHeading")
         waitFor("enrollScript")
         waitFor("sampleVideoButton").tap()
+
+        // The take is shown first. It can be checked, and is only sent after both ticks.
+        waitFor("enrollReviewHeading")
+        waitFor("redoButton")
+        XCTAssertFalse(waitFor("sendVoiceButton").isEnabled, "sending waits for both consent ticks")
+        waitFor("checkQualityButton").tap()
+        waitFor("qualityBadge")
+        waitFor("consentVoiceTick").tap()
+        waitFor("consentPolicyTick").tap()
+        waitFor("sendVoiceButton").tap()
+
+        // Ready: give the voice a name.
         waitFor("enrollDoneHeading")
+        let name = waitFor("voiceNameField")
+        name.tap()
+        name.typeText("Narration")
+        waitFor("saveVoiceNameButton").tap()
+        waitForLabel("voiceNameSaved", contains: "Narration")
         waitFor("enrollContinueButton").tap()
 
         // Back on Create with a voice and the free credits.

@@ -111,10 +111,7 @@ struct DeleteAccountView: View {
                 Text(T("Delete my account")).screenTitle(amharic: A("Delete my account"))
                     .accessibilityIdentifier("deleteHeading")
 
-                Text(T("This removes your account, your voices, your scripts and any credits left. It cannot be undone."))
-                    .font(Theme.body).foregroundStyle(Theme.black)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .card(fill: Theme.grey, padding: 14)
+                whatGoes
 
                 Text(Tf("Type your email to confirm: %@", email))
                     .font(Theme.small).foregroundStyle(Theme.muted)
@@ -145,6 +142,30 @@ struct DeleteAccountView: View {
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// What is removed, the credits that go with it, and what is kept. Shown before the
+    /// email is typed, with the balance always stated, even at zero.
+    private var whatGoes: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("This removes your cloned voice, the enrollment video it was made from, your avatar photo and every clip made from it, and every voiceover and video you have generated. It cannot be undone."))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(state.balance > 0
+                 ? Tf("You will lose your %@ remaining credits.", Fmt.credits(state.balance))
+                 : T("You have no credits left to lose."))
+                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("deleteCreditsLine")
+            Text(state.me?.hasSubscription == true
+                 ? T("Your subscription is cancelled first, so you are not billed again.")
+                 : T("You have no subscription, so there is nothing to cancel."))
+                .font(Theme.small).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            NoteText(text: T("We keep our own billing records of what was charged, and a note that the account was deleted. Those hold no voice, video or photo."))
+                .accessibilityIdentifier("deleteKeepNote")
+        }
+        .card(fill: Theme.grey, padding: 14)
     }
 
     private func delete() async {

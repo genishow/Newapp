@@ -10,6 +10,10 @@ struct VoicesView: View {
     @State private var deleting: VoiceSummary?
     @StateObject private var player = AudioPlayer()
     @State private var listeningId: String?
+    /// Samples already downloaded, so a second tap plays at once.
+    @State private var samples: [String: URL] = [:]
+    /// The voice whose sample is loaded in the player.
+    @State private var loadedId: String?
 
     private let maxVoices = 5
 
@@ -24,6 +28,10 @@ struct VoicesView: View {
 
                 if let problem {
                     ProblemCard(message: problem)
+                }
+                if listeningId != nil {
+                    NoteText(text: T("Preparing the sample. The first listen wakes the voice engine and can take up to a minute."))
+                        .accessibilityIdentifier("voiceSampleNote")
                 }
 
                 if voices.isEmpty {
@@ -111,8 +119,30 @@ struct VoicesView: View {
             .disabled(busyId != nil)
             .accessibilityIdentifier("voiceRow-\(index)")
 
+            Button {
+                Task { await listen(voice) }
+            } label: {
+                ZStack {
+                    Circle().fill(Theme.white)
+                    Circle().strokeBorder(Theme.black, lineWidth: 1)
+                    if listeningId == voice.voiceId {
+                        ProgressView().controlSize(.small).tint(Theme.black)
+                    } else {
+                        Image(systemName: isSounding(voice) ? "pause.fill" : "play.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Theme.black)
+                    }
+                }
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(listeningId != nil)
+            .accessibilityLabel(isSounding(voice) ? T("Pause the sample") : T("Listen to a sample"))
+            .accessibilityIdentifier("voiceSample-\(index)")
+
             Menu {
-                Button(listeningId == voice.voiceId ? T("Preparing the sample") : T("Listen to a sample")) {
+                Button(sampleTitle(voice)) {
                     Task { await listen(voice) }
                 }
                 Button(T("Rename")) {
@@ -136,14 +166,42 @@ struct VoicesView: View {
         .card(fill: isActive ? Theme.lime : Theme.white, padding: 14)
     }
 
+    private func isSounding(_ voice: VoiceSummary) -> Bool {
+        loadedId == voice.voiceId && player.isPlaying
+    }
+
+    private func sampleTitle(_ voice: VoiceSummary) -> String {
+        if listeningId == voice.voiceId { return T("Preparing the sample") }
+        return isSounding(voice) ? T("Pause the sample") : T("Listen to a sample")
+    }
+
+    /// Plays or pauses a voice's sample. A sample heard before plays at once; the saved one
+    /// on the server is free, and only a missing one is made.
     private func listen(_ voice: VoiceSummary) async {
         guard listeningId == nil else { return }
-        listeningId = voice.voiceId
         problem = nil
+        let id = voice.voiceId
+        if loadedId == id, player.isReady {
+            player.toggle()
+            return
+        }
+        if let saved = samples[id], player.load(url: saved) {
+            loadedId = id
+            player.toggle()
+            return
+        }
+        listeningId = id
         defer { listeningId = nil }
         do {
-            let url = try await state.api.voicePreview(voiceId: voice.voiceId)
-            if player.load(url: url) { player.toggle() }
+            let url = try await state.api.voicePreview(voiceId: id)
+            samples[id] = url
+            if player.load(url: url) {
+                loadedId = id
+                player.toggle()
+            } else {
+                loadedId = nil
+                problem = T("The audio could not be played. Try again.")
+            }
         } catch {
             problem = state.report(error)
         }

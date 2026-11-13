@@ -19,6 +19,9 @@ struct VideoJobView: View {
     @State private var stopping = false
     @State private var shared: SharedFile?
     @State private var refundNote: String?
+    /// The separate presenter clips, when there is more than one: [start, seconds] each.
+    @State private var avatarClips: [[Double]] = []
+    @State private var savingClip: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
@@ -108,16 +111,7 @@ struct VideoJobView: View {
             .disabled(saving)
             .accessibilityIdentifier("saveVideoButton")
 
-            if status.avatarFile == true {
-                Button {
-                    Task { await saveAvatar() }
-                } label: {
-                    BusyLabel(title: T("Save the presenter clip"), busy: savingAvatar)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(savingAvatar)
-                .accessibilityIdentifier("saveAvatarButton")
-            }
+            presenterClips(status)
             if let skipped = status.avatarSkipped, !skipped.isEmpty {
                 NoteText(text: T("Presenter: ") + APIError.sentenceCase(skipped))
             }
@@ -129,6 +123,33 @@ struct VideoJobView: View {
 
             NoteText(text: [Fmt.length(status.durationSec), T("Kept for 48 hours. Save it if you need it later.")]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
+        }
+    }
+
+    /// One button when the presenter is a single file, one per appearance when there are more.
+    @ViewBuilder private func presenterClips(_ status: AssembleStatus) -> some View {
+        if status.avatarFile == true, avatarClips.count > 1 {
+            Text(T("Presenter clips")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            ForEach(Array(avatarClips.indices), id: \.self) { i in
+                Button {
+                    Task { await saveAvatarClip(i + 1) }
+                } label: {
+                    BusyLabel(title: Tf("Clip %@", "\(i + 1)") + " · " + Fmt.clock(avatarClips[i].first ?? 0),
+                              busy: savingClip == i + 1)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(savingClip != nil)
+                .accessibilityIdentifier("saveAvatarClip-\(i + 1)")
+            }
+        } else if status.avatarFile == true {
+            Button {
+                Task { await saveAvatar() }
+            } label: {
+                BusyLabel(title: T("Save the presenter clip"), busy: savingAvatar)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(savingAvatar)
+            .accessibilityIdentifier("saveAvatarButton")
         }
     }
 
@@ -162,6 +183,10 @@ struct VideoJobView: View {
                     if latest.isDone, player == nil,
                        let url = state.api.absoluteURL(latest.playPath) {
                         player = AVPlayer(url: url)
+                    }
+                    if latest.isDone, latest.avatarFile == true {
+                        // Several appearances come as several files. A miss leaves the one button.
+                        avatarClips = (try? await state.api.avatarClips(videoJobId: videoJobId)) ?? []
                     }
                     await state.refresh()
                     return
@@ -200,6 +225,18 @@ struct VideoJobView: View {
         defer { savingAvatar = false }
         do {
             let url = try await state.api.downloadAvatarClip(videoJobId: videoJobId)
+            shared = SharedFile(url: url)
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func saveAvatarClip(_ index: Int) async {
+        savingClip = index
+        problem = nil
+        defer { savingClip = nil }
+        do {
+            let url = try await state.api.downloadAvatarClip(videoJobId: videoJobId, index: index)
             shared = SharedFile(url: url)
         } catch {
             problem = state.report(error)

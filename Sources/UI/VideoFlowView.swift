@@ -1,5 +1,8 @@
 import AVKit
+import PhotosUI
 import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
 
 /// A stock clip playing silently on a loop, so a shot can be judged in motion.
 struct LoopingPreview: View {
@@ -75,6 +78,225 @@ struct VideoFlowView: View {
 
     @State private var render = RenderOptions()
     @State private var shotLength = "auto"
+    @State private var breaks = MusicBreaks()
+    @State private var showMusicImporter = false
+    @State private var logoItem: PhotosPickerItem?
+    @State private var hasLogo = false
+    @State private var logoBusy = false
+    /// What the checks said about each shot, by shot number.
+    @State private var flags: [Int: String] = [:]
+    @State private var checkNote: String?
+
+    /// The website's logo choices: your logo, its corner and its size.
+    @ViewBuilder private var logoRows: some View {
+        Toggle(T("My logo on the video"), isOn: $render.logo.enabled)
+            .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
+            .accessibilityIdentifier("logoToggle")
+        if render.logo.enabled {
+            PhotosPicker(selection: $logoItem, matching: .images) {
+                BusyLabel(title: hasLogo ? T("Change logo") : T("Choose logo"), busy: logoBusy)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(logoBusy)
+            if hasLogo {
+                menuRow(T("Logo corner"),
+                        value: T(LogoChoice.corners.first { $0.id == render.logo.corner }?.title ?? "Top right")) {
+                    ForEach(LogoChoice.corners, id: \.id) { corner in
+                        Button(T(corner.title)) { render.logo.corner = corner.id }
+                    }
+                }
+                Stepper(value: $render.logo.scale, in: 5...30, step: 1) {
+                    Text(Tf("Logo size %@%", "\(render.logo.scale)")).font(Theme.body).foregroundStyle(Theme.black)
+                }
+            } else {
+                NoteText(text: T("PNG, JPG or WebP, up to 2 MB."))
+            }
+        }
+    }
+
+    private func uploadLogo(_ item: PhotosPickerItem) async {
+        logoBusy = true
+        problem = nil
+        defer { logoBusy = false }
+        do {
+            guard let raw = try await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: raw) else {
+                problem = T("That picture could not be opened. Choose another.")
+                return
+            }
+            // PNG keeps a see-through background, which a logo usually has.
+            guard let png = image.pngData(), png.count <= 2 * 1024 * 1024 else {
+                problem = T("That logo is over 2 MB. Choose a smaller one.")
+                return
+            }
+            hasLogo = try await state.api.uploadLogo(image: png, filename: "logo.png", mimeType: "image/png")
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func uploadMusic(_ url: URL) async {
+        problem = nil
+        working = T("Adding your music.")
+        defer { working = nil }
+        let allowed = url.startAccessingSecurityScopedResource()
+        defer { if allowed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let track = try await state.api.uploadMusic(fileURL: url)
+            tracks.removeAll { $0.trackId == track.trackId }
+            tracks.insert(track, at: 0)
+            musicId = track.trackId
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    /// The website's whole-plan tools, under the list of shots.
+    private var planTools: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Footage tools")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            menuRow(T("Footage"), value: T(source.title)) {
+                ForEach(FootageSource.allCases) { item in
+                    Button(T(item.title)) { Task { await changeSource(item) } }
+                }
+            }
+            menuRow(T("Shape"), value: T(shape.title)) {
+                ForEach(Shape.allCases) { item in
+                    Button(T(item.title)) { Task { await changeShape(item) } }
+                }
+            }
+            if !uploads.isEmpty {
+                Button(T("Place all my clips on the right shots")) { Task { await placeAll() } }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("placeAllButton")
+            }
+            Button(T("Check footage matches · free")) { Task { await freeCheck() } }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("freeCheckButton")
+            Button(Tf("Check the shots · ≈%@ credits", "\(VerifyResult.credits(shots: filledShots.count))")) {
+                Task { await paidCheck() }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(filledShots.isEmpty)
+            .accessibilityIdentifier("paidCheckButton")
+            if let checkNote {
+                Text(checkNote).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("checkNote")
+            }
+        }
+        .disabled(working != nil || starting)
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private var filledShots: [Beat] { beats.filter { $0.needsFootage && $0.chosen != nil } }
+
+    private func changeSource(_ new: FootageSource) async {
+        guard let planId, new != source else { return }
+        problem = nil
+        working = T("Changing the footage source.")
+        do {
+            try await state.api.changeSource(planId: planId, source: new)
+            source = new
+        } catch {
+            problem = state.report(error)
+            working = nil
+            return
+        }
+        await fillShots(stock: new != .own, own: new != .stock)
+    }
+
+    /// A new shape needs footage in that shape: the search runs again, as on the website.
+    private func changeShape(_ new: Shape) async {
+        guard new != shape else { return }
+        shape = new
+        flags = [:]
+        await fillShots(stock: source != .own, own: false)
+    }
+
+    private func placeAll() async {
+        guard let planId else { return }
+        problem = nil
+        working = T("Placing your clips.")
+        defer { working = nil }
+        do {
+            _ = try await state.api.placeAllClips(planId: planId)
+            await reloadPlan()
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func freeCheck() async {
+        guard let planId else { return }
+        problem = nil
+        checkNote = nil
+        working = T("Checking that the footage matches.")
+        defer { working = nil }
+        do {
+            let submit = try await state.api.rescanFootage(planId: planId)
+            var job = try await state.api.footageCheck(jobId: submit.jobId)
+            var tries = 0
+            while job.status != "done" && job.status != "failed" && tries < 90 {
+                tries += 1
+                try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
+                job = try await state.api.footageCheck(jobId: submit.jobId)
+            }
+            if job.status == "failed" {
+                problem = job.error.map(APIError.sentenceCase) ?? T("The check did not finish. Try again.")
+                return
+            }
+            let wrong = job.result?.mismatched ?? []
+            flags = [:]
+            for item in wrong { flags[item.beat] = T("May not match the words") }
+            await reloadPlan()
+            checkNote = wrong.isEmpty ? T("Every shot matches its words.")
+                                      : Tf("%@ shots may not match. They are marked in the list.", "\(wrong.count)")
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    /// The paid check, 30 shots at a time. Wrong footage is replaced by the server.
+    private func paidCheck() async {
+        guard let planId else { return }
+        problem = nil
+        checkNote = nil
+        let all = filledShots.map(\.beat)
+        var flagged = 0
+        var replaced = 0
+        var done = 0
+        flags = [:]
+        defer { working = nil }
+        do {
+            var start = 0
+            while start < all.count {
+                let chunk = Array(all[start..<min(start + 30, all.count)])
+                working = Tf("Checked %@ of %@ shots", "\(done)", "\(all.count)")
+                let result = try await state.api.verifyShots(planId: planId, beats: chunk)
+                let swapped = Set(result.autoReplaced ?? [])
+                replaced += swapped.count
+                for check in result.checks ?? [] where !swapped.contains(check.beat) {
+                    if check.verdict == "no" || check.verdict == "weak" {
+                        flags[check.beat] = check.why.map(APIError.sentenceCase) ?? T("May not match the words")
+                        flagged += 1
+                    }
+                }
+                done += chunk.count
+                start += 30
+            }
+            await reloadPlan()
+            await state.refresh()
+            if flagged == 0 && replaced == 0 {
+                checkNote = T("Every shot looks right.")
+            } else {
+                checkNote = Tf("%@ shots were replaced. %@ are marked for you to look at.", "\(replaced)", "\(flagged)")
+            }
+        } catch {
+            await state.refresh()
+            problem = state.report(error)
+        }
+    }
 
     /// The website's finishing choices: quality, music loudness, caption font, graphics.
     @ViewBuilder private var renderRows: some View {
@@ -108,6 +330,11 @@ struct VideoFlowView: View {
                     Button(T(color.capitalized)) { render.graphicsColor = color }
                 }
             }
+        }
+        logoRows
+        if beats.contains(where: { !$0.needsFootage }) {
+            Toggle(T("Include the music breaks"), isOn: $render.includeBreaks)
+                .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
         }
     }
 
@@ -172,6 +399,15 @@ struct VideoFlowView: View {
             if stage == .setup {
                 BottomBar(problem: problem) { setupBar }
             }
+        }
+        .fileImporter(isPresented: $showMusicImporter, allowedContentTypes: [.audio]) { result in
+            if case .success(let url) = result { Task { await uploadMusic(url) } }
+        }
+        .onChange(of: logoItem) { _, item in
+            if let item { Task { await uploadLogo(item) } }
+        }
+        .onChange(of: render.logo.enabled) { _, on in
+            if on { Task { hasLogo = (try? await state.api.hasLogo()) ?? hasLogo } }
         }
         .sheet(isPresented: $showPresenter) {
             NavigationStack {
@@ -264,6 +500,12 @@ struct VideoFlowView: View {
                         }
                     }
                     .accessibilityIdentifier("shotLengthMenu")
+                    menuRow(T("Music breaks"),
+                            value: T(MusicBreaks.choices.first { $0.id == breaks.choice }?.title ?? "None")) {
+                        ForEach(MusicBreaks.choices, id: \.id) { item in
+                            Button(T(item.title)) { breaks.choice = item.id }
+                        }
+                    }
                     renderRows
                     Button {
                         showPresenter = true
@@ -451,7 +693,7 @@ struct VideoFlowView: View {
                 Button {
                     picking = beat
                 } label: {
-                    ShotRow(beat: beat, shape: shape)
+                    ShotRow(beat: beat, shape: shape, flag: flags[beat.beat])
                 }
                 .buttonStyle(.plain)
                 .disabled(working != nil)
@@ -460,6 +702,10 @@ struct VideoFlowView: View {
 
             if working == nil {
                 addClipsButton
+            }
+
+            if working == nil {
+                planTools
             }
 
             finishCard
@@ -517,11 +763,16 @@ struct VideoFlowView: View {
                 .tint(Theme.black)
                 .accessibilityIdentifier("musicPicker")
             }
-            if musicId != nil {
-                Button(musicPlayer.isPlaying ? T("Stop preview") : T("Listen")) {
-                    Task { await toggleMusic() }
+            HStack(spacing: 20) {
+                if musicId != nil {
+                    Button(musicPlayer.isPlaying ? T("Stop preview") : T("Listen")) {
+                        Task { await toggleMusic() }
+                    }
+                    .buttonStyle(QuietButtonStyle())
                 }
-                .buttonStyle(QuietButtonStyle())
+                Button(T("Upload my own music")) { showMusicImporter = true }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("uploadMusicButton")
             }
             Toggle(T("Captions on the video"), isOn: $captions)
                 .font(Theme.body).foregroundStyle(Theme.black)
@@ -567,7 +818,7 @@ struct VideoFlowView: View {
         defer { starting = false }
         do {
             let submit = try await state.api.planFootage(jobId: jobId, shape: shape, source: source,
-                                                         shotLength: shotLength)
+                                                         shotLength: shotLength, breaks: breaks)
             // Saved at once: planning is paid for, so it must never be submitted twice.
             UserDefaults.standard.set(submit.jobId, forKey: planJobKey)
             UserDefaults.standard.set(auto, forKey: planJobKey + ".auto")
@@ -784,6 +1035,8 @@ struct VideoFlowView: View {
 struct ShotRow: View {
     let beat: Beat
     var shape: Shape = .portrait
+    /// What a check said is wrong with this shot, if anything.
+    var flag: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -806,6 +1059,10 @@ struct ShotRow: View {
                     .lineSpacing(4)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                if let flag {
+                    Text("! " + flag).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        .lineLimit(2).multilineTextAlignment(.leading)
+                }
             }
             Spacer(minLength: 0)
         }

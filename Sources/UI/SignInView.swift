@@ -11,6 +11,8 @@ struct SignInView: View {
     @State private var problem: String?
     @State private var canResendAt = Date.distantPast
     @State private var now = Date()
+    /// What the server said after sending: how long the code works, or that email is off.
+    @State private var sentNotice = ""
 
     private var resendTitle: String {
         guard now < canResendAt else { return T("Send a new code") }
@@ -28,9 +30,10 @@ struct SignInView: View {
                     .accessibilityIdentifier("signInHeading")
 
                 if codeSent {
-                    Text(Tf("We sent a 6-digit code to %@. It works for 10 minutes.", email))
+                    Text(sentNotice)
                         .font(Theme.body).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("codeSentNotice")
 
                     TextField(T("6-digit code"), text: $code)
                         .keyboardType(.numberPad)
@@ -90,6 +93,8 @@ struct SignInView: View {
                 if let problem {
                     ProblemCard(message: problem)
                 }
+
+                legal
             }
             .page()
         }
@@ -97,6 +102,24 @@ struct SignInView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationBarTitleDisplayMode(.inline)
         .onReceive(clock) { now = $0 }
+    }
+
+    /// Signing in creates the account, so this is where the terms are agreed to.
+    private var legal: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            NoteText(text: T("By signing in you agree to the Terms, the Voice Policy and the Privacy Policy. You must be 18 or older."))
+                .accessibilityIdentifier("signInAgeNote")
+            HStack(spacing: 20) {
+                Link(T("Terms"), destination: URL(string: "https://kinbir.com/terms")!)
+                    .accessibilityIdentifier("signInTermsLink")
+                Link(T("Voice Policy"), destination: URL(string: "https://kinbir.com/voice-policy")!)
+                    .accessibilityIdentifier("signInVoicePolicyLink")
+                Link(T("Privacy Policy"), destination: URL(string: "https://kinbir.com/privacy")!)
+                    .accessibilityIdentifier("signInPrivacyLink")
+            }
+            .font(Theme.smallMedium)
+            .foregroundStyle(Theme.black)
+        }
     }
 
     private var cleanEmail: String {
@@ -108,8 +131,9 @@ struct SignInView: View {
         problem = nil
         defer { busy = false }
         do {
-            try await state.api.requestCode(email: cleanEmail)
+            let answer = try await state.api.requestCode(email: cleanEmail)
             email = cleanEmail
+            sentNotice = T(answer.notice(email: cleanEmail))
             codeSent = true
             canResendAt = Date().addingTimeInterval(30)
         } catch {

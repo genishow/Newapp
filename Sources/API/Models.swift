@@ -30,6 +30,8 @@ struct WhoAmI: Codable, Equatable {
     /// The English speed and emphasis used last, to preselect.
     var enPace: String?
     var enEmphasis: String?
+    /// True when a paid subscription is running. Deleting the account cancels it first.
+    var hasSubscription: Bool?
 
     var amharicVoices: [VoiceSummary] { (voices ?? []).filter { $0.isAmharic } }
     var allVoices: [VoiceSummary] { voices ?? [] }
@@ -45,6 +47,16 @@ struct VoiceList: Codable, Equatable {
 struct RequestCodeResult: Codable, Equatable {
     var sent: Bool?
     var expiresInMin: Int?
+    /// False while the server cannot send email, so no code will arrive.
+    var emailConfigured: Bool?
+
+    /// What to tell the person after "Send me a code", as the website words it.
+    func notice(email: String) -> String {
+        if emailConfigured == false {
+            return "Email is not switched on yet, so the code cannot reach you. Email support@kinbir.com and we will let you in."
+        }
+        return "We sent a 6-digit code to \(email). It works for \(expiresInMin ?? 10) minutes."
+    }
 }
 
 struct AuthResult: Codable, Equatable {
@@ -73,6 +85,47 @@ struct EnrollResult: Codable, Equatable {
     var message: String?
 
     var isApproved: Bool { status == "approved" }
+}
+
+/// The free quality check on a recording, before it is sent (`POST /enroll/check`).
+struct EnrollCheck: Codable, Equatable {
+    var badge: String?
+    var advice: [String]?
+    var videoDurationSec: Double?
+    var durationOk: Bool?
+
+    /// The website's three labels.
+    var title: String {
+        switch badge {
+        case "green": return "Great take"
+        case "yellow": return "Good enough"
+        default: return "Needs a retake"
+        }
+    }
+
+    /// "12.3s recording"
+    var lengthLine: String {
+        String(format: "%.1fs recording", videoDurationSec ?? 0)
+    }
+}
+
+/// The answer of `POST /voices/preview`: one line per voice, each with its own verdict.
+struct VoicePreviewBatch: Codable, Equatable {
+    struct Clip: Codable, Equatable {
+        var voiceId: String
+        var ok: Bool?
+        var error: String?
+    }
+
+    var clips: [Clip]?
+
+    /// The server's own reason when this voice's sample could not be made. Nil when it is fine.
+    func problem(voiceId: String) -> String? {
+        guard let mine = (clips ?? []).first(where: { $0.voiceId == voiceId }), mine.ok == false else {
+            return nil
+        }
+        return mine.error ?? "This voice could not be previewed."
+    }
 }
 
 struct ExtractResult: Codable, Equatable {
@@ -153,6 +206,8 @@ struct JobStatus: Codable, Equatable {
     var language: String?
     var emphasis: String?
     var fixedWords: [String]?
+    /// The voice this voiceover was made with.
+    var voiceId: String?
 
     var isEnglish: Bool { language == "en" }
     var isDone: Bool { status == "done" }

@@ -7,7 +7,8 @@ import FoundationNetworking   // URLRequest lives here when the logic tests run 
 /// `MockAPI` answers from memory for the end-to-end UI tests.
 protocol KinbirAPI: AnyObject {
     // Sign in
-    func requestCode(email: String) async throws
+    /// Says how long the code works, and whether the server can send email at all.
+    func requestCode(email: String) async throws -> RequestCodeResult
     func verify(email: String, code: String) async throws -> AuthResult
 
     // Account
@@ -20,7 +21,10 @@ protocol KinbirAPI: AnyObject {
     func deleteVoice(id: String) async throws
     func enrollScript(language: Lang) async throws -> String
     func enroll(videoURL: URL, language: Lang) async throws -> EnrollResult
-    /// A short sample of this voice, as a local file. Free.
+    /// The free quality check on a recording before it is sent. Stores nothing.
+    func enrollCheck(videoURL: URL, language: Lang) async throws -> EnrollCheck
+    /// A short sample of this voice, as a local file. The saved sample is free; making a
+    /// missing one can cost credits, so that only happens when there is none yet.
     func voicePreview(voiceId: String) async throws -> URL
 
     // Script
@@ -73,7 +77,20 @@ protocol KinbirAPI: AnyObject {
     // Footage
     func footageEstimate(script: String) async throws -> Double
     func planFootage(jobId: String, shape: Shape, source: FootageSource,
-                     shotLength: String) async throws -> PlanSubmit
+                     shotLength: String, breaks: MusicBreaks) async throws -> PlanSubmit
+    /// Puts every one of the user's clips on the shot it fits best. Free.
+    func placeAllClips(planId: String) async throws -> MatchResult
+    /// Changes where footage comes from after planning. Free.
+    func changeSource(planId: String, source: FootageSource) async throws
+    /// The free check that the footage matches the words. Poll with `footageCheck(jobId:)`.
+    func rescanFootage(planId: String) async throws -> PlanSubmit
+    func footageCheck(jobId: String) async throws -> FootageCheckJob
+    /// The paid check: looks at every shot and replaces the wrong ones. At most 30 shots a call.
+    func verifyShots(planId: String, beats: [Int]) async throws -> VerifyResult
+    /// The user's own music file. Returns the new track.
+    func uploadMusic(fileURL: URL) async throws -> MusicTrack
+    func hasLogo() async throws -> Bool
+    func uploadLogo(image: Data, filename: String, mimeType: String) async throws -> Bool
     func planJob(id: String) async throws -> PlanJob
     func plan(id: String) async throws -> StoredPlan
     /// One slice of the stock search. Pass `beat` to search a single shot again.
@@ -112,6 +129,10 @@ protocol KinbirAPI: AnyObject {
     func deleteAvatarPhoto() async throws
     /// The presenter clip, when it was delivered as a separate file.
     func downloadAvatarClip(videoJobId: String) async throws -> URL
+    /// The separate presenter clips of a finished video: a start time and a length each.
+    func avatarClips(videoJobId: String) async throws -> [[Double]]
+    /// One of several presenter clips. `index` starts at 1.
+    func downloadAvatarClip(videoJobId: String, index: Int) async throws -> URL
     /// The server answers with paths like "/assemble/x/preview.mp4?e=..". This makes them openable.
     func absoluteURL(_ path: String?) -> URL?
 }
@@ -119,7 +140,8 @@ protocol KinbirAPI: AnyObject {
 /// The Amharic-only calls from Build 1, kept so simple callers stay simple.
 extension KinbirAPI {
     func planFootage(jobId: String, shape: Shape, source: FootageSource) async throws -> PlanSubmit {
-        try await planFootage(jobId: jobId, shape: shape, source: source, shotLength: "auto")
+        try await planFootage(jobId: jobId, shape: shape, source: source, shotLength: "auto",
+                              breaks: MusicBreaks())
     }
     func assemble(planId: String, shape: Shape, musicId: String?, captions: Bool,
                   avatar: AvatarChoice?) async throws -> AssembleSubmit {
