@@ -24,7 +24,7 @@ struct CreateView: View {
     @State private var showWriter = false
     @State private var showMore = false
     @State private var showCredits = false
-    @AppStorage("kinbir.recentOpen") private var recentOpen = true
+    @AppStorage("kinbir.recentShown") private var recentOpen = false
     @State private var keepProblem = false
     @AppStorage("kinbir.ethOn") private var ethOn = false
     @State private var fidelOpen = false
