@@ -6,10 +6,11 @@ struct FixView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     let jobId: String
+    /// Called when a new take is ready, so the player above can load it.
+    var onRegenerated: () -> Void = {}
 
     private enum Mode { case words, sentences }
 
-    @StateObject private var player = AudioPlayer()
     @State private var job: JobStatus?
     @State private var mode: Mode = .words
     @State private var fixingWord: FixTarget?
@@ -23,10 +24,10 @@ struct FixView: View {
 
     private var segments: [String] { job?.segments ?? [] }
 
+    /// A panel that sits under the player on the voiceover screen, as on the website.
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(T("Fix the voiceover")).screenTitle(amharic: A("Fix the voiceover"))
+            VStack(alignment: .leading, spacing: 16) {
+                Text(T("Want to change something?")).font(Theme.heading).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("fixScreenHeading")
 
                 HStack(spacing: 10) {
@@ -91,36 +92,28 @@ struct FixView: View {
                     }
                 }
 
+                if let problem {
+                    ProblemCard(message: problem)
+                }
+
+                bottom
+
                 if done {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(T("Done. Press play to hear the new take.")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                            .accessibilityIdentifier("fixDoneNote")
-                        Button {
-                            player.toggle()
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                                Text(player.isPlaying ? T("Pause") : T("Play"))
-                            }
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .disabled(!player.isReady)
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "checkmark").font(.system(size: 14, weight: .bold))
+                        Text(T("Done. Your new take is in the player above, press play to hear it."))
+                            .font(Theme.small)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .card(fill: Theme.lime)
+                    .foregroundStyle(Theme.black)
+                    .card(fill: Theme.lime, padding: 12)
+                    .accessibilityIdentifier("fixDoneNote")
                 }
             }
-            .page()
-        }
-        .background(Theme.white)
-        .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
-            BottomBar(problem: problem) { bottom }
-        }
         .task {
             await load()
             await state.api.warmEngine()
         }
-        .onDisappear { player.stop() }
         .sheet(item: $fixingWord) { target in
             WordFixSheet(target: target, jobId: jobId, occurrences: occurrences(of: target.word),
                          marked: pending.contains { $0.id == "w:" + target.word },
@@ -183,24 +176,23 @@ struct FixView: View {
         if applying {
             HStack(spacing: 10) {
                 ProgressView().tint(Theme.black)
-                Text(T("Recording your changes")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                Text(T("Recording your changes. This takes a minute or two.")).font(Theme.small)
+                    .foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button(T("Stop")) { Task { await stopFixes() } }
                     .buttonStyle(QuietButtonStyle())
             }
             .frame(minHeight: 52)
-        } else if !pending.isEmpty {
-            Button(Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")) {
-                Task { await applyFixes(whole: false) }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("generateChangesButton")
-        } else if done {
-            Button(T("Back to my voiceover")) { dismiss() }
-                .buttonStyle(PrimaryButtonStyle())
-                .accessibilityIdentifier("fixBackButton")
         } else if job != nil {
-            Button(T("Generate the whole script again · 1.5 credits")) {
+            if !pending.isEmpty {
+                Button(Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")) {
+                    Task { await applyFixes(whole: false) }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("generateChangesButton")
+            }
+            Button(Tf("Generate the whole script (%@ sentences) · 1.5 credits", "\(sentences.count)")) {
                 Task { await applyFixes(whole: true) }
             }
             .buttonStyle(SecondaryButtonStyle())
@@ -311,7 +303,7 @@ struct FixView: View {
                 done = true
                 Haptics.success()
                 job = (try? await state.api.job(id: jobId)) ?? job
-                if let url = try? await state.api.playbackAudio(jobId: jobId) { _ = player.load(url: url) }
+                onRegenerated()
             case "cancelled":
                 problem = T("Stopped. Your credits were returned.")
             case "failed":

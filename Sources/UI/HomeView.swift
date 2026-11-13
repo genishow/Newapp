@@ -51,7 +51,7 @@ struct RouteDestinations: ViewModifier {
             case .job(let id):
                 JobView(jobId: id, onMakeAnother: onMakeAnother)
             case .fix(let jobId):
-                FixView(jobId: jobId)
+                ScrollView { FixView(jobId: jobId).page() }.background(Theme.white)
             case .video(let jobId):
                 VideoFlowView(jobId: jobId)
             case .videoJob(let id, let landscape):

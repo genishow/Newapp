@@ -244,7 +244,7 @@ final class KinbirJourneyTests: XCTestCase {
         launch()
         signIn()
         makeVoiceover()
-        waitFor("fixLink").tap()
+        // Fixing sits under the player, as on the website.
         waitFor("fixScreenHeading")
         waitFor("word-0-0").tap()
         // The first reading plays by itself; choosing one only adds it to the list.
@@ -254,11 +254,9 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("fixRecordWord", contains: "Stop")
         el("fixRecordWord").tap()
         waitFor("fixUse-100", timeout: 20)
-        app.swipeDown()
         waitFor("fixUse-0").tap()
         waitFor("generateChangesButton").tap()
         waitFor("fixDoneNote", timeout: 20)
-        waitFor("fixBackButton").tap()
         waitFor("playButton")
     }
 

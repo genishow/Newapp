@@ -36,10 +36,6 @@ struct JobView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: attempt) { await poll() }
         .onDisappear { player.stop() }
-        // Coming back from the fix screen: the audio may have changed.
-        .onAppear {
-            if job?.isDone == true { Task { await reloadAfterChange() } }
-        }
         .sheet(item: $shared) { file in
             ShareSheet(items: [file.url])
         }
@@ -137,40 +133,39 @@ struct JobView: View {
                 .accessibilityIdentifier("resultHeading")
 
             playerCard(job)
-            speedRow
 
-            NavigationLink(value: Route.video(jobId)) {
-                Text(job.brollPlanId == nil ? T("Make a video") : T("Continue the video"))
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("makeVideoLink")
-
+            // Same order as the website: download, fix, then on to the video.
             Button {
                 Task { await share() }
             } label: {
-                BusyLabel(title: T("Share or save"), busy: sharing)
+                BusyLabel(title: "↓ " + T("Download") + " · " + Fmt.clock(job.audioSec ?? player.duration),
+                          busy: sharing)
             }
             .buttonStyle(SecondaryButtonStyle())
             .disabled(sharing)
             .accessibilityIdentifier("shareButton")
 
-
             if job.isEnglish {
                 englishScript(job)
             } else if !(job.segments ?? []).isEmpty {
-                NavigationLink(value: Route.fix(jobId)) {
-                    OptionRow(icon: "wand.and.stars", title: T("Something sound wrong?"),
-                              detail: T("Fix a word or change a sentence."))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("fixLink")
+                FixView(jobId: jobId, onRegenerated: { Task { await reloadAfterChange() } })
+                    .card(fill: Theme.white, padding: 14)
             }
 
+            NavigationLink(value: Route.video(jobId)) {
+                Text((job.brollPlanId == nil ? T("Turn this into a video") : T("Continue the video")) + " →")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("makeVideoLink")
+
             if let onMakeAnother {
-                Button(T("Make another")) { onMakeAnother() }
+                Button(T("Compose another") + " →") { onMakeAnother() }
                     .buttonStyle(QuietButtonStyle())
+                    .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("makeAnotherButton")
             }
+
+            NoteText(text: T("This file is deleted from our servers within 48 hours. Download it now."))
         }
     }
 
@@ -198,12 +193,9 @@ struct JobView: View {
                            in: 0...max(player.duration, 0.1))
                         .tint(Theme.lime)
                         .disabled(!player.isReady)
-                    HStack {
-                        Text(Fmt.clock(player.position))
-                        Spacer()
-                        Text(Fmt.clock(player.isReady ? player.duration : (job.audioSec ?? 0)))
-                    }
-                    .font(Theme.small).foregroundStyle(Theme.grey)
+                    Text(Fmt.clock(player.position) + " / "
+                         + Fmt.clock(player.isReady ? player.duration : (job.audioSec ?? 0)))
+                        .font(Theme.small).monospacedDigit().foregroundStyle(Theme.grey)
                 }
             }
             if let audioProblem {
@@ -214,20 +206,6 @@ struct JobView: View {
             }
         }
         .card(fill: Theme.black)
-    }
-
-    /// How fast it plays back, under the player.
-    @ViewBuilder private var speedRow: some View {
-        if player.isReady {
-            ChipRow {
-                ForEach([0.75, 1.0, 1.25, 1.5], id: \.self) { speed in
-                    Chip(title: speed == 1.0 ? "1x" : "\(speed.formatted())x",
-                         selected: player.rate == Float(speed)) {
-                        player.setRate(Float(speed))
-                    }
-                }
-            }
-        }
     }
 
     private func englishScript(_ job: JobStatus) -> some View {
