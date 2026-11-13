@@ -365,8 +365,10 @@ enum PendingFix: Identifiable, Equatable {
             for part in sentence.parts where part < pieces.count { pieces[part] = nil }
             pieces[first] = text
         }
+        // An edit with no words removes the sentence, so empty pieces are dropped.
         return pieces.compactMap { $0 }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
             .joined(separator: " ")
     }
 }

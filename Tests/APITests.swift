@@ -711,6 +711,11 @@ final class ExtrasTests: XCTestCase {
                                       segments: segments)
         XCTAssertEqual(changed.first, .editSentence(segment: 0, text: "ሰላም እንዴት ናችሁ። ዛሬ ስለ ቡና እናወራለን።"))
         XCTAssertEqual(Array(changed.dropFirst()), [.rereadPart(segment: 1, part: 0)])
+        // All the words deleted: the sentence is taken out of its segment.
+        let removed = PendingFix.wire([.edit(s[1], text: "")], segments: segments)
+        XCTAssertEqual(removed, [.editSentence(segment: 0, text: "ሰላም፣ እንዴት ናችሁ።")])
+        XCTAssertEqual(PendingFix.segmentText(segments[1], with: [(s[2], "")]), "",
+                       "the only sentence of a segment cannot be taken out")
         // The whole script: every segment.
         let all = PendingFix.wholeScript([.word(.option(word: "ቡና", optionId: 1), label: "ቡና")], segments: segments)
         XCTAssertEqual(all, [.option(word: "ቡና", optionId: 1), .rereadSentence(segment: 0), .rereadSentence(segment: 1)])

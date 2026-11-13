@@ -59,7 +59,10 @@ struct FixView: View {
                                                             pendingText: pendingText(for: sentence),
                                                             queued: isQueued(sentence))
                         } label: {
-                            AmharicText(text: pendingText(for: sentence) ?? sentence.text)
+                            AmharicText(text: (pendingText(for: sentence) ?? "").isEmpty
+                                        ? sentence.text : (pendingText(for: sentence) ?? sentence.text))
+                                .strikethrough(pendingText(for: sentence) == "")
+                                .opacity(pendingText(for: sentence) == "" ? 0.5 : 1)
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .card(fill: isQueued(sentence) ? Theme.lime : Theme.grey, padding: 12)
@@ -242,6 +245,17 @@ struct FixView: View {
         return nil
     }
 
+    /// Every edit waiting in one segment, with this sentence counted as removed.
+    private func pendingEdits(in segment: Int, adding removed: Script.Sentence) -> [(Script.Sentence, String)] {
+        var out: [(Script.Sentence, String)] = [(removed, "")]
+        for item in pending {
+            if case .edit(let s, let text) = item, s.segment == segment, s.id != removed.id {
+                out.append((s, text))
+            }
+        }
+        return out
+    }
+
     private func isQueued(_ sentence: Script.Sentence) -> Bool {
         pending.contains { $0.id == "s:" + sentence.id }
     }
@@ -256,12 +270,23 @@ struct FixView: View {
         switch item {
         case .word(_, let label): return label
         case .reread(let sentence): return "↻ " + String(sentence.text.prefix(18))
-        case .edit(_, let text): return "✎ " + String(text.prefix(18))
+        case .edit(let sentence, let text):
+            return text.isEmpty ? "✕ " + String(sentence.text.prefix(18)) : "✎ " + String(text.prefix(18))
         }
     }
 
     /// A newer choice for the same word or sentence replaces the older one.
     private func queue(_ fix: PendingFix) {
+        // A sentence can be taken out only when others stay in its part of the audio.
+        if case .edit(let sentence, let text) = fix, text.isEmpty {
+            let left = PendingFix.segmentText(segments.indices.contains(sentence.segment)
+                                              ? segments[sentence.segment] : "",
+                                              with: pendingEdits(in: sentence.segment, adding: sentence))
+            if left.isEmpty {
+                problem = T("This sentence cannot be removed because it is the only one in its part of the audio. Change its words instead.")
+                return
+            }
+        }
         pending.removeAll { $0.id == fix.id }
         guard pending.count < FixEdit.maxPerBatch else {
             problem = T("That is the most changes for one go. Generate these first.")

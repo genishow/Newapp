@@ -479,10 +479,14 @@ struct SentenceSheet: View {
                         .card(fill: Theme.grey, padding: 12)
                         .accessibilityIdentifier("sentenceEditor")
 
-                    if changed {
+                    if changed && cleaned.isEmpty {
+                        // All the words were deleted: that means take the sentence out.
+                        Button(T("Remove this sentence")) { onSave("") }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .accessibilityIdentifier("removeSentenceButton")
+                    } else if changed {
                         Button(T("Save this edit")) { onSave(cleaned) }
                             .buttonStyle(PrimaryButtonStyle())
-                            .disabled(cleaned.isEmpty)
                             .accessibilityIdentifier("saveSentenceButton")
                     } else if !target.queued {
                         Button(T("Record this sentence again")) { onReread() }
