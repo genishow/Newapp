@@ -17,6 +17,7 @@ struct JobView: View {
     @State private var copied = false
     @State private var startedAt = Date()
     @State private var slow = false
+    @State private var celebrate = false
 
     var body: some View {
         ScrollView {
@@ -65,11 +66,11 @@ struct JobView: View {
 
             if problem == nil {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(stageLine).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text(stageLine).font(Theme.bodyMedium).foregroundStyle(Theme.white)
                         .accessibilityIdentifier("stageLine")
-                    Waveform()
+                    Waveform(color: Theme.lime)
                     ProgressView(value: fraction)
-                        .tint(Theme.black)
+                        .tint(Theme.lime)
                         .animation(.easeInOut(duration: 0.4), value: fraction)
                     HStack {
                         Text(T("Voice: ") + (state.activeVoice?.name ?? T("My voice")))
@@ -78,9 +79,9 @@ struct JobView: View {
                             Text(Fmt.clock(context.date.timeIntervalSince(startedAt))).monospacedDigit()
                         }
                     }
-                    .font(Theme.small).foregroundStyle(Theme.muted)
+                    .font(Theme.small).foregroundStyle(Theme.grey)
                 }
-                .card(fill: Theme.lime)
+                .card(fill: Theme.black)
 
                 if slow {
                     Text(T("This is taking longer than usual. It is still working. You can leave this screen and find it later in your Library."))
@@ -117,10 +118,26 @@ struct JobView: View {
 
     private func result(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
+                Text(T("Ready")).font(Theme.smallMedium)
+            }
+            .foregroundStyle(Theme.black)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Capsule().fill(Theme.lime))
+            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+            .scaleEffect(celebrate ? 1 : 0.6)
+            .opacity(celebrate ? 1 : 0)
+            .onAppear {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) { celebrate = true }
+            }
+            .accessibilityHidden(true)
+
             Text(T("Your voiceover")).screenTitle()
                 .accessibilityIdentifier("resultHeading")
 
             playerCard(job)
+            speedRow
 
             NavigationLink(value: Route.video(jobId)) {
                 Text(job.brollPlanId == nil ? T("Make a video") : T("Continue the video"))
@@ -159,16 +176,18 @@ struct JobView: View {
     }
 
     private func playerCard(_ job: JobStatus) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
+            Waveform(active: player.isPlaying, bars: 30, color: Theme.lime)
             HStack(spacing: 14) {
                 Button {
+                    Haptics.tap()
                     player.toggle()
                 } label: {
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(Theme.white)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(Theme.black))
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(Theme.black)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(Theme.lime))
                 }
                 .disabled(!player.isReady)
                 .accessibilityLabel(player.isPlaying ? T("Pause") : T("Play"))
@@ -178,33 +197,38 @@ struct JobView: View {
                     Slider(value: Binding(get: { player.position },
                                           set: { player.seek(to: $0) }),
                            in: 0...max(player.duration, 0.1))
-                        .tint(Theme.black)
+                        .tint(Theme.lime)
                         .disabled(!player.isReady)
                     HStack {
                         Text(Fmt.clock(player.position))
                         Spacer()
                         Text(Fmt.clock(player.isReady ? player.duration : (job.audioSec ?? 0)))
                     }
-                    .font(Theme.small).foregroundStyle(Theme.muted)
-                }
-            }
-            if player.isReady {
-                ChipRow {
-                    ForEach([0.75, 1.0, 1.25, 1.5], id: \.self) { speed in
-                        Chip(title: speed == 1.0 ? "1x" : "\(speed.formatted())x",
-                             selected: player.rate == Float(speed)) {
-                            player.setRate(Float(speed))
-                        }
-                    }
+                    .font(Theme.small).foregroundStyle(Theme.grey)
                 }
             }
             if let audioProblem {
-                NoteText(text: audioProblem)
+                Text(audioProblem).font(Theme.small).foregroundStyle(Theme.white)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if !player.isReady {
-                NoteText(text: T("Loading the audio."))
+                Text(T("Loading the audio.")).font(Theme.small).foregroundStyle(Theme.grey)
             }
         }
-        .card(fill: Theme.lime)
+        .card(fill: Theme.black)
+    }
+
+    /// How fast it plays back, under the player.
+    @ViewBuilder private var speedRow: some View {
+        if player.isReady {
+            ChipRow {
+                ForEach([0.75, 1.0, 1.25, 1.5], id: \.self) { speed in
+                    Chip(title: speed == 1.0 ? "1x" : "\(speed.formatted())x",
+                         selected: player.rate == Float(speed)) {
+                        player.setRate(Float(speed))
+                    }
+                }
+            }
+        }
     }
 
     private func englishScript(_ job: JobStatus) -> some View {

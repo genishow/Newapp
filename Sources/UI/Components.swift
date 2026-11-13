@@ -225,6 +225,22 @@ extension View {
             .padding(.horizontal, Theme.margin)
             .padding(.vertical, Theme.gap)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(RiseIn())
+    }
+}
+
+/// Every screen eases in from slightly below instead of snapping into place.
+private struct RiseIn: ViewModifier {
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 14)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.3)) { shown = true }
+            }
     }
 }
 
@@ -374,8 +390,9 @@ struct OptionRow: View {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(Theme.black)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(Theme.white))
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Theme.lime))
+                .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
                     .multilineTextAlignment(.leading)

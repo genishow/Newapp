@@ -9,26 +9,32 @@ struct WelcomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.gap) {
-                    HStack(spacing: 12) {
-                        LogoMark(size: 48)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
-                            Text("ቅንብር").font(Theme.small).foregroundStyle(Theme.muted)
+                    // The first thing anyone sees: dark, with the lime sound bars moving.
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack(spacing: 12) {
+                            LogoMark(size: 48)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.white)
+                                Text("ቅንብር").font(Theme.small).foregroundStyle(Theme.grey)
+                            }
                         }
-                    }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(T("Amharic voiceovers in"))
-                            .font(Theme.title).foregroundStyle(Theme.black)
-                        Marker(text: T("your own voice"))
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("welcomeHeading")
-                    .padding(.top, 8)
+                        Waveform(bars: 30, color: Theme.lime)
 
-                    Text(T("Write Amharic, or paste English or a link. Kinbir writes the script and reads it aloud in a voice cloned from you."))
-                        .font(Theme.body).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(T("Amharic voiceovers in"))
+                                .font(Theme.title).foregroundStyle(Theme.white)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Marker(text: T("your own voice"))
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("welcomeHeading")
+
+                        Text(T("Write Amharic, or paste English or a link. Kinbir writes the script and reads it aloud in a voice cloned from you."))
+                            .font(Theme.body).foregroundStyle(Theme.grey)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .card(fill: Theme.black, padding: 22)
 
                     if let notice = state.notice {
                         ProblemCard(message: notice)
