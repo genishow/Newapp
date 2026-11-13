@@ -43,6 +43,9 @@ struct FlowLayout: Layout {
 struct TappableScript: View {
     let segments: [String]
     let fixedWords: [String]
+    /// The word whose window is open. Every place it appears gets an outline, as on the
+    /// website, so it is clear one fix changes all of them.
+    var openWord: String? = nil
     let onTap: (FixTarget) -> Void
 
     var body: some View {
@@ -67,7 +70,10 @@ struct TappableScript: View {
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 3)
                                     .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(fixedWords.contains(token.word) ? Theme.lime : Theme.white))
+                                        .fill(fixedWords.contains(token.word) ? Theme.lime
+                                              : openWord == token.word ? Theme.lime.opacity(0.35) : Theme.white))
+                                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .strokeBorder(Theme.black, lineWidth: openWord == token.word ? 2 : 0))
                                     .padding(.vertical, 3)
                                     .padding(.leading, token.spaceBefore ? 6 : 0)
                             }

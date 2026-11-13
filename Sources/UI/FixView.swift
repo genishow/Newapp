@@ -51,7 +51,7 @@ struct FixView: View {
                         ProgressView().tint(Theme.black)
                     }
                 } else if mode == .words {
-                    TappableScript(segments: segments, fixedWords: pendingWords) { fixingWord = $0 }
+                    TappableScript(segments: segments, fixedWords: pendingWords, openWord: fixingWord?.word) { fixingWord = $0 }
                         .disabled(applying)
                         .card(fill: Theme.grey, padding: 14)
                 } else {
@@ -407,7 +407,11 @@ struct FixView: View {
 
     private func label(for item: PendingFix) -> String {
         switch item {
-        case .word(_, let label): return label
+        case .word(_, let label):
+            // As on the website: one fix changes every place the word appears, so say how many.
+            let word = item.id.hasPrefix("w:") ? String(item.id.dropFirst(2)) : ""
+            let n = word.isEmpty ? 0 : occurrences(of: word)
+            return n > 1 ? label + " · ×\(n) " + T("places") : label
         case .reread(let sentence): return "↻ " + String(sentence.text.prefix(18))
         case .edit(let sentence, let text):
             return text.isEmpty ? "✕ " + String(sentence.text.prefix(18)) : "✎ " + String(text.prefix(18))
