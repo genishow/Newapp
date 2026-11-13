@@ -58,37 +58,38 @@ struct CreateView: View {
                 // The website's control row, above the box: type in Amharic, speak, the
                 // letter pad, and Write it for me.
                 ChipRow {
-                    if language == .am {
-                        tool(icon: "keyboard", title: "አማርኛ " + (ethOn ? "ON" : "OFF"), active: ethOn,
-                             id: "ethToggle") {
-                            ethOn.toggle()
-                        }
-                        tool(icon: work == .listening ? "stop.fill" : "mic.fill",
-                             title: work == .listening ? T("Stop") : T("Speak to type"),
-                             active: work == .listening, id: "speakButton") {
-                            Task { await toggleSpeech() }
-                        }
-                        .disabled(busy && work != .listening)
-                        tool(icon: nil, title: "ፊደል " + (fidelOpen ? "▴" : "▾"), active: fidelOpen,
-                             id: "fidelTab") {
-                            fidelOpen.toggle()
-                        }
+                    tool(icon: work == .listening ? "stop.fill" : "mic.fill",
+                         title: work == .listening ? T("Stop") : T("Speak to type"),
+                         active: work == .listening, id: "speakButton") {
+                        useAmharic()
+                        Task { await toggleSpeech() }
                     }
+                    .disabled(busy && work != .listening)
                     tool(icon: "sparkles", title: T("Write it for me"), active: false,
                          id: "writeForMeButton") {
                         editing = false
                         showWriter = true
                     }
                     .disabled(busy)
+                    tool(icon: "keyboard", title: "አማርኛ " + (ethOn ? "ON" : "OFF"), active: ethOn,
+                         id: "ethToggle") {
+                        ethOn.toggle()
+                        if ethOn { useAmharic() }
+                    }
+                    tool(icon: nil, title: "ፊደል " + (fidelOpen ? "▴" : "▾"), active: fidelOpen,
+                         id: "fidelTab") {
+                        fidelOpen.toggle()
+                        if fidelOpen { useAmharic() }
+                    }
                 }
 
-                if ethOn && language == .am {
+                if ethOn {
                     NoteText(text: "selam → ሰላም  ·  se → ሰ  ·  :: → ።")
                 }
 
                 editorCard
 
-                if fidelOpen && language == .am {
+                if fidelOpen {
                     fidelPad
                 }
 
@@ -161,7 +162,7 @@ struct CreateView: View {
         }
         .onChange(of: text) { old, new in
             // Type-to-Amharic: one Latin letter typed at the end becomes Ethiopic.
-            if ethOn, language == .am, work == .idle, new.count == old.count + 1, new.hasPrefix(old),
+            if ethOn, work == .idle, new.count == old.count + 1, new.hasPrefix(old),
                let typed = new.last {
                 let turned = Ethiopic.type(old, typed: typed)
                 if turned != new {
@@ -169,6 +170,8 @@ struct CreateView: View {
                     return
                 }
             }
+            // An Amharic script is read in Amharic, whatever was chosen for an earlier one.
+            if language == .en, TextKind.detect(new) == .amharic { useAmharic() }
             state.saveDraft(new)
             if new != draftText { draftId = nil }
             // A failed rewrite puts the old text back, and the reason it failed must stay
@@ -286,6 +289,11 @@ struct CreateView: View {
         case .fetching: return T("Getting the article")
         case .idle, .starting: return nil
         }
+    }
+
+    /// Speaking, Amharic typing and the letter pad all make an Amharic script.
+    private func useAmharic() {
+        if language != .am { languageRaw = Lang.am.rawValue }
     }
 
     /// A small control above the script box. It turns lime while it is on.
