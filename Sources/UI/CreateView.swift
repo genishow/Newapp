@@ -721,51 +721,31 @@ struct MoreOptionsSheet: View {
     @State private var instruction = ""
     @FocusState private var typing: Bool
 
-    private static let rewrites: [(title: String, instruction: String)] = [
-        ("Shorter", "Make it shorter. Keep the main point."),
-        ("Longer", "Make it longer with one more example."),
-        ("More dramatic", "Make it more dramatic and gripping, with a stronger opening line."),
-        ("Simpler", "Use simpler, everyday words and shorter sentences."),
-        ("Stronger opening", "Rewrite only the first sentence as a hook that makes people keep watching."),
-    ]
-
     private var language: Lang { Lang(rawValue: languageRaw) ?? Lang.matchingInterface }
+
+    /// The website's small capital labels: LANGUAGE, SPEED, EMPHASIS.
+    private func label(_ text: String) -> some View {
+        Text(text.uppercased()).font(Theme.font(12, .bold, relativeTo: .caption))
+            .foregroundStyle(Theme.muted)
+            .kerning(0.6)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
                     Text(T("More options")).screenTitle(amharic: A("More options"))
                         .accessibilityIdentifier("moreHeading")
 
-                    if hasScript {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(T("Improve the script")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                            ChipRow {
-                                ForEach(MoreOptionsSheet.rewrites, id: \.title) { item in
-                                    Chip(title: T(item.title)) { onImprove(item.instruction) }
-                                }
-                            }
-                            HStack(spacing: 10) {
-                                TextField(T("Tell Kinbir what to change"), text: $instruction)
-                                    .field()
-                                    .focused($typing)
-                                    .accessibilityIdentifier("refineField")
-                                Button(T("Apply")) { onImprove(instruction) }
-                                    .buttonStyle(QuietButtonStyle())
-                                    .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                                    .accessibilityIdentifier("refineButton")
-                            }
-                        }
-                    }
-
+                    // The website's own sections, in its order and words.
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(T("Voiceover language")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        label(T("Language"))
                         Picker(T("Voiceover language"), selection: Binding(
                             get: { language.rawValue },
                             set: { languageRaw = $0 })
                         ) {
-                            ForEach(Lang.allCases) { Text(T($0.title)).tag($0.rawValue) }
+                            Text("አማርኛ").tag(Lang.am.rawValue)
+                            Text("English").tag(Lang.en.rawValue)
                         }
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("languagePicker")
@@ -773,23 +753,55 @@ struct MoreOptionsSheet: View {
 
                     if language == .en {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(T("Reading speed")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                            Picker(T("Reading speed"), selection: $voice.pace) {
-                                ForEach(VoiceOptions.paces, id: \.self) { Text(T($0.capitalized)).tag($0) }
+                            label(T("Speed"))
+                            Picker(T("Speed"), selection: $voice.pace) {
+                                Text(T("Slower")).tag("slow")
+                                Text(T("Normal")).tag("normal")
+                                Text(T("Faster")).tag("fast")
                             }
                             .pickerStyle(.segmented)
+                            label(T("Emphasis"))
+                            Picker(T("Emphasis"), selection: $voice.emphasis) {
+                                Text(T("None")).tag("none")
+                                Text(T("Punchy")).tag("punchy")
+                                Text(T("Strong")).tag("strong")
+                            }
+                            .pickerStyle(.segmented)
+                            if voice.emphasis != "none" {
+                                NoteText(text: T("A beat lands where you wrote one: after a line ending in three dots, and between paragraphs."))
+                            }
                             if amharicVoice {
-                                NoteText(text: T("This voice was cloned reading Amharic, so its English has an Amharic accent. Clone an English reading for a native sound."))
+                                NoteText(text: T("This voice was enrolled in Amharic, so its English carries an Amharic accent. Enroll an English reading for a native sound."))
                             }
                         }
                         .accessibilityIdentifier("englishCard")
                     }
 
+                    if hasScript {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(T("Not quite right? Tell Kinbir what to change"))
+                                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                                .fixedSize(horizontal: false, vertical: true)
+                            TextField(T("e.g. remove the part about thieves · make the last line warmer"),
+                                      text: $instruction, axis: .vertical)
+                                .lineLimit(2...4)
+                                .field()
+                                .focused($typing)
+                                .accessibilityIdentifier("refineField")
+                            Button(T("Apply change") + " →") { onImprove(instruction) }
+                                .buttonStyle(SecondaryButtonStyle())
+                                .disabled(instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .accessibilityIdentifier("refineButton")
+                            NoteText(text: T("Everything you do not mention comes back exactly as it is."))
+                        }
+                    }
+
                     NavigationLink(value: Route.scriptRules) {
-                        OptionRow(icon: "list.bullet.rectangle", title: T("Script rules"),
-                                  detail: T("Standing instructions for every script Kinbir writes."))
+                        OptionRow(icon: "list.bullet.rectangle", title: T("Script Rules"),
+                                  detail: T("Tailor it to your niche"))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("scriptRulesRow")
                 }
                 .page()
             }
