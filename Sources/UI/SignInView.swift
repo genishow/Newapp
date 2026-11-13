@@ -18,7 +18,7 @@ struct SignInView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
                 Text(codeSent ? T("Enter your code") : T("Start with your email"))
-                    .font(Theme.title).foregroundStyle(Theme.black)
+                    .screenTitle()
                     .accessibilityIdentifier("signInHeading")
 
                 if codeSent {

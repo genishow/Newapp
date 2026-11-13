@@ -25,11 +25,11 @@ struct VideoJobView: View {
             if let status, status.isDone {
                 done(status)
             } else if let status, status.status == "cancelled" {
-                Text(T("Stopped")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Stopped")).screenTitle()
                 NoteText(text: refundNote ?? T("The video was stopped and the credits were returned."))
                 editShotsButton(primary: true)
             } else if let status, status.status == "failed" {
-                Text(T("This one did not work")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("This one did not work")).screenTitle()
                 ProblemCard(message: status.error.map(APIError.sentenceCase)
                             ?? T("The video could not be made. Your credits were returned."))
                 editShotsButton(primary: true)
@@ -46,7 +46,7 @@ struct VideoJobView: View {
 
     private var rendering: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Making your video")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Making your video")).screenTitle()
                 .accessibilityIdentifier("videoProgressHeading")
             if problem == nil {
                 StepList(steps: [T("In line"), T("Putting the clips together"), T("Finishing")],
@@ -82,7 +82,7 @@ struct VideoJobView: View {
 
     private func done(_ status: AssembleStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Your video")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your video")).screenTitle()
                 .accessibilityIdentifier("videoReadyHeading")
 
             if let player {

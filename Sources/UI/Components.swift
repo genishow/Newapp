@@ -518,3 +518,25 @@ struct CreditsSheet: View {
         .tint(Theme.black)
     }
 }
+
+/// The title at the top of a screen: large, bold, with a short lime stroke under it,
+/// the way headings are marked on the Kinbir website.
+private struct ScreenTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(Theme.title)
+            .foregroundStyle(Theme.black)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, 12)
+            .overlay(alignment: .bottomLeading) {
+                Capsule().fill(Theme.lime)
+                    .frame(width: 56, height: 6)
+                    .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+                    .accessibilityHidden(true)
+            }
+    }
+}
+
+extension View {
+    func screenTitle() -> some View { modifier(ScreenTitle()) }
+}

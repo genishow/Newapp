@@ -55,11 +55,11 @@ enum Theme {
         }
     }
 
-    static let title = font(30, .medium, relativeTo: .title)
-    static let heading = font(22, .medium, relativeTo: .title2)
+    static let title = font(32, .bold, relativeTo: .title)
+    static let heading = font(21, .bold, relativeTo: .title2)
     static let body = font(17, .regular, relativeTo: .body)
     static let bodyMedium = font(17, .medium, relativeTo: .body)
     static let small = font(14, .regular, relativeTo: .footnote)
     static let smallMedium = font(14, .medium, relativeTo: .footnote)
-    static let button = font(17, .medium, relativeTo: .body)
+    static let button = font(17, .bold, relativeTo: .body)
 }

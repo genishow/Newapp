@@ -19,7 +19,7 @@ struct VoicesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("My voices")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("My voices")).screenTitle()
                     .accessibilityIdentifier("voicesHeading")
 
                 if let problem {

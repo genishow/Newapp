@@ -145,7 +145,7 @@ struct VideoFlowView: View {
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(T("Make a video")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Make a video")).screenTitle()
                 .accessibilityIdentifier("videoSetupHeading")
 
             // The one real choice: where the video will be watched.
@@ -308,7 +308,7 @@ struct VideoFlowView: View {
 
     private var planning: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Planning your video")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Planning your video")).screenTitle()
                 .accessibilityIdentifier("planningHeading")
             if problem == nil {
                 StepList(steps: auto
@@ -334,7 +334,7 @@ struct VideoFlowView: View {
 
     private var shots: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Your shots")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your shots")).screenTitle()
                 .accessibilityIdentifier("shotsHeading")
 
             if stockLimited && !emptyShots.isEmpty {
@@ -727,7 +727,7 @@ struct ShotSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.gap) {
-                    Text(Tf("Shot %@", "\(beat.beat)")).font(Theme.title).foregroundStyle(Theme.black)
+                    Text(Tf("Shot %@", "\(beat.beat)")).screenTitle()
                         .accessibilityIdentifier("shotSheetHeading")
                     if let says = beat.says, !says.isEmpty {
                         AmharicText(text: says, font: Theme.small)

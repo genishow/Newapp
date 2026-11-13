@@ -46,7 +46,7 @@ struct CreateView: View {
                     voiceHero
                 }
 
-                Text(T("What will you say?")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("What will you say?")).screenTitle()
 
                 editorCard
 
@@ -516,7 +516,7 @@ struct WriteSheet: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(T("Write it for me")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Write it for me")).screenTitle()
                 .accessibilityIdentifier("writerHeading")
             Text(T("Kinbir writes the script. You can change it afterwards."))
                 .font(Theme.body).foregroundStyle(Theme.muted)
@@ -543,7 +543,7 @@ struct WriteSheet: View {
     @ViewBuilder private func form(_ kind: WriteRequest.Kind) -> some View {
         switch kind {
         case .idea:
-            Text(T("What is the video about?")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("What is the video about?")).screenTitle()
             TextField(T("For example: the history of Ethiopian coffee"), text: $input, axis: .vertical)
                 .lineLimit(3...6)
                 .padding(.vertical, 8)
@@ -558,7 +558,7 @@ struct WriteSheet: View {
             lengthRow
         case .source:
             Text(language == .en ? T("Paste the text") : T("Paste the English text"))
-                .font(Theme.title).foregroundStyle(Theme.black)
+                .screenTitle()
             TextEditor(text: $input)
                 .font(Theme.body)
                 .foregroundStyle(Theme.black)
@@ -571,7 +571,7 @@ struct WriteSheet: View {
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
             if !faithful { lengthRow }
         case .link:
-            Text(T("Paste the link")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Paste the link")).screenTitle()
             TextField("https://", text: $input)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
@@ -650,7 +650,7 @@ struct MoreOptionsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(T("More options")).font(Theme.title).foregroundStyle(Theme.black)
+                    Text(T("More options")).screenTitle()
                         .accessibilityIdentifier("moreHeading")
 
                     if hasScript {

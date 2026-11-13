@@ -92,7 +92,7 @@ struct ScriptRulesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Script rules")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Script rules")).screenTitle()
                     .accessibilityIdentifier("rulesHeading")
                 Text(T("Kinbir follows these every time it writes or changes a script for you."))
                     .font(Theme.body).foregroundStyle(Theme.muted)

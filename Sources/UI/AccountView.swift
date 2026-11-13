@@ -14,7 +14,7 @@ struct AccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Account")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Account")).screenTitle()
                     .accessibilityIdentifier("accountHeading")
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -119,7 +119,7 @@ struct DeleteAccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Delete my account")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Delete my account")).screenTitle()
                     .accessibilityIdentifier("deleteHeading")
 
                 Text(T("This removes your account, your voices, your scripts and any credits left. It cannot be undone."))

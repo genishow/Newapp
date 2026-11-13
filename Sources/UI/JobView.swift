@@ -60,7 +60,7 @@ struct JobView: View {
 
     private var progress: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Composing your voiceover")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Composing your voiceover")).screenTitle()
                 .accessibilityIdentifier("progressHeading")
 
             if problem == nil {
@@ -105,7 +105,7 @@ struct JobView: View {
 
     private func failed(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("This one did not work")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("This one did not work")).screenTitle()
             ProblemCard(message: job.error.map(APIError.sentenceCase)
                         ?? T("Something went wrong on our side. Your credits were returned."))
             Button(T("Back to my script")) { dismiss() }
@@ -117,7 +117,7 @@ struct JobView: View {
 
     private func result(_ job: JobStatus) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Your voiceover")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Your voiceover")).screenTitle()
                 .accessibilityIdentifier("resultHeading")
 
             playerCard(job)

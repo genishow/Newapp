@@ -46,7 +46,7 @@ struct EnrollView: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
-            Text(T("Clone your voice")).font(Theme.title).foregroundStyle(Theme.black)
+            Text(T("Clone your voice")).screenTitle()
                 .accessibilityIdentifier("enrollHeading")
 
             Text(T("I am recording my own voice and face. I give permission for an AI voice of me to be created and used only by me."))
@@ -132,7 +132,7 @@ struct EnrollView: View {
     private func done(_ result: EnrollResult) -> some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             if result.isApproved {
-                Text(T("Your voice is ready")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Your voice is ready")).screenTitle()
                     .accessibilityIdentifier("enrollDoneHeading")
                 if let granted = result.creditsGranted, granted > 0 {
                     Text(Tf("%@ free credits are on your account.", Fmt.credits(granted)))
@@ -143,7 +143,7 @@ struct EnrollView: View {
                     NoteText(text: T("The recording was a little rough. If the voice does not sound right, record again in a quieter place."))
                 }
             } else {
-                Text(T("Thanks")).font(Theme.title).foregroundStyle(Theme.black)
+                Text(T("Thanks")).screenTitle()
                 Text(T("Your video was received. You will get an email when it is approved."))
                     .font(Theme.body).foregroundStyle(Theme.muted)
             }
