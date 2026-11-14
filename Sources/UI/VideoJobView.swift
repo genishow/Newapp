@@ -1,5 +1,6 @@
 import AVKit
 import SwiftUI
+import UIKit
 
 /// One video: progress while it renders, then the player and Save.
 struct VideoJobView: View {
@@ -89,13 +90,17 @@ struct VideoJobView: View {
                 .accessibilityIdentifier("videoReadyHeading")
 
             if let player {
+                // An exact size in the video's own shape on black, so the player has no
+                // light bars beside a vertical video (Geni, 2026-11-14).
+                let wide = isLandscape(status)
+                let width = wide ? UIScreen.main.bounds.width - 40 : min(UIScreen.main.bounds.width - 40, 320)
                 VideoPlayer(player: player)
-                    .aspectRatio(isLandscape(status) ? 16.0 / 9.0 : 9.0 / 16.0, contentMode: .fit)
-                    .frame(maxWidth: isLandscape(status) ? .infinity : 300)
-                    .frame(maxWidth: .infinity)
+                    .frame(width: width, height: wide ? width * 9 / 16 : width * 16 / 9)
+                    .background(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                         .strokeBorder(Theme.black, lineWidth: 1))
+                    .frame(maxWidth: .infinity)
             } else {
                 Text(T("The preview is not available here. Save the video to watch it."))
                     .font(Theme.body).foregroundStyle(Theme.black)
