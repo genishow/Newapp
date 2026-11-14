@@ -431,8 +431,21 @@ struct WordFixSheet: View {
                 letterChoice(true, title: "አማርኛ", id: "fixLettersAmharic")
             }
             NoteText(text: amharicLetters
-                     ? T("Type it in Amharic, or start from the word and change a letter or its vowel. To hold a sound longer, use English letters and double it.")
-                     : T("Spell it how it sounds. Double a letter to hold it longer."))
+                     ? T("Type it in Amharic, or start from the word and change a letter or its vowel.")
+                     : T("Spell it how it sounds, for example gebboch."))
+            // Geni: sometimes a letter has to be doubled to sound right, in either alphabet.
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lightbulb").font(.system(size: 13, weight: .bold))
+                Text(amharicLetters
+                     ? T("Tip: if a sound should be held longer, write that letter twice, for example ገቦቦች. If it then says the letter twice, try English letters instead.")
+                     : T("Tip: if a sound should be held longer, double that letter, for example gebboch, not geboch."))
+                    .font(Theme.small)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(Theme.black)
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.lime.opacity(0.35)))
+            .accessibilityIdentifier("fixDoubleTip")
             if amharicLetters && typed.isEmpty {
                 Button(Tf("Start from %@", target.word)) { custom = target.word }
                     .buttonStyle(QuietButtonStyle())

@@ -29,8 +29,6 @@ struct FixView: View {
     /// The server only lets a part of the script be read again in pieces. Past that it asks
     /// for one fresh recording of the whole script, which this offers to start.
     @State private var freshOffer = false
-    @State private var freshBusy = false
-    @State private var freshJob: String?
     @State private var mode: Mode = .words
     @State private var fixingWord: FixTarget?
     @State private var fixingSentence: SentenceTarget?
@@ -143,10 +141,6 @@ struct FixView: View {
                     .accessibilityIdentifier("fixDoneNote")
                 }
             }
-        // The fresh recording opens on its own page, like any new voiceover.
-        .navigationDestination(item: $freshJob) { id in
-            JobView(jobId: id)
-        }
         .onChange(of: pending.count, initial: true) { _, n in onPendingCount(n) }
         .task {
             await load()
@@ -266,15 +260,12 @@ struct FixView: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("generateChangesButton")
             } else {
-                Button(Tf("Read the whole script again (%@ sentences) · 1.5 credits", "\(sentences.count)")) {
+                Button(Tf("Read the whole script again · %@ credits",
+                          SpeedControl.priceText(job?.pacePrice))) {
                     Task { await applyFixes(whole: true) }
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .disabled(wholeTooLong)
                 .accessibilityIdentifier("generateWholeButton")
-                if wholeTooLong {
-                    NoteText(text: FixView.tooLongNote).accessibilityIdentifier("wholeTooLongNote")
-                }
             }
         }
     }
@@ -288,13 +279,6 @@ struct FixView: View {
 
     private var sentences: [Script.Sentence] { Script.sentences(segments) }
 
-    /// The server takes at most this many changes in one go, and a whole-script take is
-    /// one change for every part of the audio.
-    private var wholeTooLong: Bool { segments.count > FixEdit.maxPerBatch }
-
-    private static var tooLongNote: String {
-        T("This script is too long to read again in one go. Re-record the sentences you want instead.")
-    }
 
     private func load() async {
         loadFailed = false
@@ -513,16 +497,16 @@ struct FixView: View {
         done = false
         defer { applying = false }
         let sent = pending
-        let fixes = whole ? PendingFix.wholeScript(sent, segments: segments)
-                          : PendingFix.wire(sent, segments: segments)
+        // A whole read is one pass in this same voiceover, carrying every change and
+        // every word already fixed (D-444), so it sends the changes as they are.
+        let fixes = PendingFix.wire(sent, segments: segments)
         guard fixes.count <= FixEdit.maxPerBatch else {
-            problem = whole ? FixView.tooLongNote
-                            : T("That is the most changes for one go. Generate these first.")
+            problem = T("That is the most changes for one go. Generate these first.")
             return
         }
         do {
             let batch = try await state.api.fixApply(jobId: jobId, fixes: fixes,
-                                                     pace: whole ? nil : withPace)
+                                                     pace: withPace, whole: whole)
             guard let id = batch.batchId else {
                 problem = T("The changes could not be started. Try again.")
                 return
@@ -544,43 +528,17 @@ struct FixView: View {
         }
     }
 
-    /// The script as it reads with every sentence change applied.
-    private var scriptWithEdits: String {
-        var edits: [Int: [(Script.Sentence, String)]] = [:]
-        for item in pending {
-            if case .edit(let sentence, let text) = item {
-                edits[sentence.segment, default: []].append((sentence, text))
-            }
-        }
-        return segments.enumerated().map { index, segment in
-            edits[index].map { PendingFix.segmentText(segment, with: $0) } ?? segment
-        }
-        .filter { !$0.isEmpty }
-        .joined(separator: " ")
-    }
-
-    private var hasWordFixes: Bool {
-        pending.contains { if case .word = $0 { return true } else { return false } }
-    }
-
     @ViewBuilder private var freshCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(T("Record the whole script fresh"))
+            Text(T("Read the whole script again"))
                 .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-            NoteText(text: T("You picked most of the script. One fresh recording of all of it is cleaner and costs less than reading it again in pieces. It is made as a new voiceover, priced like any other, and this one stays in your Library."))
-            if hasWordFixes {
-                NoteText(text: T("Word fixes do not carry over. Fix those words again in the new take."))
-            }
-            Button {
-                Task { await recordFresh() }
-            } label: {
-                HStack(spacing: 8) {
-                    if freshBusy { ProgressView().tint(Theme.black) }
-                    Text(T("Record the whole script fresh"))
-                }
+            NoteText(text: T("You picked most of the script. One reading of all of it is cleaner than reading it again in pieces. It stays this voiceover and keeps every word you fixed and every change you made."))
+            Button(Tf("Read the whole script again with my changes · %@ credits",
+                      SpeedControl.priceText(job?.pacePrice))) {
+                freshOffer = false
+                Task { await applyFixes(whole: true) }
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(freshBusy)
             .accessibilityIdentifier("recordFreshButton")
             Button(T("Back to my changes")) { freshOffer = false }
                 .buttonStyle(QuietButtonStyle())
@@ -589,21 +547,6 @@ struct FixView: View {
         // keeps the buttons inside findable on their own
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("freshCard")
-    }
-
-    private func recordFresh() async {
-        guard !freshBusy else { return }
-        freshBusy = true
-        problem = nil
-        defer { freshBusy = false }
-        do {
-            let submit = try await state.api.generate(text: scriptWithEdits, draftId: nil, voice: VoiceOptions())
-            await state.refresh()
-            freshOffer = false
-            freshJob = submit.jobId
-        } catch {
-            problem = state.report(error)
-        }
     }
 
     private func stopFixes() async {

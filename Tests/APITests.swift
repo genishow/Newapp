@@ -681,6 +681,8 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(job.pace, "slow")
         _ = try await api.fixApply(jobId: submit.jobId, fixes: [.option(word: "ሰላም", optionId: 2)])
         XCTAssertNil(api.video.lastFixPace, "plain changes send no speed")
+        _ = try await api.fixApply(jobId: submit.jobId, fixes: [], pace: nil, whole: true)
+        XCTAssertTrue(api.video.lastFixWhole, "a whole read stays in the same voiceover")
     }
 
     func testFixPayloads() {

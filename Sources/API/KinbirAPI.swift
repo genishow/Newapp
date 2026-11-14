@@ -56,7 +56,8 @@ protocol KinbirAPI: AnyObject {
     func fixByEarStatus(matchId: String) async throws -> ByEarResult
     /// All the queued changes in one go, for one flat price.
     /// With `pace`, the changes and a new reading speed are recorded in one go (D-443).
-    func fixApply(jobId: String, fixes: [FixEdit], pace: String?) async throws -> FixBatch
+    /// With `whole`, the whole script is read again in this voiceover, keeping every fix (D-444).
+    func fixApply(jobId: String, fixes: [FixEdit], pace: String?, whole: Bool) async throws -> FixBatch
     /// Reads the whole script again at another speed. A speed already made comes back done.
     func changePace(jobId: String, pace: String) async throws -> FixBatch
     func fixStatus(jobId: String, batchId: String) async throws -> FixBatch
@@ -223,6 +224,10 @@ struct RequestBuilder {
 
 extension KinbirAPI {
     func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
-        try await fixApply(jobId: jobId, fixes: fixes, pace: nil)
+        try await fixApply(jobId: jobId, fixes: fixes, pace: nil, whole: false)
+    }
+
+    func fixApply(jobId: String, fixes: [FixEdit], pace: String?) async throws -> FixBatch {
+        try await fixApply(jobId: jobId, fixes: fixes, pace: pace, whole: false)
     }
 }

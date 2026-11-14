@@ -601,11 +601,12 @@ extension LiveAPI {
         try await decode(ByEarResult.self, builder.get("/fix-word/by-ear/\(matchId)"))
     }
 
-    func fixApply(jobId: String, fixes: [FixEdit], pace: String?) async throws -> FixBatch {
+    func fixApply(jobId: String, fixes: [FixEdit], pace: String?, whole: Bool) async throws -> FixBatch {
         var body: [String: Any] = [
             "job_id": jobId, "fixes": fixes.prefix(FixEdit.maxPerBatch).map { $0.payload },
         ]
         if let pace { body["pace"] = pace }
+        if whole { body["whole"] = true }
         return try await decode(FixBatch.self, builder.post("/fix-word/apply", body: body))
     }
 
