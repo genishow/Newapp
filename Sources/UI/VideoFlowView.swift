@@ -194,16 +194,6 @@ struct VideoFlowView: View {
     private var planTools: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(T("Footage tools")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-            menuRow(T("Footage"), value: T(source.title)) {
-                ForEach(FootageSource.allCases) { item in
-                    Button(T(item.title)) { Task { await changeSource(item) } }
-                }
-            }
-            menuRow(T("Shape"), value: T(shape.title)) {
-                ForEach(Shape.allCases) { item in
-                    Button(T(item.title)) { Task { await changeShape(item) } }
-                }
-            }
             if !uploads.isEmpty {
                 Button(T("Place all my clips on the right shots")) { Task { await placeAll() } }
                     .buttonStyle(SecondaryButtonStyle())
@@ -229,33 +219,6 @@ struct VideoFlowView: View {
     }
 
     private var filledShots: [Beat] { beats.filter { $0.needsFootage && $0.chosen != nil } }
-
-    private func changeSource(_ new: FootageSource) async {
-        guard let planId, new != source else { return }
-        problem = nil
-        working = T("Changing the footage source.")
-        do {
-            try await state.api.changeSource(planId: planId, source: new)
-            source = new
-        } catch {
-            problem = state.report(error)
-            working = nil
-            return
-        }
-        await fillShots(stock: new != .own, own: new != .stock)
-    }
-
-    /// A new shape needs footage in that shape: the search runs again, as on the website.
-    private func changeShape(_ new: Shape) async {
-        guard new != shape else { return }
-        guard source != .own else {
-            problem = T("The shape can only be changed here when stock footage is used. Start a new shot list to change it.")
-            return
-        }
-        shape = new
-        flags = [:]
-        await fillShots(stock: source != .own, own: false)
-    }
 
     private func placeAll() async {
         guard let planId else { return }
@@ -469,8 +432,13 @@ struct VideoFlowView: View {
         .background(Theme.white)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .refreshable {
+            if stage == .shots { await reloadPlan() }
+        }
         .onAppear {
             life.gone = false
+            // Back on the shots: show what the server has now, without leaving and returning.
+            if stage == .shots { Task { await reloadPlan() } }
             // Back on this screen while a plan is still being made: keep checking on it.
             if stage == .planning { Task { await resumePlanning() } }
         }
@@ -533,11 +501,26 @@ struct VideoFlowView: View {
             Text(T("Make a video")).screenTitle(amharic: A("Make a video"))
                 .accessibilityIdentifier("videoSetupHeading")
 
-            // The one real choice: where the video will be watched.
+            // The two choices that decide the shots, made before they are planned
+            // (Geni: footage and shape belong together, before the shots exist).
+            stepLabel("1", T("Where will it be watched?"))
             HStack(spacing: 12) {
                 shapeTile(.portrait, title: T("Vertical"), detail: "TikTok · Reels · Shorts")
                 shapeTile(.landscape, title: T("Horizontal"), detail: "YouTube")
             }
+
+            stepLabel("2", T("What footage?"))
+            HStack(spacing: 10) {
+                sourceTile(.stock, icon: "film", title: T("Stock"))
+                sourceTile(.mix, icon: "square.stack", title: T("Stock + mine"))
+                sourceTile(.own, icon: "iphone", title: T("Only mine"))
+            }
+            NoteText(text: sourceNote)
+            if source != .stock {
+                clipsCard
+            }
+
+            stepLabel("3", T("Finishing touches"))
 
             VStack(spacing: 0) {
                 Toggle(isOn: $captions) {
@@ -566,16 +549,6 @@ struct VideoFlowView: View {
 
             DisclosureGroup(isExpanded: $showSetupOptions) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(T("Footage")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                    Picker(T("Footage"), selection: $source) {
-                        ForEach(FootageSource.allCases) { Text(T($0.title)).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("sourcePicker")
-                    NoteText(text: sourceNote)
-                    if source != .stock {
-                        clipsCard
-                    }
                     menuRow(T("Shot length"),
                             value: T(RenderOptions.shotLengths.first { $0.id == shotLength }?.title ?? "Same as before")) {
                         ForEach(RenderOptions.shotLengths, id: \.id) { item in
@@ -616,6 +589,40 @@ struct VideoFlowView: View {
             }
             .tint(Theme.black)
         }
+    }
+
+    private func stepLabel(_ number: String, _ title: String) -> some View {
+        HStack(spacing: 10) {
+            Text(number).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Theme.lime))
+                .overlay(Circle().strokeBorder(Theme.black, lineWidth: 1))
+            Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+        }
+        .padding(.top, 4)
+    }
+
+    /// Where the footage comes from, picked with the shape before the shots are planned.
+    private func sourceTile(_ value: FootageSource, icon: String, title: String) -> some View {
+        let selected = source == value
+        return Button {
+            Haptics.tap()
+            source = value
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 20, weight: .semibold))
+                Text(title).font(Theme.smallMedium).multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.black)
+            .frame(maxWidth: .infinity, minHeight: 84)
+            .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .fill(selected ? Theme.lime : Theme.grey))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: selected ? 1.5 : 0))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("source-" + value.rawValue)
     }
 
     /// A tile drawn in the shape of the screen the video is for.
@@ -747,6 +754,16 @@ struct VideoFlowView: View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             Text(T("Your shots")).screenTitle(amharic: A("Your shots"))
                 .accessibilityIdentifier("shotsHeading")
+            // Chosen before planning. To change them, start a new shot list below.
+            HStack(spacing: 8) {
+                Image(systemName: shape == .portrait ? "rectangle.portrait" : "rectangle")
+                Text(T(shape == .portrait ? "Vertical" : "Horizontal") + " · " + T(source.title))
+                    .font(Theme.smallMedium)
+            }
+            .foregroundStyle(Theme.black)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Capsule().fill(Theme.grey))
+            .accessibilityIdentifier("shotsSummary")
 
             if stockLimited && !emptyShots.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
@@ -848,7 +865,7 @@ struct VideoFlowView: View {
                 NoteText(text: T("Every shot needs footage before the video can be made."))
             }
 
-            Button(T("Start a new shot list")) { confirmNewList = true }
+            Button(T("Change shape or footage · new shot list")) { confirmNewList = true }
             .confirmationDialog(T("Start a new shot list?"), isPresented: $confirmNewList,
                                 titleVisibility: .visible) {
                 Button(T("Plan the shots again")) {
@@ -1075,7 +1092,28 @@ struct VideoFlowView: View {
         }
         await reloadPlan()
         await preferRightShape()
+        await settle()
         working = nil
+    }
+
+    /// The server can still be placing footage when the search answers, which left shots
+    /// looking empty until the screen was opened again (Geni, 2026-11-14). Look again a few
+    /// times while shots are empty, stopping as soon as nothing more arrives.
+    private func settle() async {
+        guard !stockLimited else { return }
+        var lastEmpty = emptyShots.count
+        var still = 0
+        for _ in 0..<10 where !emptyShots.isEmpty && !life.gone {
+            try? await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 3) * 1_000_000_000))
+            await reloadPlan()
+            if emptyShots.count < lastEmpty {
+                lastEmpty = emptyShots.count
+                still = 0
+            } else {
+                still += 1
+                if still >= 3 { break }
+            }
+        }
     }
 
     /// When the clip in use has the wrong shape and one with the right shape was found,
@@ -1119,6 +1157,7 @@ struct VideoFlowView: View {
             }
             await reloadPlan()
             await preferRightShape()
+            await settle()
         } catch {
             problem = state.report(error)
         }
