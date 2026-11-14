@@ -468,10 +468,26 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("creditsPill", contains: "0")
         // The Create screen says so before anything is tapped.
         waitForLabel("outOfCreditsCard", contains: "out of credits")
-        waitForLabel("outOfCreditsCard", contains: "coming soon")
+        waitForLabel("outOfCreditsCard", contains: "Account page")
         // A paid step is still refused with the server's own sentence.
         writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
-        waitForLabel("problemCard", contains: "coming soon")
+        waitForLabel("problemCard", contains: "Account page")
+    }
+
+    /// Credits are bought on the Account page; the server adds them and the balance updates.
+    func testBuyingCreditsAddsThem() {
+        launch(["-mockNoCredits"])
+        signIn()
+        app.tabBars.buttons["Account"].tap()
+        waitFor("buyCreditsButton").tap()
+        waitFor("buyHeading")
+        waitForLabel("buyBalance", contains: "0")
+        // Top-ups are for plans only, as on the website.
+        XCTAssertFalse(app.buttons["buy-topup10"].exists)
+        waitFor("buy-starter").tap()
+        waitForLabel("buyMessage", contains: "110 credits were added")
+        waitForLabel("buyBalance", contains: "110")
+        waitFor("restorePurchases")
     }
 }

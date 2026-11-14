@@ -30,9 +30,14 @@ struct AccountView: View {
                     if let tier = state.me?.tier, !tier.isEmpty {
                         Pill(text: Tf("%@ plan", planName(tier)), fill: Theme.white)
                     }
-                    Text(T("A one-minute voiceover is about 2.5 credits. ") + T(APIError.buyingNote))
+                    Text(T("A one-minute voiceover is about 2.5 credits."))
                         .font(Theme.small).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
+                    NavigationLink(value: Route.buyCredits) {
+                        Text(state.me?.planVia == "web" ? T("My plan") : T("Buy credits"))
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("buyCreditsButton")
                 }
                 .card(fill: Theme.lime)
 
@@ -170,7 +175,9 @@ struct DeleteAccountView: View {
                 .font(Theme.bodyMedium).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("deleteCreditsLine")
-            Text(state.me?.hasSubscription == true
+            Text(state.me?.planVia == "apple"
+                 ? T("Your plan is billed by Apple, and we cannot cancel it for you. Cancel it first in your iPhone Settings: tap your name, then Subscriptions.")
+                 : state.me?.hasSubscription == true
                  ? T("Your subscription is cancelled first, so you are not billed again.")
                  : T("You have no subscription, so there is nothing to cancel."))
                 .font(Theme.small).foregroundStyle(Theme.black)

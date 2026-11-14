@@ -15,6 +15,14 @@ protocol KinbirAPI: AnyObject {
     func whoami() async throws -> WhoAmI
     func deleteAccount(confirmEmail: String) async throws
 
+    // App Store and notifications
+    /// Hands the server a finished App Store purchase; it checks it with Apple and adds the credits.
+    func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult
+    /// This phone's notification token, so "your voiceover is ready" can reach it.
+    func registerDevice(token: String) async throws
+    /// Takes the code explicitly: it runs while signing out, after the saved one is gone.
+    func unregisterDevice(token: String, accessCode: String) async throws
+
     // Voices
     func activateVoice(id: String) async throws
     func renameVoice(id: String, name: String) async throws

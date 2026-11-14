@@ -81,6 +81,22 @@ final class LiveAPI: KinbirAPI {
         try await decode(WhoAmI.self, builder.get("/whoami"))
     }
 
+    func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult {
+        try await decode(ApplePurchaseResult.self,
+                         builder.post("/billing/apple", body: ["signed_transaction": signedTransaction]))
+    }
+
+    func registerDevice(token: String) async throws {
+        _ = try await send(builder.post("/devices/register",
+                                        body: ["token": token, "environment": "production"]))
+    }
+
+    func unregisterDevice(token: String, accessCode: String) async throws {
+        _ = try await send(builder.post("/devices/unregister",
+                                        body: ["token": token, "access_code": accessCode],
+                                        authenticated: false))
+    }
+
     func deleteAccount(confirmEmail: String) async throws {
         _ = try await send(builder.post("/account/delete", body: ["confirm_email": confirmEmail]))
     }

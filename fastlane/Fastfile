@@ -54,6 +54,9 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       output_directory: "build",
+      # Push notifications only in this build; the App ID needs the Push
+      # Notifications capability turned on (docs/app-store.md, step 3).
+      xcargs: "CODE_SIGN_ENTITLEMENTS=Config/Kinbir-AppStore.entitlements",
       export_options: {
         provisioningProfiles: { bundle_id => profile_name }
       }

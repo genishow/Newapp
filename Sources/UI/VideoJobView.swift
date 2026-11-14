@@ -16,6 +16,8 @@ struct VideoJobView: View {
     @State private var attempt = 0
     @State private var player: AVPlayer?
     @State private var saving = false
+    @State private var savingPhotos = false
+    @State private var photosNote: String?
     @State private var savingAvatar = false
     @State private var stopping = false
     @State private var shared: SharedFile?
@@ -108,12 +110,24 @@ struct VideoJobView: View {
             }
 
             Button {
-                Task { await save() }
+                Task { await saveToPhotos() }
             } label: {
-                BusyLabel(title: saving ? T("Downloading") : T("Save or share video"), busy: saving)
+                BusyLabel(title: savingPhotos ? T("Saving") : T("Save to Photos"), busy: savingPhotos)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(saving)
+            .disabled(savingPhotos || saving)
+            .accessibilityIdentifier("saveToPhotosButton")
+            if let photosNote {
+                NoteText(text: photosNote).accessibilityIdentifier("photosNote")
+            }
+
+            Button {
+                Task { await save() }
+            } label: {
+                BusyLabel(title: saving ? T("Downloading") : T("Share or save as a file"), busy: saving)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(saving || savingPhotos)
             .accessibilityIdentifier("saveVideoButton")
 
             presenterClips(status)
@@ -184,7 +198,12 @@ struct VideoJobView: View {
                 status = latest
                 misses = 0
                 if latest.isOver {
-                    if latest.isDone { Haptics.success() } else if latest.status == "failed" { Haptics.failure() }
+                    if latest.isDone {
+                        Haptics.success()
+                        ResultReady.handle(id: videoJobId, isVideo: true, finishedAt: latest.finishedAt)
+                    } else if latest.status == "failed" {
+                        Haptics.failure()
+                    }
                     if latest.isDone, player == nil,
                        let url = state.api.absoluteURL(latest.playPath) {
                         player = AVPlayer(url: url)
@@ -243,6 +262,31 @@ struct VideoJobView: View {
         do {
             let url = try await state.api.downloadAvatarClip(videoJobId: videoJobId, index: index)
             shared = SharedFile(url: url)
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
+    private func saveToPhotos() async {
+        savingPhotos = true
+        problem = nil
+        photosNote = nil
+        defer { savingPhotos = false }
+        if Launch.isMock {
+            photosNote = T("Saved to Photos.")
+            return
+        }
+        do {
+            let url = try await state.api.downloadVideo(id: videoJobId)
+            switch await PhotoSaver.saveVideo(at: url) {
+            case .saved:
+                Haptics.success()
+                photosNote = T("Saved to Photos.")
+            case .notAllowed:
+                photosNote = T("Kinbir is not allowed to add to Photos. Turn it on in Settings, Kinbir, Photos, or use Share below.")
+            case .failed:
+                photosNote = T("It could not be saved to Photos. Use Share below to save it as a file.")
+            }
         } catch {
             problem = state.report(error)
         }

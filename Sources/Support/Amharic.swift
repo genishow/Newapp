@@ -40,7 +40,7 @@ func Tf(_ english: String, _ values: String...) -> String {
 enum Amharic {
     static let table: [String: String] = [
         // Tabs and common words
-        "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Kinbir": "ቅንብር",
+        "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Buy credits": "ክሬዲት ይግዙ", "Kinbir": "ቅንብር",
         "Done": "ጨርስ", "Cancel": "ሰርዝ", "Continue": "ቀጥል", "Close": "ዝጋ", "Save": "አስቀምጥ",
         "Delete": "አጥፋ", "Rename": "ስም ቀይር", "Remove": "አስወግድ", "Change": "ቀይር",
         "Undo": "መልስ", "Clear": "አጽዳ", "Copy": "ቅዳ", "Copied": "ተቀድቷል", "Listen": "አድምጥ",
@@ -164,7 +164,7 @@ enum Amharic {
 
         // Account
         "A one-minute voiceover is about 2.5 credits. ": "የአንድ ደቂቃ ትረካ ወደ 2.5 ክሬዲት ነው። ",
-        "Buying credits in the app is coming soon.": "በመተግበሪያው ውስጥ ክሬዲት መግዛት በቅርቡ ይመጣል።",
+        "Buy more on the Account page.": "ተጨማሪ በመለያ ገጹ ይግዙ።",
         "Script rules": "የስክሪፕት ደንቦች", "Sign out": "ውጣ", "Delete my account": "መለያዬን አጥፋ",
         "Delete my account for good": "መለያዬን ለዘለቄታው አጥፋ",
         "This removes your account, your voices, your scripts and any credits left. It cannot be undone.":

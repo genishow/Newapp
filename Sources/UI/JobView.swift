@@ -310,6 +310,7 @@ struct JobView: View {
                 job = latest
                 if latest.isDone {
                     Haptics.success()
+                    ResultReady.handle(id: jobId, isVideo: false, finishedAt: latest.finishedAt)
                     await loadAudio()
                     await state.refresh()
                     // The website does the same: wake the engine so word fixes start fast.

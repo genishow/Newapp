@@ -13,6 +13,7 @@ enum Route: Hashable {
     case enroll
     case deleteAccount
     case scriptRules
+    case buyCredits
 }
 
 /// The signed-in app: Create, Library, Account.
@@ -29,13 +30,16 @@ struct HomeView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $state.selectedTab) {
             CreateTab()
                 .tabItem { Label(T("Create"), systemImage: "waveform") }
+                .tag(0)
             LibraryTab()
                 .tabItem { Label(T("Library"), systemImage: "square.stack") }
+                .tag(1)
             AccountTab()
                 .tabItem { Label(T("Account"), systemImage: "person") }
+                .tag(2)
         }
         .tint(Theme.black)
     }
@@ -64,6 +68,8 @@ struct RouteDestinations: ViewModifier {
                 DeleteAccountView()
             case .scriptRules:
                 ScriptRulesView()
+            case .buyCredits:
+                BuyCreditsView()
             }
         }
     }
@@ -94,12 +100,18 @@ struct CreateTab: View {
 }
 
 struct LibraryTab: View {
+    @EnvironmentObject private var state: AppState
     @State private var path: [Route] = []
 
     var body: some View {
         NavigationStack(path: $path) {
             LibraryView()
                 .modifier(RouteDestinations(onMakeAnother: nil))
+        }
+        .onChange(of: state.pendingRoute) { _, route in
+            guard let route else { return }
+            path = [route]
+            state.pendingRoute = nil
         }
     }
 }

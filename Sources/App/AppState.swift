@@ -14,6 +14,10 @@ final class AppState: ObservableObject {
     @Published private(set) var me: WhoAmI?
     /// Shown once on the Welcome screen after a forced sign-out.
     @Published var notice: String?
+    /// The tab on show: 0 Create, 1 Library, 2 Account.
+    @Published var selectedTab = 0
+    /// A screen to open in the Library, from a tapped notification.
+    @Published var pendingRoute: Route?
 
     let api: KinbirAPI
     private let store: CodeStore
@@ -92,6 +96,7 @@ final class AppState: ObservableObject {
     }
 
     func signOut(notice: String? = nil) {
+        Notifications.signedOut(api: api, accessCode: store.load())
         store.clear()
         me = nil
         self.notice = notice
@@ -105,6 +110,13 @@ final class AppState: ObservableObject {
             signOut(notice: e.message)
         }
         return e.message
+    }
+
+    /// Opens a voiceover or video in the Library, from a notification.
+    func open(_ route: Route) {
+        guard phase == .signedIn else { return }
+        selectedTab = 1
+        pendingRoute = route
     }
 
     // MARK: draft

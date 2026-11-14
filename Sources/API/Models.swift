@@ -32,6 +32,10 @@ struct WhoAmI: Codable, Equatable {
     var enEmphasis: String?
     /// True when a paid subscription is running. Deleting the account cancels it first.
     var hasSubscription: Bool?
+    /// Where the plan is paid: "web" (kinbir.com) or "apple" (App Store), nil for none.
+    var planVia: String?
+    /// Attached to every App Store purchase so Apple's later notices name this account.
+    var appleAccountToken: String?
 
     var amharicVoices: [VoiceSummary] { (voices ?? []).filter { $0.isAmharic } }
     var allVoices: [VoiceSummary] { voices ?? [] }
@@ -217,6 +221,8 @@ struct JobStatus: Codable, Equatable {
     var pacesReady: [PaceTake]?
     /// Credits to record the script at a speed not yet made.
     var pacePrice: Double?
+    /// When it finished, from the server. The audio is deleted 48 hours later.
+    var finishedAt: String?
 
     var isEnglish: Bool { language == "en" }
     var isDone: Bool { status == "done" }
@@ -253,4 +259,13 @@ enum JSON {
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
+}
+
+/// The server's answer after it checked an App Store purchase with Apple.
+struct ApplePurchaseResult: Codable, Equatable {
+    var ok: Bool?
+    var creditsGranted: Double?
+    var alreadyAdded: Bool?
+    var creditsBalance: Double?
+    var tier: String?
 }

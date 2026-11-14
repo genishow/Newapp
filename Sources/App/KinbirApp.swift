@@ -2,7 +2,9 @@ import SwiftUI
 
 @main
 struct KinbirApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var state = AppState.make()
+    @StateObject private var store = Store()
     /// "system", "light" or "dark", chosen on the Account page.
     @AppStorage("kinbir.appearance") private var appearance = "system"
 
@@ -18,8 +20,15 @@ struct KinbirApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(state)
+                .environmentObject(store)
                 .preferredColorScheme(scheme)
                 .tint(Theme.black)
+                .task {
+                    Notifications.state = state
+                    // finishes App Store purchases left half done by a dropped connection
+                    store.start(state: state)
+                    await Notifications.refreshRegistration()
+                }
         }
     }
 }

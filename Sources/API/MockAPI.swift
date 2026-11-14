@@ -92,6 +92,18 @@ final class MockAPI: KinbirAPI {
         }
     }
 
+    func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult {
+        await pause()
+        return locked {
+            credits += 110
+            return ApplePurchaseResult(ok: true, creditsGranted: 110, alreadyAdded: false,
+                                       creditsBalance: credits, tier: "starter")
+        }
+    }
+
+    func registerDevice(token: String) async throws {}
+    func unregisterDevice(token: String, accessCode: String) async throws {}
+
     func deleteAccount(confirmEmail: String) async throws {
         await pause()
         guard confirmEmail.lowercased() == MockAPI.email else {

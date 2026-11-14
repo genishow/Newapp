@@ -220,6 +220,8 @@ struct AssembleStatus: Codable, Equatable {
     var avatarMode: String?
     /// True when the presenter was delivered as its own clip.
     var avatarFile: Bool?
+    /// When it finished, from the server. The file is deleted 48 hours later.
+    var finishedAt: String?
 
     var isDone: Bool { status == "done" }
     var isOver: Bool { status == "done" || status == "failed" || status == "cancelled" }
