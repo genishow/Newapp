@@ -136,10 +136,12 @@ jobs:
           # The steps just before each failure, to see what the test did last.
           grep -n -B25 -E "did not appear|never showed" uitest.log | grep -E "t = |did not appear|never showed" | tail -60 || true
           # What was on screen when it failed: the identifiers and labels in view.
+          # The hierarchy files are the .txt ones that list a Window; the debug
+          # descriptions of a single element do not.
           for f in build/screenshots/*.txt; do
-            if head -c 200 "$f" | grep -q "Attributes: Application"; then
+            if grep -q "Window" "$f" && grep -q "Application" "$f"; then
               echo "== screen at failure: $f"
-              grep -oE "identifier: '[^']+'|label: '[^']{1,60}'" "$f" | head -80
+              grep -oE "identifier: '[^']+'|label: '[^']{1,60}'" "$f" | head -120
             fi
           done 2>/dev/null || true
 
