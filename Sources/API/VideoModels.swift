@@ -43,10 +43,12 @@ struct RenderOptions: Equatable {
     var logo = LogoChoice()
     /// False leaves the planned music breaks out of the video.
     var includeBreaks = true
+    /// Claude plans camera moves, shot entries and caption highlights (D-448).
+    var smartEdit = true
 
     /// What is added to the render request.
     func payload(music: Bool, captions: Bool) -> [String: Any] {
-        var body: [String: Any] = ["quality": quality]
+        var body: [String: Any] = ["quality": quality, "smart_edit": smartEdit]
         if music { body["music_level"] = musicLevel }
         if captions { body["caption_font"] = captionFont }
         if graphics {

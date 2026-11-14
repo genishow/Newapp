@@ -918,6 +918,18 @@ struct VideoFlowView: View {
             Toggle(T("Captions on the video"), isOn: $captions)
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .tint(Theme.black)
+            // D-448: Claude plans the cut - camera moves, soft entries and
+            // the caption words to stress - and the server carries it out.
+            Toggle(isOn: $render.smartEdit) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(T("Smart edit")).font(Theme.body).foregroundStyle(Theme.black)
+                    Text(T("Claude adds camera moves, smooth scene changes and highlights key words."))
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.black)
+            .accessibilityIdentifier("smartEditToggle")
             renderRows
         }
         .card(fill: Theme.grey)
