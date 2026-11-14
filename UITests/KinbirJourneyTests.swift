@@ -305,6 +305,22 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("speedNow", contains: "Normal", timeout: 20)
     }
 
+    /// A spelling can be typed in Amharic letters, starting from the word itself. The word
+    /// used exactly as written becomes a fresh take of its sentence, so Generate still works.
+    func testAmharicSpellingStartsFromTheWord() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("fixScreenHeading")
+        waitFor("word-0-0").tap()
+        waitFor("fixWayType").tap()
+        waitFor("fixLettersAmharic").tap()
+        waitFor("fixStartFromWord").tap()
+        waitFor("fixUseTyped").tap()
+        waitFor("generateChangesButton").tap()
+        waitFor("fixDoneNote", timeout: 20)
+    }
+
     /// A typed spelling stays listed under the word, so it can be heard and used again.
     func testTypedSpellingIsRemembered() {
         launch()

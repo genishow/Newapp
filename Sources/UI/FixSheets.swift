@@ -73,6 +73,9 @@ struct WordFixSheet: View {
     @State private var variantsOf = ""
     @State private var variants: [String] = []
     @State private var variantsWaiting = 0
+    /// Type the spelling in Amharic letters instead of English ones. The server reads both;
+    /// English letters are still the way to hold a sound (doubling a fidel reads it twice).
+    @State private var amharicLetters = false
     /// "More ways to say it": the voice's own readings of this word, each holding a
     /// different sound (the server's variants, option ids from 1000). Three at a time.
     @State private var ways: [Int] = []
@@ -213,6 +216,13 @@ struct WordFixSheet: View {
         }
         // As on the website: what was typed starts being made 1.5 seconds after typing
         // stops (3 letters or more), so play is quick. Half-typed words are not sent.
+        // Amharic letters: each Latin key becomes fidel as it is typed, as on the Create page.
+        .onChange(of: custom) { old, new in
+            guard amharicLetters, new.count == old.count + 1, new.hasPrefix(old),
+                  let key = new.last else { return }
+            let turned = Ethiopic.type(old, typed: key)
+            if turned != new { custom = turned }
+        }
         .task(id: typed) {
             guard typed.count >= 3 else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -416,9 +426,20 @@ struct WordFixSheet: View {
     /// "Not right? Type it your way": a field with its own play button, then Use.
     @ViewBuilder private var typeIt: some View {
         VStack(alignment: .leading, spacing: 8) {
-            NoteText(text: T("Spell it how it sounds. Double a letter to hold it longer."))
+            HStack(spacing: 8) {
+                letterChoice(false, title: T("English letters"), id: "fixLettersEnglish")
+                letterChoice(true, title: "አማርኛ", id: "fixLettersAmharic")
+            }
+            NoteText(text: amharicLetters
+                     ? T("Type it in Amharic, or start from the word and change a letter or its vowel. To hold a sound longer, use English letters and double it.")
+                     : T("Spell it how it sounds. Double a letter to hold it longer."))
+            if amharicLetters && typed.isEmpty {
+                Button(Tf("Start from %@", target.word)) { custom = target.word }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("fixStartFromWord")
+            }
             HStack(spacing: 10) {
-                TextField(T("e.g. gebboch"), text: $custom)
+                TextField(amharicLetters ? target.word : T("e.g. gebboch"), text: $custom)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .field()
@@ -461,6 +482,22 @@ struct WordFixSheet: View {
                 }
             }
         }
+    }
+
+    private func letterChoice(_ amharic: Bool, title: String, id: String) -> some View {
+        Button {
+            Haptics.tap()
+            amharicLetters = amharic
+        } label: {
+            Text(title).font(Theme.smallMedium)
+                .foregroundStyle(Theme.black)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .background(Capsule().fill(amharicLetters == amharic ? Theme.lime : Theme.white))
+                .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
     }
 
     /// Works out three close readings of a typed spelling and starts making them in the
