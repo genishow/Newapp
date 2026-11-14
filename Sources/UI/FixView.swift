@@ -170,7 +170,18 @@ struct FixView: View {
                              fixingWord = nil
                          },
                          onUse: { fix, label in
-                             queue(.word(fix, label: label))
+                             // The word typed back exactly as written changes nothing, and the
+                             // server refuses it ("no usable fixes"). What is meant is a fresh
+                             // take, so the sentence holding the word is read again instead.
+                             if case .custom(let word, let spelling) = fix,
+                                spelling.trimmingCharacters(in: .whitespacesAndNewlines) == word,
+                                let sentence = sentences.first(where: {
+                                    $0.segment == target.segment && $0.text.contains(word)
+                                }) ?? sentences.first(where: { $0.text.contains(word) }) {
+                                 queue(.reread(sentence))
+                             } else {
+                                 queue(.word(fix, label: label))
+                             }
                              fixingWord = nil
                          },
                          onClose: { fixingWord = nil })
@@ -477,10 +488,13 @@ struct FixView: View {
     private var generateTitle: String {
         if let pace = withPace {
             let name = T(SpeedControl.levels.first { $0.id == pace }?.title ?? pace).lowercased()
-            return Tf("Generate my %@ changes, read %@ · %@ credits", "\(pending.count)", name,
-                      SpeedControl.priceText(job?.pacePrice))
+            return pending.count == 1
+                ? Tf("Generate my change, read %@ · %@ credits", name, SpeedControl.priceText(job?.pacePrice))
+                : Tf("Generate my %@ changes, read %@ · %@ credits", "\(pending.count)", name,
+                     SpeedControl.priceText(job?.pacePrice))
         }
-        return Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")
+        return pending.count == 1 ? T("Generate my change · 1.5 credits")
+            : Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")
     }
 
     private func applyFixes(whole: Bool) async {
