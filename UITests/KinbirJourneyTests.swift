@@ -414,6 +414,22 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("saveAvatarButton")
     }
 
+    /// A photo or video can be put on one shot, and the shot says how long it must be.
+    func testUploadOntoOneShot() {
+        launch()
+        signIn()
+        makeVoiceover()
+        waitFor("makeVideoLink").tap()
+        planShotsMyself()
+        waitFor("shotsHeading", timeout: 30)
+        waitFor("shotRow-1").tap()
+        waitFor("shotSheetHeading")
+        waitFor("shotLengthNote")
+        waitFor("shotUploadSample").tap()
+        waitFor("shotSheetDone", timeout: 20).tap()
+        waitFor("shotsHeading", timeout: 30)
+    }
+
     /// When stock footage is unavailable the app says so and own clips fill the shots.
     func testStockLimitAsksForOwnFootage() {
         launch(["-mockStockLimit"])

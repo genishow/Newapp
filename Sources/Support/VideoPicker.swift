@@ -141,6 +141,8 @@ enum VideoFiles {
 
 /// Chooses several of the user's own videos or photos to use as footage.
 struct ClipPicker: UIViewControllerRepresentable {
+    /// How many can be picked at once. One for a single shot.
+    var limit = 10
     let onFinish: ([URL]) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
@@ -148,7 +150,7 @@ struct ClipPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration()
         config.filter = .any(of: [.videos, .images])
-        config.selectionLimit = 10
+        config.selectionLimit = limit
         let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
         return picker

@@ -4,22 +4,28 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// A stock clip playing silently on a loop, so a shot can be judged in motion.
+/// A stock clip playing silently on a loop, so a shot can be judged in motion. The box
+/// takes the clip's own shape, so there is no blank space around it (Geni, 2026-11-14).
 struct LoopingPreview: View {
     let url: URL
     var shape: Shape = .landscape
+    /// The clip's width ÷ height when known; otherwise the video's shape is used.
+    var aspect: Double?
     @State private var player: AVQueuePlayer?
     @State private var looper: AVPlayerLooper?
 
+    private var ratio: Double { aspect ?? (shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0) }
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.black)
+            Theme.black
             if let player {
-                VideoPlayer(player: player).disabled(true)
+                PlayerLayer(player: player)
             }
         }
-        .aspectRatio(shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0, contentMode: .fit)
-        .frame(maxWidth: shape == .portrait ? 200 : .infinity)
+        .aspectRatio(ratio, contentMode: .fit)
+        // A tall clip is kept to a comfortable height; a wide one uses the full width.
+        .frame(maxHeight: ratio < 1 ? 440 : nil)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
@@ -35,6 +41,28 @@ struct LoopingPreview: View {
             player = nil
             looper = nil
         }
+    }
+}
+
+/// A bare video layer: fills its box, no player chrome and no light background.
+struct PlayerLayer: UIViewRepresentable {
+    let player: AVPlayer
+
+    final class LayerView: UIView {
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+    }
+
+    func makeUIView(context: Context) -> LayerView {
+        let view = LayerView()
+        view.backgroundColor = .black
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        return view
+    }
+
+    func updateUIView(_ view: LayerView, context: Context) {
+        view.playerLayer.player = player
     }
 }
 
@@ -485,7 +513,7 @@ struct VideoFlowView: View {
             }
         }
         .sheet(item: $picking) { beat in
-            ShotSheet(planId: planId ?? "", beat: beat, uploads: uploads, shape: shape,
+            ShotSheet(planId: planId ?? "", jobId: jobId, beat: beat, uploads: uploads, shape: shape,
                       previous: neighbour(of: beat, step: -1), next: neighbour(of: beat, step: 1)) {
                 picking = nil
                 Task { await reloadPlan() }
@@ -520,32 +548,8 @@ struct VideoFlowView: View {
                 clipsCard
             }
 
-            stepLabel("3", T("Finishing touches"))
-
-            VStack(spacing: 0) {
-                Toggle(isOn: $captions) {
-                    Label(T("Captions"), systemImage: "captions.bubble")
-                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                }
-                .tint(Theme.black)
-                .frame(minHeight: 48)
-                Rectangle().fill(Theme.white).frame(height: 2)
-                HStack {
-                    Label(T("Music"), systemImage: "music.note")
-                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                    Spacer()
-                    Picker(T("Music"), selection: $musicId) {
-                        Text(T("None")).tag(String?.none)
-                        ForEach(tracks) { track in
-                            Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Theme.black)
-                }
-                .frame(minHeight: 48)
-            }
-            .card(fill: Theme.grey, padding: 14)
+            // Captions and music are set on the shots page only, so they are not asked twice.
+            // "Make my video" uses captions on and the first track.
 
             DisclosureGroup(isExpanded: $showSetupOptions) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -1311,6 +1315,8 @@ struct ClipThumb: View {
 struct ShotSheet: View {
     @EnvironmentObject private var state: AppState
     let planId: String
+    /// The voiceover, which own uploads belong to.
+    var jobId: String = ""
     @State var beat: Beat
     let uploads: [UploadMeta]
     var shape: Shape = .portrait
@@ -1325,6 +1331,15 @@ struct ShotSheet: View {
     @State private var note: String?
     /// The clip being watched. It is only used when "Use this clip" is tapped.
     @State private var watching: Candidate?
+    @State private var showUpload = false
+    @State private var uploading: String?
+
+    /// How long this shot is on screen.
+    private var length: Double? {
+        if let dur = beat.dur, dur > 0 { return dur }
+        if let start = beat.start, let end = beat.end, end > start { return end - start }
+        return nil
+    }
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
                            GridItem(.flexible(), spacing: 12)]
@@ -1352,7 +1367,7 @@ struct ShotSheet: View {
                     }
 
                     if let link = shown?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
-                        LoopingPreview(url: url, shape: shape).id(link)
+                        LoopingPreview(url: url, shape: shape, aspect: shown?.aspectRatio).id(link)
                     }
                     if let watching, watching.clipId != beat.chosen?.clipId {
                         Button {
@@ -1425,6 +1440,8 @@ struct ShotSheet: View {
                         if let note { NoteText(text: note) }
                     }
 
+                    uploadCard
+
                     if !uploads.isEmpty {
                         Text(T("Use one of your clips")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
@@ -1462,6 +1479,77 @@ struct ShotSheet: View {
             }
         }
         .tint(Theme.black)
+        .sheet(isPresented: $showUpload) {
+            ClipPicker(limit: 1) { urls in
+                showUpload = false
+                if let url = urls.first { Task { await uploadForShot(url) } }
+            }
+        }
+    }
+
+    /// Put a photo or a video of your own on just this shot, knowing how long it must be.
+    private var uploadCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Use your own photo or video")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            if let length {
+                NoteText(text: Tf("This shot is on screen for %@ seconds. A longer video is cut to fit, a shorter one repeats, and a photo stays on screen for the whole shot.",
+                                  String(format: "%.1f", length)))
+                    .accessibilityIdentifier("shotLengthNote")
+            }
+            if let uploading {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.black)
+                    Text(uploading).font(Theme.small).foregroundStyle(Theme.black)
+                }
+            } else if Launch.isMock {
+                Button(T("Add sample clip to this shot")) {
+                    Task { await uploadForShot(FileManager.default.temporaryDirectory.appendingPathComponent("sample.mov")) }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(busy)
+                .accessibilityIdentifier("shotUploadSample")
+            } else {
+                Button {
+                    showUpload = true
+                } label: {
+                    Label(T("Upload a photo or video"), systemImage: "photo.on.rectangle")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(busy || jobId.isEmpty)
+                .accessibilityIdentifier("shotUploadButton")
+            }
+            NoteText(text: T("Only use footage you filmed or have permission to use."))
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private func uploadForShot(_ url: URL) async {
+        guard !jobId.isEmpty else { return }
+        problem = nil
+        busy = true
+        uploading = T("Uploading")
+        defer { busy = false; uploading = nil }
+        do {
+            let meta = try await state.api.uploadClip(fileURL: url, jobId: jobId) { fraction in
+                uploading = T("Uploading") + " · \(Int(fraction * 100))%"
+            }
+            uploading = T("Putting it on this shot")
+            _ = try await state.api.useUpload(planId: planId, beat: beat.beat, uploadId: meta.uploadId)
+            Haptics.success()
+            if let length, let duration = meta.duration, meta.kind != "still", duration > length + 0.3 {
+                note = Tf("Your video is %@ seconds, so it is cut to this shot's %@ seconds.",
+                          String(format: "%.1f", duration), String(format: "%.1f", length))
+            } else if let length, let duration = meta.duration, meta.kind != "still", duration + 0.3 < length {
+                note = Tf("Your video is %@ seconds, shorter than this %@-second shot, so it plays again to fill it. A clip at least as long looks better.",
+                          String(format: "%.1f", duration), String(format: "%.1f", length))
+            }
+            if note == nil {
+                note = T("Done. Your own footage is on this shot.")
+            }
+            await refresh()
+        } catch {
+            problem = state.report(error)
+        }
     }
 
     /// The website's shot tools.

@@ -80,6 +80,12 @@ struct Candidate: Codable, Identifiable, Equatable {
         return shape == .portrait ? height > width : width >= height
     }
     /// "9:16" or "16:9", when the size is known.
+    /// Width ÷ height, when the clip's size is known.
+    var aspectRatio: Double? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return Double(width) / Double(height)
+    }
+
     var aspectLabel: String? {
         guard let width, let height, width > 0, height > 0 else { return nil }
         return height > width ? "9:16" : "16:9"
