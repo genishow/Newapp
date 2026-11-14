@@ -265,3 +265,37 @@ final class SpellingVariantsTests: XCTestCase {
         XCTAssertEqual(SpellingVariants.make("a"), [])
     }
 }
+
+final class SpeechCheckTests: XCTestCase {
+    private let rate = 16_000.0
+
+    private func tone(_ seconds: Double, amp: Float = 0.2) -> [Float] {
+        (0..<Int(rate * seconds)).map { amp * Float(sin(2 * Double.pi * 180 * Double($0) / rate)) }
+    }
+
+    func testAVoicedWordIsSpeech() {
+        XCTAssertTrue(SpeechCheck.isSpeech(tone(0.6), sampleRate: rate))
+    }
+
+    func testSilenceIsNotSpeech() {
+        XCTAssertFalse(SpeechCheck.isSpeech([Float](repeating: 0, count: 16_000), sampleRate: rate))
+    }
+
+    func testBreathingNoiseIsNotSpeech() {
+        var seed: UInt64 = 42
+        let noise: [Float] = (0..<16_000).map { _ in
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return (Float(seed >> 40) / 16_777_216 - 0.5) * 0.4
+        }
+        XCTAssertFalse(SpeechCheck.isSpeech(noise, sampleRate: rate))
+    }
+
+    func testAWordAfterABreathStillCounts() {
+        var seed: UInt64 = 7
+        let breath: [Float] = (0..<8_000).map { _ in
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return (Float(seed >> 40) / 16_777_216 - 0.5) * 0.12
+        }
+        XCTAssertTrue(SpeechCheck.isSpeech(breath + tone(0.4), sampleRate: rate))
+    }
+}

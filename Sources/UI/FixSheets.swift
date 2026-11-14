@@ -67,9 +67,18 @@ struct WordFixSheet: View {
     /// Spellings already tried for this word, newest first, kept on the phone so they can
     /// be heard and used again later, even after the voiceover was regenerated.
     @State private var tries: [String] = []
-    /// The spelling last played from the box, and three close readings of it.
+    /// The spelling last played from the box, and the close readings of it that are
+    /// ready to hear. A reading shows only once it is made, and never if it came out as
+    /// breathing instead of a word.
     @State private var variantsOf = ""
     @State private var variants: [String] = []
+    @State private var variantsWaiting = 0
+    /// "More ways to say it": the voice's own readings of this word, each holding a
+    /// different sound (the server's variants, option ids from 1000). Three at a time.
+    @State private var ways: [Int] = []
+    @State private var nextWay = 1000
+    @State private var waysWaiting = 0
+    @State private var waysEnded = false
 
     private var triesKey: String { "kinbir.tries." + target.word }
     private var earKey: String { "kinbir.ear." + target.word }
@@ -121,6 +130,11 @@ struct WordFixSheet: View {
         saveEar()
     }
 
+    /// Saved spellings that are not already on screen above, so nothing shows twice.
+    private var earlier: [String] {
+        tries.filter { $0 != typed && !variants.contains($0) }
+    }
+
     private var earMore: Int {
         let shown = Set(earMatches.map(\.optionId))
         return earPool.filter { !shown.contains($0.optionId) }.count
@@ -160,7 +174,7 @@ struct WordFixSheet: View {
                     if way == .say {
                         sayIt
                     }
-                    if !tries.isEmpty {
+                    if !earlier.isEmpty {
                         triedList
                     }
 
@@ -253,12 +267,95 @@ struct WordFixSheet: View {
                         })
                 }
             }
+            if loaded && optionsFailed == nil {
+                moreWays
+            }
             if let problem {
                 Text(problem).font(Theme.small).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("fixProblem")
             }
         }
+    }
+
+    /// The easiest help for a hard word: no typing, no recording. The voice's own readings,
+    /// each holding a different sound, three at a time, shown once they are ready.
+    @ViewBuilder private var moreWays: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(ways.enumerated()), id: \.element) { index, id in
+                row(key: "o:\(id)", title: Tf("Way %@", "\(index + 1)"), index: 300 + index,
+                    listen: { await hear(key: "o:\(id)", optionId: id, custom: nil) },
+                    use: {
+                        onUse(.option(word: target.word, optionId: id),
+                              target.word + " · " + Tf("Way %@", "\(index + 1)"))
+                    })
+            }
+            if waysWaiting > 0 {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.black)
+                    NoteText(text: T("Making more ways to say it. Each shows here once it is ready."))
+                }
+            } else if !waysEnded {
+                Button {
+                    Task { await loadMoreWays() }
+                } label: {
+                    Label(ways.isEmpty ? T("Not right? Hear 3 more ways to say it") : T("Hear 3 more ways"),
+                          systemImage: "plus.circle")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("fixMoreWays")
+            } else if !ways.isEmpty {
+                NoteText(text: T("That is every way the voice knows. Type it your way or say it yourself for more."))
+            }
+        }
+    }
+
+    /// Asks for the next three of the voice's own readings and shows each one that comes
+    /// out as a word. Stops when the server has no more for this word.
+    private func loadMoreWays() async {
+        let ids = Array(nextWay..<(nextWay + 3))
+        nextWay += 3
+        waysWaiting = ids.count
+        await withTaskGroup(of: (Int, Bool).self) { group in
+            for id in ids {
+                group.addTask {
+                    do {
+                        let url = try await readyClip(optionId: id, custom: nil)
+                        return (id, AudioProbe.soundsLikeSpeech(url))
+                    } catch {
+                        return (id, false)
+                    }
+                }
+            }
+            var gotAny = false
+            for await (id, ok) in group {
+                waysWaiting -= 1
+                if ok {
+                    ways.append(id)
+                    gotAny = true
+                }
+            }
+            if !gotAny { waysEnded = true }
+        }
+        ways.sort()
+    }
+
+    /// Makes one reading and downloads it, without playing. Shared by the readings that
+    /// only show once ready.
+    private func readyClip(optionId: Int?, custom: String?) async throws -> URL {
+        let key = custom.map { "c:" + $0 } ?? "o:\(optionId ?? -1)"
+        if let ready = clips[key] { return ready }
+        var preview = try await firstPreview(optionId: optionId, custom: custom)
+        var tries = 0
+        while !preview.isDone {
+            if preview.isFailed || tries >= 90 { throw APIError.network }
+            tries += 1
+            try await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2.0) * 1_000_000_000))
+            preview = try await state.api.fixPreviewStatus(id: preview.previewId)
+        }
+        let url = try await state.api.fixPreviewAudio(id: preview.previewId)
+        clips[key] = url
+        return url
     }
 
     /// "Or say it yourself": say the word, and the closest readings are listed best first.
@@ -343,19 +440,24 @@ struct WordFixSheet: View {
             .disabled(typed.isEmpty)
             .accessibilityIdentifier("fixUseTyped")
 
-            if !variants.isEmpty {
+            if !variants.isEmpty || variantsWaiting > 0 {
                 eyebrow(T("Close to what you typed"))
-                NoteText(text: Tf("Three readings near \"%@\", each holding one sound longer or shorter.", variantsOf))
+                NoteText(text: Tf("Readings near \"%@\", each holding one sound longer or shorter.", variantsOf))
                 ForEach(Array(variants.enumerated()), id: \.element) { index, spelling in
                     row(key: "c:" + spelling, title: spelling, index: 200 + index,
                         listen: {
-                            remember(spelling)
                             await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
                         },
                         use: {
                             remember(spelling)
                             onUse(.custom(word: target.word, spelling: spelling), target.word + " · " + spelling)
                         })
+                }
+                if variantsWaiting > 0 {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Theme.black)
+                        NoteText(text: T("Making them now. Each shows here once it is ready."))
+                    }
                 }
             }
         }
@@ -366,14 +468,28 @@ struct WordFixSheet: View {
     private func offerVariants(of spelling: String) {
         guard spelling != variantsOf else { return }
         variantsOf = spelling
-        variants = SpellingVariants.make(spelling)
-        let api = state.api
-        let word = target.word
-        let list = variants
+        variants = []
+        let list = SpellingVariants.make(spelling)
+        variantsWaiting = list.count
         Task {
+            // after the spelling itself, so it is made first
             try? await Task.sleep(nanoseconds: 800_000_000)
-            for v in list {
-                Task { _ = try? await api.fixPreview(word: word, optionId: nil, custom: v) }
+            await withTaskGroup(of: (String, Bool).self) { group in
+                for v in list {
+                    group.addTask {
+                        do {
+                            let url = try await readyClip(optionId: nil, custom: v)
+                            return (v, AudioProbe.soundsLikeSpeech(url))
+                        } catch {
+                            return (v, false)
+                        }
+                    }
+                }
+                for await (v, ok) in group {
+                    guard variantsOf == spelling else { continue }
+                    variantsWaiting = max(0, variantsWaiting - 1)
+                    if ok { variants.append(v) }
+                }
             }
         }
     }
@@ -381,9 +497,9 @@ struct WordFixSheet: View {
     /// Every spelling tried for this word, so an earlier one can be heard and used again.
     @ViewBuilder private var triedList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            eyebrow(T("Your spellings"))
-            NoteText(text: T("Every spelling you tried for this word. Tap play to hear one again."))
-            ForEach(Array(tries.enumerated()), id: \.element) { index, spelling in
+            eyebrow(T("Your earlier spellings"))
+            NoteText(text: T("Spellings you tried before for this word. Tap play to hear one again."))
+            ForEach(Array(earlier.enumerated()), id: \.element) { index, spelling in
                 HStack(spacing: 12) {
                     playButton(key: "c:" + spelling, id: "fixTry-\(index)") {
                         await hear(key: "c:" + spelling, optionId: nil, custom: spelling)
@@ -565,6 +681,9 @@ struct WordFixSheet: View {
             clips[key] = url
             guard mine == turn else { return }
             preparing = nil
+            if !AudioProbe.soundsLikeSpeech(url) {
+                problem = T("This one came out as breathing, not a word. Try another spelling, or one of the other ways.")
+            }
             play(url, key: key)
         } catch {
             guard mine == turn else { return }

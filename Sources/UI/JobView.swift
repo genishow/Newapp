@@ -23,6 +23,9 @@ struct JobView: View {
     @State private var audioLoading = false
     /// The emphasis just chosen, shown while the new reading is prepared.
     @State private var pendingEmphasis: String?
+    /// Changes waiting in the fixing panel, and a speed picked to go with them (D-443).
+    @State private var pendingFixes = 0
+    @State private var withPace: String?
 
     var body: some View {
         ScrollView {
@@ -178,13 +181,18 @@ struct JobView: View {
             .accessibilityIdentifier("shareButton")
 
             // Change the speed after listening (D-440). The download keeps it.
-            SpeedControl(jobId: jobId, job: job, onChanged: { Task { await reloadAfterChange() } })
+            SpeedControl(jobId: jobId, job: job, onChanged: { Task { await reloadAfterChange() } },
+                         pendingCount: pendingFixes, withPace: $withPace)
                 .card(fill: Theme.white, padding: 14)
 
             if job.isEnglish {
                 englishScript(job)
             } else if !(job.segments ?? []).isEmpty {
-                FixView(jobId: jobId, onRegenerated: { Task { await reloadAfterChange() } })
+                FixView(jobId: jobId, onRegenerated: { Task { await reloadAfterChange() } },
+                        withPace: $withPace, onPendingCount: { n in
+                            pendingFixes = n
+                            if n == 0 { withPace = nil }
+                        })
                     .card(fill: Theme.white, padding: 14)
             }
 
@@ -265,6 +273,7 @@ struct JobView: View {
                 .buttonStyle(QuietButtonStyle())
             }
             Text(job.scriptText).font(Theme.body).foregroundStyle(Theme.black)
+                .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
             Text(T("Emphasis on pauses")).font(Theme.smallMedium).foregroundStyle(Theme.black)

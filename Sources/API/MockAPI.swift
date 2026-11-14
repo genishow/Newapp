@@ -362,6 +362,8 @@ final class MockVideoState {
     var lastVoiceOptions: VoiceOptions?
     var fixPolls: [String: Int] = [:]
     var appliedFixes: [FixEdit] = []
+    /// The speed sent with the last batch of changes, if any.
+    var lastFixPace: String?
     var warmCalls = 0
 }
 
@@ -423,9 +425,14 @@ extension MockAPI {
                            error: nil)
     }
 
-    func fixApply(jobId: String, fixes: [FixEdit]) async throws -> FixBatch {
+    func fixApply(jobId: String, fixes: [FixEdit], pace: String?) async throws -> FixBatch {
         await pause()
         video.appliedFixes.append(contentsOf: fixes)
+        video.lastFixPace = pace
+        if let pace, var job = jobStore[jobId] {
+            job.pace = pace
+            jobStore[jobId] = job
+        }
         video.fixPolls["fx-1"] = 0
         return FixBatch(batchId: "fx-1", status: "queued", error: nil)
     }

@@ -670,6 +670,19 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(back.status, "done", "the speed it was made at comes straight back")
     }
 
+    func testChangesCanCarryANewSpeed() async throws {
+        let api = MockAPI()
+        let submit = try await api.generate(text: "ሰላም ነው።", draftId: nil,
+                                            voice: VoiceOptions(language: .am, pace: "fast"))
+        _ = try await api.fixApply(jobId: submit.jobId, fixes: [.option(word: "ሰላም", optionId: 1)],
+                                   pace: "slow")
+        XCTAssertEqual(api.video.lastFixPace, "slow", "the speed goes with the changes")
+        let job = try await api.job(id: submit.jobId)
+        XCTAssertEqual(job.pace, "slow")
+        _ = try await api.fixApply(jobId: submit.jobId, fixes: [.option(word: "ሰላም", optionId: 2)])
+        XCTAssertNil(api.video.lastFixPace, "plain changes send no speed")
+    }
+
     func testFixPayloads() {
         XCTAssertEqual(FixEdit.option(word: "ቡና", optionId: 2).payload["option_id"] as? Int, 2)
         XCTAssertEqual(FixEdit.custom(word: "ቡና", spelling: "bunna").payload["custom"] as? String, "bunna")

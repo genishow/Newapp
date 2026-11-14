@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Lays views out left to right and wraps to the next line, like words in a paragraph.
 struct FlowLayout: Layout {
@@ -78,6 +79,19 @@ struct TappableScript: View {
                                     .padding(.leading, token.spaceBefore ? 6 : 0)
                             }
                             .buttonStyle(.plain)
+                            // Press and hold to copy, for typing a spelling or pasting
+                            // the script somewhere else.
+                            .contextMenu {
+                                Button {
+                                    UIPasteboard.general.string = token.shown
+                                } label: { Label(T("Copy word"), systemImage: "doc.on.doc") }
+                                Button {
+                                    UIPasteboard.general.string = sentence
+                                } label: { Label(T("Copy sentence"), systemImage: "text.quote") }
+                                Button {
+                                    UIPasteboard.general.string = segments.joined(separator: " ")
+                                } label: { Label(T("Copy whole script"), systemImage: "doc.plaintext") }
+                            }
                             .accessibilityIdentifier("word-\(index)-\(token.id)")
                         }
                     }

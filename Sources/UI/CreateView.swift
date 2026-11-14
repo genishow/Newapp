@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The main screen: one script box and one button. Everything else is one tap away
 /// in "Write it for me" or "More options".
@@ -129,6 +130,20 @@ struct CreateView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("voiceLine")
+                }
+
+                // Reading speed on the page itself, where a new user sees it (D-440).
+                // Choosing it here is free; changing it after costs a new reading.
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(T("Reading speed")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    Picker(T("Reading speed"), selection: $voice.pace) {
+                        Text(T("Slower")).tag("slow")
+                        Text(T("Normal")).tag("normal")
+                        Text(T("Faster")).tag("fast")
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(busy)
+                    .accessibilityIdentifier("speedPicker")
                 }
 
                 Button {
@@ -497,6 +512,11 @@ struct CreateView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .card(fill: Theme.white, padding: 12)
+                }
+                .contextMenu {
+                    Button {
+                        UIPasteboard.general.string = item.body
+                    } label: { Label(T("Copy script"), systemImage: "doc.on.doc") }
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
@@ -1043,19 +1063,6 @@ struct MoreOptionsSheet: View {
                         }
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("languagePicker")
-                    }
-
-                    // Reading speed, for Amharic as well as English (D-440). Choosing
-                    // it here is free; changing it after costs a new reading.
-                    VStack(alignment: .leading, spacing: 10) {
-                        label(T("Speed"))
-                        Picker(T("Speed"), selection: $voice.pace) {
-                            Text(T("Slower")).tag("slow")
-                            Text(T("Normal")).tag("normal")
-                            Text(T("Faster")).tag("fast")
-                        }
-                        .pickerStyle(.segmented)
-                        .accessibilityIdentifier("speedPicker")
                     }
 
                     if language == .en {

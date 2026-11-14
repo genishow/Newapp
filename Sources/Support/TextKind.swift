@@ -266,3 +266,36 @@ enum SpellingVariants {
         return Array(picked.prefix(count))
     }
 }
+
+/// Is a reading a spoken word, or did the voice come out as just breathing? (Geni: "some
+/// come out now audio just breathing".) Voiced sound repeats regularly, so it crosses zero
+/// rarely; breath and hiss are noise and cross zero all the time. A reading counts as speech
+/// when it has enough loud, voiced 20 ms windows. Kept generous, so a real word is never
+/// hidden: only clearly empty or noise-only readings fail.
+enum SpeechCheck {
+    static func isSpeech(_ samples: [Float], sampleRate: Double,
+                         minVoicedSeconds: Double = 0.12) -> Bool {
+        let window = max(1, Int(sampleRate * 0.02))
+        guard samples.count >= window * 3 else { return false }
+        var rms: [Float] = []
+        var zcr: [Float] = []
+        var start = 0
+        while start + window <= samples.count {
+            var sum: Float = 0
+            var crossings = 0
+            for i in start..<(start + window) {
+                let v = samples[i]
+                sum += v * v
+                if i > start && (samples[i - 1] < 0) != (v < 0) { crossings += 1 }
+            }
+            rms.append((sum / Float(window)).squareRoot())
+            zcr.append(Float(crossings) / Float(window))
+            start += window
+        }
+        let peak = rms.max() ?? 0
+        guard peak >= 0.01 else { return false }                  // silence
+        var voiced = 0
+        for (r, z) in zip(rms, zcr) where r >= peak * 0.3 && z < 0.2 { voiced += 1 }
+        return Double(voiced) * 0.02 >= minVoicedSeconds
+    }
+}

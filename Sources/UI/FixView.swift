@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Fix the voiceover: how a word sounds, or the words of a sentence. Choices wait in a
 /// list and are recorded together with one button, the way the website does it.
@@ -8,6 +9,19 @@ struct FixView: View {
     let jobId: String
     /// Called when a new take is ready, so the player above can load it.
     var onRegenerated: () -> Void = {}
+    /// A new reading speed picked while changes wait: both are recorded in one go (D-443).
+    @Binding var withPace: String?
+    /// Tells the speed control whether changes are waiting.
+    var onPendingCount: (Int) -> Void = { _ in }
+
+    init(jobId: String, onRegenerated: @escaping () -> Void = {},
+         withPace: Binding<String?> = .constant(nil),
+         onPendingCount: @escaping (Int) -> Void = { _ in }) {
+        self.jobId = jobId
+        self.onRegenerated = onRegenerated
+        self._withPace = withPace
+        self.onPendingCount = onPendingCount
+    }
 
     private enum Mode { case words, sentences }
 
@@ -76,6 +90,11 @@ struct FixView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(applying)
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = sentence.text
+                            } label: { Label(T("Copy sentence"), systemImage: "doc.on.doc") }
+                        }
                         .accessibilityIdentifier("sentence-" + sentence.id)
                     }
                 }
@@ -128,6 +147,7 @@ struct FixView: View {
         .navigationDestination(item: $freshJob) { id in
             JobView(jobId: id)
         }
+        .onChange(of: pending.count, initial: true) { _, n in onPendingCount(n) }
         .task {
             await load()
             // The voice engine goes to sleep 2 minutes after its last use, and waking it
@@ -229,7 +249,7 @@ struct FixView: View {
             // One button at a time: your changes when there are some, otherwise a fresh
             // reading of the whole script.
             if !pending.isEmpty {
-                Button(Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")) {
+                Button(generateTitle) {
                     Task { await applyFixes(whole: false) }
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -364,6 +384,7 @@ struct FixView: View {
         switch batch.status {
         case "done":
             pending.removeAll { item in sent.contains { $0.id == item.id } }
+            withPace = nil
             done = true
             Haptics.success()
             job = (try? await state.api.job(id: jobId)) ?? job
@@ -452,6 +473,16 @@ struct FixView: View {
         Haptics.tap()
     }
 
+    /// "Generate my 2 changes · 1.5 credits", or with a new speed, one price for both.
+    private var generateTitle: String {
+        if let pace = withPace {
+            let name = T(SpeedControl.levels.first { $0.id == pace }?.title ?? pace).lowercased()
+            return Tf("Generate my %@ changes, read %@ · %@ credits", "\(pending.count)", name,
+                      SpeedControl.priceText(job?.pacePrice))
+        }
+        return Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")
+    }
+
     private func applyFixes(whole: Bool) async {
         guard !applying else { return }
         // A batch from earlier may still be recording. It is finished first, so the same
@@ -476,7 +507,8 @@ struct FixView: View {
             return
         }
         do {
-            let batch = try await state.api.fixApply(jobId: jobId, fixes: fixes)
+            let batch = try await state.api.fixApply(jobId: jobId, fixes: fixes,
+                                                     pace: whole ? nil : withPace)
             guard let id = batch.batchId else {
                 problem = T("The changes could not be started. Try again.")
                 return

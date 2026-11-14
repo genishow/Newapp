@@ -10,6 +10,25 @@ struct SpeedControl: View {
     let job: JobStatus
     /// Called when the new reading is in place, to reload the player.
     let onChanged: () -> Void
+    /// Changes waiting below. While there are some, a new speed joins them, so one
+    /// reading does both and is paid for once (D-443).
+    var pendingCount: Int = 0
+    @Binding var withPace: String?
+
+    init(jobId: String, job: JobStatus, onChanged: @escaping () -> Void,
+         pendingCount: Int = 0, withPace: Binding<String?> = .constant(nil)) {
+        self.jobId = jobId
+        self.job = job
+        self.onChanged = onChanged
+        self.pendingCount = pendingCount
+        self._withPace = withPace
+    }
+
+    /// "3" or "2.5", for a price on a button.
+    static func priceText(_ value: Double?) -> String {
+        let p = value ?? 0
+        return p == p.rounded() ? String(Int(p)) : String(format: "%.1f", p)
+    }
 
     @State private var busy: String?
     @State private var batchId: String?
@@ -31,10 +50,7 @@ struct SpeedControl: View {
         T(Self.levels.first { $0.id == id }?.title ?? id)
     }
 
-    private var price: String {
-        let p = job.pacePrice ?? 0
-        return p == p.rounded() ? String(Int(p)) : String(format: "%.1f", p)
-    }
+    private var price: String { Self.priceText(job.pacePrice) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -53,7 +69,8 @@ struct SpeedControl: View {
                                 Text(T(level.title)).font(Theme.smallMedium)
                             }
                             Text(level.id == current ? T("Playing")
-                                 : isReady(level.id) ? T("Free")
+                                 : level.id == withPace ? T("With changes")
+                                 : isReady(level.id) && pendingCount == 0 ? T("Free")
                                  : Tf("%@ credits", price))
                                 .font(Theme.font(11, .medium, relativeTo: .caption2))
                                 .foregroundStyle(Theme.muted)
@@ -61,9 +78,12 @@ struct SpeedControl: View {
                         .foregroundStyle(Theme.black)
                         .frame(maxWidth: .infinity, minHeight: 52)
                         .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(level.id == current ? Theme.lime : Theme.white))
+                            .fill(level.id == current ? Theme.lime
+                                  : level.id == withPace ? Theme.lime.opacity(0.4) : Theme.white))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Theme.black, lineWidth: level.id == current ? 2 : 1))
+                            .strokeBorder(Theme.black, style: StrokeStyle(
+                                lineWidth: level.id == current || level.id == withPace ? 2 : 1,
+                                dash: level.id == withPace ? [5, 3] : [])))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -84,6 +104,13 @@ struct SpeedControl: View {
                         .accessibilityIdentifier("speedStop")
                 }
                 NoteText(text: T("The whole script is read again at this speed. Your words stay the same."))
+            }
+            if let withPace, pendingCount > 0 {
+                NoteText(text: Tf("Your %@ changes below will be read %@, in one go. Tap it again to keep this speed.",
+                                  "\(pendingCount)", title(withPace).lowercased()))
+                    .accessibilityIdentifier("speedWithChanges")
+            } else if pendingCount > 0 {
+                NoteText(text: T("You have changes waiting. Pick a speed now and both are recorded together, paid once."))
             }
             if let problem {
                 Text(problem).font(Theme.small).foregroundStyle(Theme.black)
@@ -111,6 +138,11 @@ struct SpeedControl: View {
 
     private func choose(_ pace: String) {
         problem = nil
+        // Changes are waiting: the speed joins them instead of reading everything twice.
+        if pendingCount > 0 {
+            withPace = (pace == current || pace == withPace) ? nil : pace
+            return
+        }
         guard pace != current else { return }
         if isReady(pace) {
             Task { await change(to: pace) }
