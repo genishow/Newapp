@@ -25,25 +25,22 @@ struct LibraryView: View {
                                detail: T("Your voiceovers and videos appear here for 48 hours."))
                         .accessibilityIdentifier("libraryEmpty")
                 } else {
-                    if !videos.isEmpty {
-                        Text(T("Videos")).font(Theme.heading).foregroundStyle(Theme.black)
-                        ForEach(videos) { video in
+                    // One list, newest first: videos and voiceovers together.
+                    ForEach(items) { item in
+                        switch item {
+                        case .video(let video):
                             NavigationLink(value: Route.videoJob(video.videoJobId, landscape: video.orientation == "landscape")) {
                                 videoRow(video)
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("videoRow")
+                        case .voiceover(let job):
+                            NavigationLink(value: Route.job(job.jobId)) {
+                                row(job)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("libraryRow")
                         }
-                        if !jobs.isEmpty {
-                            Text(T("Voiceovers")).font(Theme.heading).foregroundStyle(Theme.black)
-                        }
-                    }
-                    ForEach(jobs) { job in
-                        NavigationLink(value: Route.job(job.jobId)) {
-                            row(job)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("libraryRow")
                     }
                 }
             }
@@ -54,6 +51,37 @@ struct LibraryView: View {
         .refreshable { await load() }
         .task { await load() }
     }
+
+    enum Item: Identifiable {
+        case video(VideoSummary)
+        case voiceover(JobSummary)
+
+        var id: String {
+            switch self {
+            case .video(let v): return "v:" + v.videoJobId
+            case .voiceover(let j): return "j:" + j.jobId
+            }
+        }
+
+        /// Still being made counts as newest, so it sits on top.
+        var when: Date {
+            switch self {
+            case .video(let v): return Fmt.date(fromServer: v.finishedAt) ?? .distantFuture
+            case .voiceover(let j):
+                return Fmt.date(fromServer: j.finishedAt ?? j.createdAt) ?? .distantFuture
+            }
+        }
+    }
+
+    /// Newest on top, oldest at the bottom.
+    static func merged(jobs: [JobSummary], videos: [VideoSummary]) -> [Item] {
+        let all = videos.map(Item.video) + jobs.map(Item.voiceover)
+        return all.enumerated()
+            .sorted { $0.element.when != $1.element.when ? $0.element.when > $1.element.when : $0.offset < $1.offset }
+            .map(\.element)
+    }
+
+    private var items: [Item] { Self.merged(jobs: jobs, videos: videos) }
 
     private func rowIcon(_ name: String) -> some View {
         Image(systemName: name)
