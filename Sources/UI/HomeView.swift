@@ -22,7 +22,7 @@ struct HomeView: View {
     init() {
         let bar = UITabBarAppearance()
         bar.configureWithOpaqueBackground()
-        bar.backgroundColor = UIColor.white
+        bar.backgroundColor = Theme.dynamicUI(light: 0xFFFFFF, dark: 0x0B0B0F)
         UITabBar.appearance().standardAppearance = bar
         UITabBar.appearance().scrollEdgeAppearance = bar
         BrandControls.apply()

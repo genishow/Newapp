@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject private var state: AppState
+    @AppStorage("kinbir.appearance") private var appearance = "system"
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -49,6 +50,18 @@ struct AccountView: View {
                     Link(destination: URL(string: "mailto:support@kinbir.com")!) { rowLabel(T("Support")) }
                 }
                 .card(fill: Theme.white, padding: 4)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(T("Appearance")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Picker(T("Appearance"), selection: $appearance) {
+                        Text(T("Same as phone")).tag("system")
+                        Text(T("Light")).tag("light")
+                        Text(T("Dark")).tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("appearancePicker")
+                }
+                .card(fill: Theme.grey, padding: 14)
 
                 Button(T("Sign out")) { state.signOut() }
                     .buttonStyle(SecondaryButtonStyle())

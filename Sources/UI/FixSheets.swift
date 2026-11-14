@@ -466,12 +466,17 @@ struct WordFixSheet: View {
                 .disabled(typed.isEmpty)
                 .opacity(typed.isEmpty ? 0.4 : 1)
             }
+            // The word exactly as written would change nothing, so it is not a fix.
+            if typed == target.word {
+                NoteText(text: T("That is the word as it is written now, so nothing would change. Change a letter or vowel, double a letter to hold it, or pick one of the readings above."))
+                    .accessibilityIdentifier("fixSameAsWord")
+            }
             Button(T("Use what I typed")) {
                 remember(typed)
                 onUse(.custom(word: target.word, spelling: typed), target.word + " · " + typed)
             }
             .buttonStyle(SecondaryButtonStyle())
-            .disabled(typed.isEmpty)
+            .disabled(typed.isEmpty || typed == target.word)
             .accessibilityIdentifier("fixUseTyped")
 
             if !variants.isEmpty || variantsWaiting > 0 {

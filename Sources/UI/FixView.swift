@@ -164,18 +164,7 @@ struct FixView: View {
                              fixingWord = nil
                          },
                          onUse: { fix, label in
-                             // The word typed back exactly as written changes nothing, and the
-                             // server refuses it ("no usable fixes"). What is meant is a fresh
-                             // take, so the sentence holding the word is read again instead.
-                             if case .custom(let word, let spelling) = fix,
-                                spelling.trimmingCharacters(in: .whitespacesAndNewlines) == word,
-                                let sentence = sentences.first(where: {
-                                    $0.segment == target.segment && $0.text.contains(word)
-                                }) ?? sentences.first(where: { $0.text.contains(word) }) {
-                                 queue(.reread(sentence))
-                             } else {
-                                 queue(.word(fix, label: label))
-                             }
+                             queue(.word(fix, label: label))
                              fixingWord = nil
                          },
                          onClose: { fixingWord = nil })

@@ -4,11 +4,27 @@ import CoreText
 
 /// The Kinbir look. These five colours are the only ones in the app.
 enum Theme {
-    static let lime = Color(red: 0xB9 / 255.0, green: 0xFF / 255.0, blue: 0x66 / 255.0)
-    static let black = Color(red: 0x19 / 255.0, green: 0x1A / 255.0, blue: 0x23 / 255.0)
-    static let grey = Color(red: 0xF3 / 255.0, green: 0xF3 / 255.0, blue: 0xF3 / 255.0)
-    static let white = Color.white
-    static let muted = Color(red: 0x5A / 255.0, green: 0x5B / 255.0, blue: 0x66 / 255.0)
+    // Night mode: every colour has a dark partner and follows the appearance chosen on the
+    // Account page. "white" is the page and "black" the ink, so in the dark they swap; the
+    // brand lime turns a deep green so the light text on it stays easy to read.
+    static let lime = dynamic(light: 0xB9FF66, dark: 0x3F7A12)
+    static let black = dynamic(light: 0x191A23, dark: 0xF2F2F5)
+    static let grey = dynamic(light: 0xF3F3F3, dark: 0x1E1F26)
+    static let white = dynamic(light: 0xFFFFFF, dark: 0x0B0B0F)
+    static let muted = dynamic(light: 0x5A5B66, dark: 0xA3A5B0)
+
+    static func uiColor(_ hex: UInt32) -> UIColor {
+        UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
+
+    static func dynamicUI(light: UInt32, dark: UInt32) -> UIColor {
+        UIColor { $0.userInterfaceStyle == .dark ? uiColor(dark) : uiColor(light) }
+    }
+
+    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        Color(uiColor: dynamicUI(light: light, dark: dark))
+    }
 
     static let cardRadius: CGFloat = 20
     static let controlRadius: CGFloat = 14

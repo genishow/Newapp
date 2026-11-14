@@ -317,9 +317,11 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("fixWayType").tap()
         waitFor("fixLettersAmharic").tap()
         waitFor("fixStartFromWord").tap()
-        waitFor("fixUseTyped").tap()
-        waitFor("generateChangesButton").tap()
-        waitFor("fixDoneNote", timeout: 20)
+        // The word exactly as written is not a fix: the app says so instead of quietly
+        // reading the whole sentence again.
+        waitFor("fixSameAsWord")
+        XCTAssertFalse(waitFor("fixUseTyped").isEnabled)
+        XCTAssertFalse(app.buttons["generateChangesButton"].exists)
     }
 
     /// A typed spelling stays listed under the word, so it can be heard and used again.

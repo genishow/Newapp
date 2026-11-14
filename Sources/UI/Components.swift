@@ -474,13 +474,13 @@ struct Waveform: View {
 enum BrandControls {
     static func apply() {
         let segmented = UISegmentedControl.appearance()
-        segmented.selectedSegmentTintColor = UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 1)
-        segmented.backgroundColor = UIColor(red: 0xF3 / 255, green: 0xF3 / 255, blue: 0xF3 / 255, alpha: 1)
+        let ink = Theme.dynamicUI(light: 0x191A23, dark: 0xF2F2F5)
+        let page = Theme.dynamicUI(light: 0xFFFFFF, dark: 0x0B0B0F)
+        segmented.selectedSegmentTintColor = ink
+        segmented.backgroundColor = Theme.dynamicUI(light: 0xF3F3F3, dark: 0x1E1F26)
         let font = UIFont(name: "SpaceGrotesk-Medium", size: 14) ?? .systemFont(ofSize: 14, weight: .medium)
-        segmented.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: font], for: .selected)
-        segmented.setTitleTextAttributes([
-            .foregroundColor: UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 1), .font: font,
-        ], for: .normal)
+        segmented.setTitleTextAttributes([.foregroundColor: page, .font: font], for: .selected)
+        segmented.setTitleTextAttributes([.foregroundColor: ink, .font: font], for: .normal)
     }
 }
 
