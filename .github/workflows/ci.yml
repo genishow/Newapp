@@ -141,7 +141,7 @@ jobs:
           for f in build/screenshots/*.txt; do
             if grep -q "Window" "$f" && grep -q "Application" "$f"; then
               echo "== screen at failure: $f"
-              grep -oE "identifier: '[^']+'|label: '[^']{1,60}'" "$f" | head -120
+              grep -oE "identifier: '[^']+'|label: '[^']{1,60}'" "$f" | head -250
             fi
           done 2>/dev/null || true
 

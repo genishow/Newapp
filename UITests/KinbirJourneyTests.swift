@@ -283,8 +283,9 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("fixRecordWord").tap()
         waitForLabel("fixRecordWord", contains: "Stop")
         el("fixRecordWord").tap()
-        waitFor("fixUse-100", timeout: 20)
-        waitFor("fixUse-0").tap()
+        // Keep the closest reading: its Use button is the one in view after recording
+        // (Option A's has scrolled up under the window's top bar by then).
+        waitFor("fixUse-100", timeout: 20).tap()
         waitFor("generateChangesButton").tap()
         waitFor("fixDoneNote", timeout: 20)
         waitFor("playButton")
