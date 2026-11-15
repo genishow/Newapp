@@ -178,6 +178,25 @@ struct AvatarCard: View {
             NoteText(text: choice.mode == .inVideo
                      ? T("The avatar plays inside your finished video at the places you picked.")
                      : T("The video is built without it, and the avatar downloads on its own so you can cut it in yourself."))
+            if choice.mode == .inVideo && !fullFrame {
+                Text(T("Where should your avatar be?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                if shape == .portrait {
+                    Picker(T("Avatar place"), selection: $choice.sideVertical) {
+                        Text(T("Bottom half")).tag("bottom")
+                        Text(T("Top half")).tag("top")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("avatarSide")
+                } else {
+                    Picker(T("Avatar place"), selection: $choice.sideHorizontal) {
+                        Text(T("Right side")).tag("right")
+                        Text(T("Left side")).tag("left")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("avatarSide")
+                }
+                NoteText(text: T("Your footage, graphics and captions take the other part of the screen while the avatar is on."))
+            }
             if quote > 0 {
                 Text(Tf("Avatar: %@s of %@", "\(Int(presenterSeconds))", Fmt.clock(audioSec.rounded(.down))))
                     .font(Theme.small).foregroundStyle(Theme.black)

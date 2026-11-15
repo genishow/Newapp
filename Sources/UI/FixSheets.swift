@@ -361,9 +361,9 @@ struct WordFixSheet: View {
             if preview.isFailed || tries >= 90 { throw APIError.network }
             tries += 1
             try await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.2 : 2.0) * 1_000_000_000))
-            preview = try await state.api.fixPreviewStatus(id: preview.previewId)
+            preview = try await steady { try await state.api.fixPreviewStatus(id: preview.previewId) }
         }
-        let url = try await state.api.fixPreviewAudio(id: preview.previewId)
+        let url = try await steady { try await state.api.fixPreviewAudio(id: preview.previewId) }
         clips[key] = url
         return url
     }
@@ -468,7 +468,7 @@ struct WordFixSheet: View {
             }
             // The word exactly as written would change nothing, so it is not a fix.
             if typed == target.word {
-                NoteText(text: T("That is the word as it is written now, so nothing would change. Change a letter or vowel, double a letter to hold it, or pick one of the readings above."))
+                NoteText(text: T("This is the word exactly as it is in your script, so Use stays off: it would sound the same. Change a letter or vowel, or double a letter to hold it, then tap play and Use."))
                     .accessibilityIdentifier("fixSameAsWord")
             }
             Button(T("Use what I typed")) {
@@ -477,6 +477,7 @@ struct WordFixSheet: View {
             }
             .buttonStyle(SecondaryButtonStyle())
             .disabled(typed.isEmpty || typed == target.word)
+            .opacity(typed.isEmpty || typed == target.word ? 0.4 : 1)
             .accessibilityIdentifier("fixUseTyped")
 
             if !variants.isEmpty || variantsWaiting > 0 {
@@ -562,6 +563,8 @@ struct WordFixSheet: View {
                     Text(spelling).font(Theme.bodyMedium).foregroundStyle(Theme.black)
                         .lineLimit(1).minimumScaleFactor(0.7)
                     Spacer()
+                    // the word exactly as written would sound the same, so no Use
+                    if spelling != target.word {
                     Button(T("Use")) {
                         remember(spelling)
                         onUse(.custom(word: target.word, spelling: spelling), target.word + " · " + spelling)
@@ -573,6 +576,7 @@ struct WordFixSheet: View {
                     .background(Capsule().fill(Theme.lime))
                     .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
                     .accessibilityIdentifier("fixTryUse-\(index)")
+                    }
                     Button {
                         forget(spelling)
                     } label: {
@@ -730,9 +734,9 @@ struct WordFixSheet: View {
                 let pause = Launch.isMock ? 0.2 : 2.0
                 try await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000))
                 if mine == turn { waited += Int(pause.rounded(.up)) }
-                preview = try await state.api.fixPreviewStatus(id: preview.previewId)
+                preview = try await steady { try await state.api.fixPreviewStatus(id: preview.previewId) }
             }
-            let url = try await state.api.fixPreviewAudio(id: preview.previewId)
+            let url = try await steady { try await state.api.fixPreviewAudio(id: preview.previewId) }
             clips[key] = url
             guard mine == turn else { return }
             preparing = nil
@@ -744,6 +748,23 @@ struct WordFixSheet: View {
             guard mine == turn else { return }
             preparing = nil
             if !Task.isCancelled { problem = state.report(error) }
+        }
+    }
+
+    /// One dropped check no longer ends the wait (Geni, 2026-11-15: the spinner
+    /// turned into "No connection" while the reading was still being made, and it
+    /// only showed after leaving and coming back). Network blips are retried a few
+    /// times; any other error still shows at once.
+    private func steady<T>(_ call: () async throws -> T) async throws -> T {
+        var misses = 0
+        while true {
+            do {
+                return try await call()
+            } catch {
+                guard APIError.wrap(error).kind == .network, misses < 5, !Task.isCancelled else { throw error }
+                misses += 1
+                try await Task.sleep(nanoseconds: UInt64((Launch.isMock ? 0.1 : 2.0) * 1_000_000_000))
+            }
         }
     }
 

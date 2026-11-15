@@ -556,6 +556,11 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual(p["seconds"] as? Int, 8)
         XCTAssertEqual(p["mode"] as? String, "separate")
         XCTAssertEqual((p["placements"] as? [String: Any])?["start"] as? Bool, true)
+        XCTAssertEqual(p["side_portrait"] as? String, "bottom")
+        a.sideVertical = "top"
+        a.sideHorizontal = "left"
+        XCTAssertEqual(a.payload["side_portrait"] as? String, "top")
+        XCTAssertEqual(a.payload["side_landscape"] as? String, "left")
     }
 
     func testRenderOptionsLikeTheWebsite() {

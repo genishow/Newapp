@@ -51,7 +51,20 @@ struct PromoView: View {
                         .card(fill: Theme.grey, padding: 14)
                         .accessibilityIdentifier("promoSentNote")
                 }
-                form
+                if let left = list?.videosLeft, left <= 0 {
+                    Text(Tf("You have sent %@ videos for free credits, the most one account can send. Thank you for sharing Kinbir!", "\(list?.maxVideos ?? 10)"))
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .card(fill: Theme.grey, padding: 14)
+                        .accessibilityIdentifier("promoLimitReached")
+                } else {
+                    if let left = list?.videosLeft {
+                        Text(Tf("You can send %@ more of %@ videos.", "\(left)", "\(list?.maxVideos ?? 10)"))
+                            .font(Theme.small).foregroundStyle(Theme.muted)
+                            .accessibilityIdentifier("promoVideosLeft")
+                    }
+                    form
+                }
 
                 if let promos = list?.promos, !promos.isEmpty {
                     Text(T("Your videos")).font(Theme.heading).foregroundStyle(Theme.black)
@@ -83,6 +96,7 @@ struct PromoView: View {
                 T("2. Post it on your own TikTok, Instagram, YouTube and Facebook, and keep it up."),
                 T("3. Paste the link to each post and send them here with the same video."),
                 T("Posted somewhere new later? Add the link to your video below and earn the rest."),
+                T("Up to 10 videos per account. A video that is not approved does not count."),
                 T("Show Kinbir on your screen and say what you made with it. Amharic or English."),
                 T("No music or clips you do not own. Use music from the app you post on, or none."),
             ], id: \.self) { line in

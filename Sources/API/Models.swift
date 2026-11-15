@@ -297,4 +297,7 @@ struct PromoList: Codable, Equatable {
     var reward: Double?
     /// Credits for each rewarded platform posted on.
     var perPlatform: Double?
+    /// Most promo videos one account can send (rejected ones do not count).
+    var maxVideos: Int?
+    var videosLeft: Int?
 }

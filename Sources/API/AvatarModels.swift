@@ -38,6 +38,11 @@ struct AvatarChoice: Equatable {
     var endSeconds: Int?
     /// One length per middle appearance. The count is how many there are.
     var middles: [Int] = []
+    /// Where the presenter sits (D-460): "bottom" or "top" half on a vertical
+    /// video, "right" or "left" panel on a horizontal one. Graphics and
+    /// captions take the other part.
+    var sideVertical = "bottom"
+    var sideHorizontal = "right"
 
     /// The `avatar` object the server expects, the same fields the website sends.
     var payload: [String: Any] {
@@ -47,7 +52,8 @@ struct AvatarChoice: Equatable {
         if let startSeconds { placements["start_sec"] = startSeconds }
         if let endSeconds { placements["end_sec"] = endSeconds }
         if !middles.isEmpty { placements["middles"] = Array(middles.prefix(AvatarChoice.maxMiddles)) }
-        return ["enabled": true, "seconds": seconds, "mode": mode.rawValue, "placements": placements]
+        return ["enabled": true, "seconds": seconds, "mode": mode.rawValue, "placements": placements,
+                "side_portrait": sideVertical, "side_landscape": sideHorizontal]
     }
 
     /// Changes how many middle appearances there are. New ones start at the usual length.

@@ -106,7 +106,8 @@ final class MockAPI: KinbirAPI {
 
     func myPromos() async throws -> PromoList {
         await pause()
-        return locked { PromoList(promos: promos, reward: 40, perPlatform: 10) }
+        return locked { PromoList(promos: promos, reward: 40, perPlatform: 10, maxVideos: 10,
+                                     videosLeft: max(0, 10 - promos.filter { $0.status != "rejected" }.count)) }
     }
 
     func addPromoLinks(promoId: String, links: [String]) async throws -> PromoSubmission {
