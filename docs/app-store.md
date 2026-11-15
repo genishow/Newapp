@@ -67,7 +67,7 @@ Ask Claude to walk you through each one. Then run **Actions**, **TestFlight (opt
 ## 7. The listing
 
 **Name:** Kinbir
-**Subtitle (30 characters):** Amharic voiceovers in your voice
+**Subtitle (30 characters):** AI videos in your own voice
 **Category:** Photo & Video (secondary: Productivity)
 **Age rating:** 4+ answers: no violence, no mature content, no gambling, no unrestricted web access. Answer **Yes** to "User-generated content"? No: scripts stay private to the account.
 **Price:** Free (with in-app purchases)
@@ -76,17 +76,21 @@ Ask Claude to walk you through each one. Then run **Actions**, **TestFlight (opt
 **Terms (EULA):** add https://kinbir.com/terms in the description's last line and in App Information, License Agreement, custom.
 
 **Promotional text (170):**
-Your own voice, reading your script in Amharic or English. Record once, then make voiceovers and short videos in minutes.
+AI writes your script, your cloned voice reads it, and Kinbir cuts the video: footage, captions, music and your AI presenter. Amharic and English.
 
 **Description:**
-Kinbir makes voiceovers in your own voice.
+Kinbir is an AI studio for Amharic and English videos, in your own voice.
 
-Record a short video of yourself reading a script once. Kinbir learns your voice, and from then on it reads any script you write, in Amharic or English, sounding like you.
+Give it an idea, a link or your own words. Kinbir's AI writes the script, reads it in a voice cloned from you, and turns it into a finished video with footage, captions, music and an AI presenter of you. No camera, no editing.
 
-- Write or paste a script, or turn an idea or a link into one.
+Record a short video of yourself reading a statement once. Kinbir learns your voice, and from then on everything is in your voice.
+
+- AI script writing: turn an idea, an article link or rough notes into a script, in Amharic or English.
 - Pick the speed: slower, normal or faster.
 - Fix any word that sounds wrong by tapping it, hearing other readings, or typing how it should sound, in English letters or Amharic.
-- Turn the voiceover into a video with stock footage, your own clips, music and captions, vertical or horizontal.
+- Turn the voiceover into a video with stock footage or your own clips, music and captions, vertical or horizontal.
+- Add your AI presenter: an avatar made from your photo speaks the script on screen.
+- AI smart edit: camera moves, scene changes and caption highlights planned for you.
 - Save to Photos or share straight to any app.
 
 Your voice is yours. Kinbir only clones a voice from a recording of the person themself, with their consent, and it is never used for anything but your own projects. Delete your account, voice and files at any time from the app.
