@@ -3,7 +3,10 @@ import SwiftUI
 @main
 struct KinbirApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var state = AppState.make()
+    @StateObject private var state = {
+        if !Launch.isMock { RequestBuilder.deviceId = { DeviceID.value } }
+        return AppState.make()
+    }()
     @StateObject private var store = Store()
     /// "system", "light" or "dark", chosen on the Account page.
     @AppStorage("kinbir.appearance") private var appearance = "system"

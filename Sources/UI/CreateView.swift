@@ -20,6 +20,9 @@ struct CreateView: View {
     @State private var draftId: String?
     /// Kinbir wrote the text in the box, so "tell Kinbir what to change" applies to it.
     @State private var kinbirWrote = false
+    /// When the live socket last gave words; the backup loop stays quiet while it does.
+    @State private var lastSocketWords = Date.distantPast
+    @State private var speechStarted = Date()
     @State private var changeRequest = ""
     @State private var draftText: String?
     @State private var voice = VoiceOptions()
@@ -689,6 +692,7 @@ struct CreateView: View {
         speechCapped = false
         dictation.onPartial = { partial in
             guard work == .listening else { return }
+            lastSocketWords = Date()
             showSpoken(partial)
         }
         // The take reached 10 minutes, or the server stopped: finish it as if Stop was
@@ -703,8 +707,30 @@ struct CreateView: View {
         if await dictation.start(base: address?.base ?? RequestBuilder.defaultBase,
                                  accessCode: address?.accessCode ?? "") {
             work = .listening
+            speechStarted = Date()
+            lastSocketWords = .distantPast
+            Task { await backupWordsWhileTalking() }
         } else {
             problem = T("Kinbir needs the microphone to hear you. Allow it in Settings, then try again.")
+        }
+    }
+
+    /// The website's second path, so words appear while talking even when the live
+    /// socket is slow or blocked: every couple of seconds what was heard so far is read
+    /// in one quick request. Quiet while the socket is giving words; stops after two
+    /// minutes of a take (the final pass still reads the whole thing).
+    private func backupWordsWhileTalking() async {
+        while work == .listening {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard work == .listening else { return }
+            if Date().timeIntervalSince(lastSocketWords) < 3 { continue }
+            if Date().timeIntervalSince(speechStarted) > 120 { continue }
+            guard let file = dictation.takeFile() else { continue }
+            if let heard = try? await state.api.transcribe(audioURL: file),
+               work == .listening, Date().timeIntervalSince(lastSocketWords) >= 3,
+               !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                showSpoken(heard)
+            }
         }
     }
 

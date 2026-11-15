@@ -199,8 +199,17 @@ struct RequestBuilder {
     }
 
     /// GET and DELETE carry the credential in a header, never in the URL.
+    /// This phone's ID for the free-gift checks (D-456). Set by the app at launch.
+    static var deviceId: () -> String = { "" }
+
+    private func tagDevice(_ req: inout URLRequest) {
+        let id = RequestBuilder.deviceId()
+        if !id.isEmpty { req.setValue(id, forHTTPHeaderField: "X-Device-Id") }
+    }
+
     func get(_ path: String, method: String = "GET") -> URLRequest {
         var req = URLRequest(url: url(path))
+        tagDevice(&req)
         req.httpMethod = method
         req.setValue(accessCode() ?? "", forHTTPHeaderField: "X-Access-Code")
         req.cachePolicy = .reloadIgnoringLocalCacheData
@@ -210,6 +219,7 @@ struct RequestBuilder {
     /// POST carries the credential in the JSON body, as the web app does.
     func post(_ path: String, body: [String: Any], authenticated: Bool = true) -> URLRequest {
         var req = URLRequest(url: url(path))
+        tagDevice(&req)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var payload = body
@@ -228,6 +238,7 @@ struct RequestBuilder {
 
     func multipart(_ path: String, form: Multipart) -> URLRequest {
         var req = URLRequest(url: url(path))
+        tagDevice(&req)
         req.httpMethod = "POST"
         req.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
         req.httpBody = form.finished()

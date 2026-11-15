@@ -17,8 +17,13 @@ final class MemoryCodeStore: CodeStore {
 }
 
 final class KeychainCodeStore: CodeStore {
-    private let service = "com.geni.kinbir"
-    private let account = "access_code"
+    private let service: String
+    private let account: String
+
+    init(service: String = "com.geni.kinbir", account: String = "access_code") {
+        self.service = service
+        self.account = account
+    }
 
     private var baseQuery: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -49,3 +54,21 @@ final class KeychainCodeStore: CodeStore {
         SecItemDelete(baseQuery as CFDictionary)
     }
 }
+
+/// A random ID for this phone, kept in the keychain so it survives deleting and
+/// reinstalling the app. Sent with requests so the free gifts go to one person once,
+/// not to every new email address on the same phone (D-456). Nothing else uses it.
+enum DeviceID {
+    static let value: String = {
+        #if canImport(Security)
+        let store = KeychainCodeStore(service: "com.geni.kinbir.device", account: "device-id")
+        if let saved = store.load(), !saved.isEmpty { return saved }
+        let fresh = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        store.save(fresh)
+        return fresh
+        #else
+        return ""
+        #endif
+    }()
+}
+
