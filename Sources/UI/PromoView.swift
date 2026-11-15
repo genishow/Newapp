@@ -38,7 +38,7 @@ struct PromoView: View {
                 Text(T("Earn credits")).screenTitle(amharic: A("Earn credits"))
                     .accessibilityIdentifier("promoHeading")
 
-                Text(Tf("Make a video about Kinbir and post it on your social media. Earn %@ credits for each of TikTok, Instagram, YouTube and Facebook, %@ for all four.", perPlatform, reward))
+                Text(Tf("Make a video about Kinbir and post it on your social media. Earn %@ credits for each of TikTok, Instagram, YouTube and Facebook, %@ for all four. Credits arrive within a few hours, at most 2 days.", perPlatform, reward))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .card(fill: Theme.lime)
@@ -211,7 +211,7 @@ struct PromoView: View {
                 case "rejected":
                     Pill(text: T("Not approved"), fill: Theme.grey)
                 default:
-                    Pill(text: T("Waiting for review"), fill: Theme.white)
+                    Pill(text: T("Waiting for review · within 2 days"), fill: Theme.white)
                 }
                 Spacer()
                 Text(Fmt.ago(promo.createdAt)).font(Theme.small).foregroundStyle(Theme.muted)
@@ -274,7 +274,7 @@ struct PromoView: View {
                 promoId: promo.promoId, links: [addLink.trimmingCharacters(in: .whitespacesAndNewlines)])
             addingTo = nil
             addLink = ""
-            sentNote = T("Link added. We will check it and add the credits for the new platform.")
+            sentNote = T("Link added. We check it within a few hours, at most 2 days, and add the credits for the new platform.")
             await load()
         } catch {
             problem = state.report(error)
@@ -307,7 +307,7 @@ struct PromoView: View {
             _ = try await state.api.submitPromo(videoURL: ready, links: filledLinks,
                                                 note: note.trimmingCharacters(in: .whitespacesAndNewlines))
             Haptics.success()
-            sentNote = T("Sent. We will watch it soon, and you will get a notification and an email when it is checked.")
+            sentNote = T("Sent. We review every video within a few hours, at most 2 days. You get a notification and an email as soon as your credits are added.")
             self.picked = nil
             pickedSeconds = 0
             links = [LinkEntry()]
