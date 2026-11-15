@@ -113,22 +113,39 @@ struct EnrollView: View {
         .card(fill: Theme.lime)
     }
 
-    /// One line that matters, the rest folded away (Geni: too much text).
+    /// One line that matters, why a video, the rest folded away. In the language being
+    /// read, so an Amharic reader gets Amharic tips (Geni).
     private var tips: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(T("Read every word, 10 to 40 seconds. The words stay on screen while you record."))
+        let am = language == .am
+        func L(_ en: String, _ amh: String) -> String { am ? amh : en }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(L("Read every word, 10 to 40 seconds. The words stay on screen while you record.",
+                   "እያንዳንዱን ቃል ያንብቡ፤ ከ10 እስከ 40 ሰከንድ። በሚቀረፁበት ጊዜ ቃላቱ በስክሪኑ ላይ ይቆያሉ።"))
                 .font(Theme.small).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.black)
+                Text(L("Why a video? It shows the voice is really yours, so nobody can clone someone else's voice. It stays private to your account.",
+                       "ለምን ቪዲዮ? ድምፁ በእርግጥ የእርስዎ መሆኑን ያሳያል፤ ስለዚህ ማንም የሌላ ሰውን ድምፅ መቅዳት አይችልም። ቪዲዮው ለእርስዎ መለያ ብቻ ግላዊ ሆኖ ይቀመጣል።"))
+                    .font(Theme.small).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("enrollWhyVideo")
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 6) {
-                    tip(T("A quiet room, no music or TV."))
-                    tip(T("Hold the phone close, about an arm's length."))
-                    tip(T("Read the way you want every voiceover to sound."))
-                    tip(T("We check the statement was said before the voice is made."))
+                    tip(L("A quiet room, no music or TV.", "ፀጥ ያለ ክፍል፤ ሙዚቃ ወይም ቴሌቪዥን የሌለበት።"))
+                    tip(L("Hold the phone close, about an arm's length.", "ስልኩን ቅርብ ይያዙ፤ በክንድ ርዝመት ያህል።"))
+                    tip(L("Read the way you want every voiceover to sound.",
+                          "እያንዳንዱ የድምፅ ቅጂዎ እንዲሰማ በሚፈልጉት መንገድ ያንብቡ።"))
+                    tip(L("We check the statement was said before the voice is made.",
+                          "ድምፁ ከመሰራቱ በፊት መግለጫው መነበቡን እናረጋግጣለን።"))
                 }
                 .padding(.top, 6)
             } label: {
-                Text(T("Tips for a great voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                Text(L("Tips for a great voice", "ለጥሩ ድምፅ ምክሮች"))
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
             }
             .tint(Theme.black)
             .accessibilityIdentifier("enrollTips")

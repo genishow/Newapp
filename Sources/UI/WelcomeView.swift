@@ -92,8 +92,9 @@ struct WelcomeView: View {
                         .font(Theme.small).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 20) {
-                        Link(W(lang, "Privacy", "ግላዊነት"), destination: URL(string: "https://kinbir.com/privacy")!)
-                        Link(W(lang, "Terms", "ውሎች"), destination: URL(string: "https://kinbir.com/terms")!)
+                        // Kept in English in both languages: the words people know (Geni).
+                        Link("Privacy", destination: URL(string: "https://kinbir.com/privacy")!)
+                        Link("Terms", destination: URL(string: "https://kinbir.com/terms")!)
                     }
                     .font(Theme.smallMedium)
                     .foregroundStyle(Theme.black)
@@ -291,6 +292,7 @@ struct DemoCard: View {
     @State private var reading = false
     @State private var ready = false
     @State private var problem: String?
+    @State private var startedAt = Date()
     @FocusState private var typing: Bool
 
     private var clean: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -359,9 +361,24 @@ struct DemoCard: View {
 
     @ViewBuilder private var status: some View {
         if busy {
-            NoteText(text: reading
-                     ? T("Almost there, the voice is reading your words.")
-                     : T("Starting the voice engine. The first listen of the day can take about two minutes, after that it is quick."))
+            // The first listen wakes the voice engine (up to about 2 minutes); later ones
+            // take seconds. Say so, and show it moving, so nobody thinks it is stuck.
+            TimelineView(.periodic(from: startedAt, by: 1)) { context in
+                let elapsed = context.date.timeIntervalSince(startedAt)
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: reading ? max(0.85, min(0.97, elapsed / 140)) : min(0.8, elapsed / 120))
+                        .tint(Theme.black)
+                    Text((reading
+                          ? W(lang, "Almost there, the voice is reading your words.",
+                              "ሊደርስ ነው፤ ድምፁ ፅሁፍዎን እያነበበ ነው።")
+                          : W(lang, "Waking up the voice. The first listen can take up to 2 minutes; after that it takes seconds.",
+                              "ድምፁ እየተዘጋጀ ነው። የመጀመሪያው እስከ 2 ደቂቃ ሊወስድ ይችላል፤ ከዚያ በኋላ በሰከንዶች ይደርሳል።"))
+                         + " · " + Fmt.clock(elapsed))
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .accessibilityIdentifier("demoProgress")
         }
         if ready {
             Text(T("Ready")).font(Theme.smallMedium).foregroundStyle(Theme.black)
@@ -376,7 +393,7 @@ struct DemoCard: View {
 
     private var buttonTitle: String {
         if busy { return reading ? T("Reading your text") : T("Waking the voice") }
-        if ready { return player.isPlaying ? W(lang, "Pause", "አቁም") : W(lang, "Play again", "እንደገና አጫውት") }
+        if ready { return player.isPlaying ? "Stop" : "Play" }
         return W(lang, "Hear it in the Kinbir voice", "በቅንብር ድምፅ ያዳምጡ")
     }
 
@@ -395,6 +412,7 @@ struct DemoCard: View {
         guard !words.isEmpty, !DemoRules.isOver(words) else { return }
         busy = true
         reading = false
+        startedAt = Date()
         problem = nil
         defer { busy = false }
         do {

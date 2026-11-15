@@ -14,11 +14,14 @@ struct VoicesView: View {
     @State private var samples: [String: URL] = [:]
     /// The voice whose sample is loaded in the player.
     @State private var loadedId: String?
+    /// "kinbir" when the built-in Kinbir voice reads, shared with the script page.
+    @AppStorage("kinbir.voiceChoice") private var voiceChoice = "mine"
 
     private let maxVoices = 5
 
     private var voices: [VoiceSummary] { state.me?.allVoices ?? [] }
-    private var activeId: String? { state.activeVoice?.voiceId }
+    private var activeId: String? { voiceChoice == "kinbir" ? nil : state.activeVoice?.voiceId }
+    private var kinbirChosen: Bool { voiceChoice == "kinbir" || voices.isEmpty }
 
     var body: some View {
         ScrollView {
@@ -34,14 +37,7 @@ struct VoicesView: View {
                         .accessibilityIdentifier("voiceSampleNote")
                 }
 
-                if voices.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(T("No voice yet")).font(Theme.heading).foregroundStyle(Theme.black)
-                        Text(T("Clone your voice to start making voiceovers."))
-                            .font(Theme.body).foregroundStyle(Theme.muted)
-                    }
-                    .card(fill: Theme.grey)
-                }
+                kinbirRow
 
                 ForEach(Array(voices.enumerated()), id: \.element.id) { index, voice in
                     row(voice, index: index)
@@ -49,7 +45,7 @@ struct VoicesView: View {
 
                 if voices.count < maxVoices {
                     NavigationLink(value: Route.enroll) {
-                        Text(voices.isEmpty ? T("Clone my voice") : T("Add a voice"))
+                        Text(voices.isEmpty ? T("Clone your voice") : T("Add a voice"))
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("addVoiceButton")
@@ -91,6 +87,30 @@ struct VoicesView: View {
     private func title(_ voice: VoiceSummary, index: Int) -> String {
         let name = (voice.name ?? "").trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? Tf("Voice %@", "\(index + 1)") : name
+    }
+
+    /// The built-in voice, always there: no cloning needed (D-453).
+    private var kinbirRow: some View {
+        Button {
+            Haptics.tap()
+            voiceChoice = "kinbir"
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: kinbirChosen ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22)).foregroundStyle(Theme.black)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(T("Kinbir voice")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text((kinbirChosen ? T("In use") : T("Tap to use")) + " · " + T("Built in, no cloning needed"))
+                        .font(Theme.small).foregroundStyle(kinbirChosen ? Theme.black : Theme.muted)
+                }
+                Spacer()
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .card(fill: kinbirChosen ? Theme.lime : Theme.white, padding: 14)
+        .accessibilityIdentifier("voiceRow-kinbir")
     }
 
     private func row(_ voice: VoiceSummary, index: Int) -> some View {
@@ -209,11 +229,17 @@ struct VoicesView: View {
 
     private func activate(_ voice: VoiceSummary) async {
         guard voice.voiceId != activeId else { return }
+        // Already the account's voice: only the Kinbir voice was chosen over it.
+        if voice.voiceId == state.activeVoice?.voiceId {
+            voiceChoice = "mine"
+            return
+        }
         busyId = voice.voiceId
         problem = nil
         defer { busyId = nil }
         do {
             try await state.api.activateVoice(id: voice.voiceId)
+            voiceChoice = "mine"
             await state.refresh()
         } catch {
             problem = state.report(error)

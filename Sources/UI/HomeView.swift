@@ -122,12 +122,18 @@ struct LibraryTab: View {
 }
 
 struct AccountTab: View {
+    @EnvironmentObject private var state: AppState
     @State private var path: [Route] = []
 
     var body: some View {
         NavigationStack(path: $path) {
             AccountView()
                 .modifier(RouteDestinations(onMakeAnother: nil))
+        }
+        .onChange(of: state.pendingAccountRoute) { _, route in
+            guard let route else { return }
+            path = [route]
+            state.pendingAccountRoute = nil
         }
     }
 }

@@ -355,9 +355,8 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("lang-en").tap()
         XCTAssertFalse(app.buttons["ethToggle"].exists)
         XCTAssertFalse(app.buttons["speakButton"].exists)
-        waitFor("moreOptionsButton").tap()
+        // English emphasis sits right on the page
         waitFor("englishCard")
-        waitFor("moreDone").tap()
         type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
         waitFor("scriptCounter")
         el("voiceButton").tap()
@@ -462,18 +461,20 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("codeField")
     }
 
-    /// With no credits the app says so plainly and offers nothing to buy in Build 1.
+    /// With no credits there is no scolding card: making a voiceover opens Buy credits.
     func testOutOfCreditsIsExplained() {
         launch(["-mockNoCredits"])
         signIn()
         waitForLabel("creditsPill", contains: "0")
-        // The Create screen says so before anything is tapped.
-        waitForLabel("outOfCreditsCard", contains: "out of credits")
-        waitForLabel("outOfCreditsCard", contains: "Account page")
-        // A paid step is still refused with the server's own sentence.
+        XCTAssertFalse(el("outOfCreditsCard").exists)
+        // A paid step is refused with the server's own sentence.
         writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
         waitForLabel("problemCard", contains: "Account page")
+        // Making a voiceover with no credits goes to Buy credits.
+        type("ሰላም ለሁላችሁ", into: "scriptEditor")
+        waitFor("voiceButton").tap()
+        waitFor("buyHeading")
     }
 
     /// Credits are bought on the Account page; the server adds them and the balance updates.

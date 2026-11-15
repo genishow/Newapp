@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// The main screen: one script box and one button. Everything else is one tap away
-/// in "Write it for me" or "More options".
+/// in "Write it for me" or right under the box.
 struct CreateView: View {
     @EnvironmentObject private var state: AppState
     /// The finished script: what the voice will read.
@@ -18,6 +18,9 @@ struct CreateView: View {
     /// The script from before Kinbir wrote or changed it, for Undo.
     @State private var beforeRewrite: String?
     @State private var draftId: String?
+    /// Kinbir wrote the text in the box, so "tell Kinbir what to change" applies to it.
+    @State private var kinbirWrote = false
+    @State private var changeRequest = ""
     @State private var draftText: String?
     @State private var voice = VoiceOptions()
     /// "kinbir" reads in the built-in voice even when the user has cloned their own.
@@ -25,7 +28,6 @@ struct CreateView: View {
     @State private var seededVoice = false
     @State private var recent: [SavedScript] = []
     @State private var showWriter = false
-    @State private var showMore = false
     @State private var showCredits = false
     @AppStorage("kinbir.recentShown") private var recentOpen = false
     @State private var keepProblem = false
@@ -131,6 +133,10 @@ struct CreateView: View {
 
                 editorCard
 
+                if kinbirWrote && !text.isEmpty {
+                    changeBox
+                }
+
                 if fidelOpen && language == .am {
                     fidelPad
                 }
@@ -150,22 +156,21 @@ struct CreateView: View {
                     .accessibilityIdentifier("speedPicker")
                 }
 
-                voiceSection
+                if language == .en {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(T("Emphasis")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        Picker(T("Emphasis"), selection: $voice.emphasis) {
+                            Text(T("None")).tag("none")
+                            Text(T("Punchy")).tag("punchy")
+                            Text(T("Strong")).tag("strong")
+                        }
+                        .pickerStyle(.segmented)
+                        .disabled(busy)
+                        .accessibilityIdentifier("englishCard")
+                    }
+                }
 
-                if language == .en || !script.isEmpty {
-                Button {
-                    editing = false
-                    showMore = true
-                } label: {
-                    OptionRow(icon: "slider.horizontal.3", title: T("More options"),
-                              detail: language == .en
-                                ? (script.isEmpty ? T("English emphasis") : T("English emphasis, change the script"))
-                                : T("Change the script"))
-                }
-                .buttonStyle(.plain)
-                .disabled(busy)
-                .accessibilityIdentifier("moreOptionsButton")
-                }
+                voiceSection
 
                 if !recent.isEmpty {
                     recentList
@@ -207,19 +212,6 @@ struct CreateView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showMore) {
-            MoreOptionsSheet(languageRaw: $languageRaw, voice: $voice, hasScript: !script.isEmpty,
-                             script: script,
-                             amharicVoice: state.activeVoice?.isAmharic == true,
-                             onImprove: { instruction in
-                                 showMore = false
-                                 Task { await write(WriteRequest(kind: .refine, input: instruction)) }
-                             },
-                             onClose: { showMore = false })
-                .environmentObject(state)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
         .onChange(of: text) { old, new in
             // Type-to-Amharic: one Latin letter typed at the end becomes Ethiopic.
             // Only for an Amharic voiceover: an English one keeps its Latin letters.
@@ -236,6 +228,7 @@ struct CreateView: View {
                TextKind.ethiopicLetterCount(new) > 0 { useAmharic(about: new) }
             state.saveDraft(new)
             if new != draftText { draftId = nil }
+            if new.isEmpty { kinbirWrote = false }
             // A failed rewrite puts the old text back, and the reason it failed must stay
             // on screen.
             if keepProblem { keepProblem = false } else { problem = nil }
@@ -285,18 +278,20 @@ struct CreateView: View {
     }
 
     /// Shown only until the user has a voice: the one thing to do first.
-    /// Which voice reads it, under the speed: the voices first, cloning offered below,
-    /// never required (Geni, 2026-11-15).
+    /// The voice that reads it: one row naming the chosen voice, which opens the voices
+    /// page to change it. Cloning sits below as an option, never a requirement.
+    private var chosenVoiceName: String {
+        usingStock ? T("Kinbir voice") : (state.activeVoice?.name ?? T("My voice"))
+    }
+
     private var voiceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(T("Voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            if needsVoice {
-                voiceRow(title: T("Kinbir voice"), selected: true, tag: "kinbir")
-            } else {
-                voiceRow(title: state.activeVoice?.name ?? T("My voice"),
-                         selected: voiceChoice != "kinbir", tag: "mine")
-                voiceRow(title: T("Kinbir voice"), selected: voiceChoice == "kinbir", tag: "kinbir")
+            NavigationLink(value: Route.voices) {
+                OptionRow(icon: "waveform", title: T("Voice"), value: chosenVoiceName)
             }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .accessibilityIdentifier("voiceLine")
             if usingStock, let left = state.me?.stockFreeLeft, left > 0 {
                 NoteText(text: Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
             }
@@ -307,69 +302,36 @@ struct CreateView: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("cloneVoiceButton")
                 NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice."))
-            } else {
-                NavigationLink(value: Route.voices) {
-                    Text(T("My voices"))
-                }
-                .buttonStyle(QuietButtonStyle())
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("voiceLine")
     }
 
-    private func voiceRow(title: String, selected: Bool, tag: String) -> some View {
-        Button {
-            guard !needsVoice else { return }
-            Haptics.tap()
-            voiceChoice = tag
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: tag == "kinbir" ? "waveform" : "person.fill")
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.black)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(Theme.lime))
-                Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                Spacer()
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20)).foregroundStyle(Theme.black)
+    /// Under a script Kinbir wrote: say what to change, Kinbir rewrites only that.
+    private var changeBox: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(T("Not quite right? Tell Kinbir what to change"))
+                .font(Theme.smallMedium).foregroundStyle(Theme.black)
+            TextField(T("e.g. make the ending warmer, shorten the second part"),
+                      text: $changeRequest, axis: .vertical)
+                .lineLimit(1...4)
+                .field()
+                .focused($editing)
+                .accessibilityIdentifier("refineField")
+            if !changeRequest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(T("Apply change")) {
+                    editing = false
+                    let wanted = changeRequest
+                    Task { await write(WriteRequest(kind: .refine, input: wanted)) }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(busy)
+                .accessibilityIdentifier("refineButton")
             }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 54)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(selected ? Theme.grey : Theme.white))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Theme.black, lineWidth: selected ? 2 : 1))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(busy)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("voice-" + tag)
     }
 
     @ViewBuilder private var topCard: some View {
-        if outOfCredits {
-            creditsCard
-        }
-    }
-
-    /// The website's out-of-credits card, shown before a tap can be refused.
-    private var creditsCard: some View {
-        let paid = state.me?.hasPaid == true
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(paid ? T("You've used all your credits") : T("You're out of credits"))
-                .font(Theme.heading).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(paid ? T("Your scripts and voices are safe. Add credits to keep generating.")
-                      : T("Pick a plan or grab a top-up to start generating with your voice."))
-                .font(Theme.body).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            NoteText(text: T(APIError.buyingNote))
-        }
-        .card(fill: Theme.grey)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("outOfCreditsCard")
+        EmptyView()
     }
 
     private var placeholder: String {
@@ -527,7 +489,7 @@ struct CreateView: View {
             BusyLabel(title: mainTitle, busy: work == .starting)
         }
         .buttonStyle(PrimaryButtonStyle())
-        .disabled(busy || script.isEmpty || outOfCredits || trialLine != nil)
+        .disabled(busy || script.isEmpty || trialLine != nil)
         .accessibilityIdentifier("voiceButton")
     }
 
@@ -635,6 +597,8 @@ struct CreateView: View {
             draftText = final
             text = final
             draftId = result.draftId
+            kinbirWrote = true
+            changeRequest = ""
             work = .idle
             Haptics.success()
             // What was typed in the sheet has done its job. After a failure it is kept.
@@ -654,6 +618,12 @@ struct CreateView: View {
     }
 
     private func makeVoiceover() async {
+        // No credits: straight to where they can get some, no scolding card (Geni).
+        if outOfCredits {
+            state.selectedTab = 2
+            state.pendingAccountRoute = .buyCredits
+            return
+        }
         work = .starting
         problem = nil
         defer { work = .idle }
@@ -1092,116 +1062,3 @@ struct WriteSheet: View {
     }
 }
 
-/// The things most people never need, kept off the main screen.
-struct MoreOptionsSheet: View {
-    @Binding var languageRaw: String
-    @EnvironmentObject private var state: AppState
-    @Binding var voice: VoiceOptions
-    let hasScript: Bool
-    /// The script a change would be applied to, for its price.
-    let script: String
-    let amharicVoice: Bool
-    let onImprove: (String) -> Void
-    let onClose: () -> Void
-
-    @State private var instruction = ""
-    @State private var estimate: Double?
-    @FocusState private var typing: Bool
-
-    private var language: Lang { Lang(rawValue: languageRaw) ?? Lang.matchingInterface }
-    private var wanted: String { instruction.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    private var applyTitle: String {
-        let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T("credits") } ?? ""
-        return T("Apply change") + price + " →"
-    }
-
-    /// The price of a change follows the script, and is asked for once something is typed.
-    private var estimateKey: String {
-        guard hasScript, !wanted.isEmpty else { return "" }
-        return languageRaw + "|" + script
-    }
-
-    private func loadEstimate() async {
-        guard !estimateKey.isEmpty else {
-            estimate = nil
-            return
-        }
-        estimate = try? await state.api.rewriteEstimate(
-            text: script, options: ScriptOptions(language: language, refineInstruction: wanted))
-    }
-
-    /// The website's small capital labels: LANGUAGE, SPEED, EMPHASIS.
-    private func label(_ text: String) -> some View {
-        Text(text.uppercased()).font(Theme.font(12, .bold, relativeTo: .caption))
-            .foregroundStyle(Theme.muted)
-            .kerning(0.6)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text(T("More options")).screenTitle(amharic: A("More options"))
-                        .accessibilityIdentifier("moreHeading")
-
-                    if language == .en {
-                        VStack(alignment: .leading, spacing: 10) {
-                            label(T("Emphasis"))
-                            Picker(T("Emphasis"), selection: $voice.emphasis) {
-                                Text(T("None")).tag("none")
-                                Text(T("Punchy")).tag("punchy")
-                                Text(T("Strong")).tag("strong")
-                            }
-                            .pickerStyle(.segmented)
-                            if voice.emphasis != "none" {
-                                NoteText(text: T("A beat lands where you wrote one: after a line ending in three dots, and between paragraphs."))
-                            }
-                            if amharicVoice {
-                                NoteText(text: T("This voice was enrolled in Amharic, so its English carries an Amharic accent. Enroll an English reading for a native sound."))
-                            }
-                        }
-                        .accessibilityIdentifier("englishCard")
-                    }
-
-                    if hasScript {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(T("Not quite right? Tell Kinbir what to change"))
-                                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                                .fixedSize(horizontal: false, vertical: true)
-                            TextField(T("e.g. remove the part about thieves · make the last line warmer"),
-                                      text: $instruction, axis: .vertical)
-                                .lineLimit(2...4)
-                                .field()
-                                .focused($typing)
-                                .accessibilityIdentifier("refineField")
-                            Button(applyTitle) { onImprove(instruction) }
-                                .buttonStyle(SecondaryButtonStyle())
-                                .disabled(wanted.isEmpty)
-                                .accessibilityIdentifier("refineButton")
-                            NoteText(text: T("Everything you do not mention comes back exactly as it is."))
-                        }
-                    }
-
-                }
-                .page()
-            }
-            .background(Theme.white)
-            .scrollDismissesKeyboard(.interactively)
-            .navigationDestination(for: Route.self) { route in
-                if case .scriptRules = route { ScriptRulesView() }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(T("Done")) { onClose() }.accessibilityIdentifier("moreDone")
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(T("Done")) { typing = false }
-                }
-            }
-        }
-        .tint(Theme.black)
-        .task(id: estimateKey) { await loadEstimate() }
-    }
-}

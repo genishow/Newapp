@@ -18,6 +18,8 @@ final class AppState: ObservableObject {
     @Published var selectedTab = 0
     /// A screen to open in the Library, from a tapped notification.
     @Published var pendingRoute: Route?
+    /// A screen to open on the Account tab, e.g. buying credits from the script page.
+    @Published var pendingAccountRoute: Route?
 
     let api: KinbirAPI
     private let store: CodeStore
@@ -80,6 +82,7 @@ final class AppState: ObservableObject {
 
     func signIn(with result: AuthResult) async {
         store.save(result.accessCode)
+        selectedTab = 0          // signed in: the script page first
         me = WhoAmI(email: result.email, voices: nil, activeVoiceId: nil,
                     creditsBalance: result.creditsBalance, tier: nil, hasPaid: nil,
                     trialMaxChars: nil, scriptRules: nil, scriptRulesDefault: nil,
