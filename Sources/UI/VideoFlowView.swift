@@ -221,6 +221,7 @@ struct VideoFlowView: View {
     /// What the checks said about each shot, by shot number.
     @State private var flags: [Int: String] = [:]
     @State private var checkNote: String?
+    @State private var uploadsLoaded = false
     /// Shapes that already have a finished video from this voiceover.
     @State private var madeShapes: Set<String> = []
 
@@ -345,6 +346,10 @@ struct VideoFlowView: View {
         life.quietRunning = true
         defer { life.quietRunning = false }
         life.quietDone = planId
+        // The clip list loads alongside the shots; wait for it (a few seconds at most).
+        for _ in 0..<100 where !uploadsLoaded {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
         // Placed once for each set of clips, so clips moved by hand are not moved back
         // every time the screen opens.
         let placedKey = "placedclips." + planId
@@ -373,7 +378,7 @@ struct VideoFlowView: View {
         guard let finished = job, finished.status == "done", !life.gone, stage == .shots, !checking else { return }
         let wrong = finished.wrongShots
         for item in wrong where flags[item.beat] == nil {
-            flags[item.beat] = T("May not match the words. Open the shot to swap the clip.")
+            flags[item.beat] = T("May not match the words")
         }
         if !wrong.isEmpty && checkNote == nil {
             checkNote = Tf("%@ shots may not match their words. They are marked in the list.", "\(wrong.count)")
@@ -533,8 +538,8 @@ struct VideoFlowView: View {
                     VideoJobView(videoJobId: id, shape: shape, onEditShots: planId == nil ? nil : {
                         Task {
                             await reloadPlan()
-                            await loadMadeShapes()
                             stage = .shots
+                            await loadMadeShapes()
                         }
                     })
                 }
@@ -868,17 +873,17 @@ struct VideoFlowView: View {
         let vertical = madeShapes.contains(Shape.portrait.rawValue)
         let horizontal = madeShapes.contains(Shape.landscape.rawValue)
         if vertical && horizontal {
-            return T("You have a vertical and a horizontal video from these shots. Make video makes a new one in the shape chosen above.")
+            return T("You have both shapes already.")
         }
         if vertical {
             return shape == .portrait
-                ? T("You already have a vertical video. Tap Horizontal to make a horizontal one from the same shots. Free to switch.")
-                : T("Horizontal chosen. Your vertical video stays in the Library.")
+                ? T("You have a vertical video. Tap Horizontal for the other shape.")
+                : nil
         }
         if horizontal {
             return shape == .landscape
-                ? T("You already have a horizontal video. Tap Vertical to make a vertical one from the same shots. Free to switch.")
-                : T("Vertical chosen. Your horizontal video stays in the Library.")
+                ? T("You have a horizontal video. Tap Vertical for the other shape.")
+                : nil
         }
         return nil
     }
@@ -987,6 +992,8 @@ struct VideoFlowView: View {
                 ProblemCard(message: problem)
             }
 
+            // Lazy: only the shots on screen are drawn and their pictures loaded.
+            LazyVStack(alignment: .leading, spacing: Theme.gap) {
             ForEach(beats.filter { $0.needsFootage }) { beat in
                 Button {
                     picking = beat
@@ -996,6 +1003,7 @@ struct VideoFlowView: View {
                 .buttonStyle(.plain)
                 .disabled(working != nil)
                 .accessibilityIdentifier("shotRow-\(beat.beat)")
+            }
             }
 
             if working == nil {
@@ -1067,18 +1075,11 @@ struct VideoFlowView: View {
         let count = beats.filter { $0.needsFootage }.count
         let seconds = audioSec > 0 ? audioSec : (beats.compactMap(\.end).max() ?? 0)
         let range = ClipRules.suggestedClips(shots: count)
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(Tf("Your video has %@ shots, about %@ seconds.", "\(count)", "\(Int(seconds.rounded()))"))
-                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(Tf("Add %@ to %@ clips, each a few seconds or more.", "\(range.low)", "\(range.high)"))
-                .font(Theme.body).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            NoteText(text: T("Clips that do not match the words are marked in the list, so you can swap them."))
-            NoteText(text: T("Each clip can be up to 10 minutes. Only the part used in your video is kept in the video."))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card(fill: Theme.white, padding: 14)
+        // One short line (Geni: keep the app simple, no long explanations).
+        return Text(Tf("%@ shots · %@ sec · add %@ to %@ clips", "\(count)",
+                       "\(Int(seconds.rounded()))", "\(range.low)", "\(range.high)"))
+            .font(Theme.small).foregroundStyle(Theme.muted)
+            .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("clipGuide")
     }
@@ -1138,10 +1139,18 @@ struct VideoFlowView: View {
             let job = try await state.api.job(id: jobId)
             script = job.scriptText
             audioSec = job.audioSec ?? 0
-            uploads = (try? await state.api.uploads(jobId: jobId)) ?? []
-            tracks = (try? await state.api.music()) ?? []
-            // A video with music feels finished, so the first track is chosen to start with.
-            if musicId == nil { musicId = tracks.first?.trackId }
+            // Clips and music are not needed to show the shots, so they load
+            // alongside, not before (Geni, 2026-11-15: making the other shape
+            // took long to open).
+            Task {
+                async let clipList = try? state.api.uploads(jobId: jobId)
+                async let musicList = try? state.api.music()
+                uploads = await clipList ?? uploads
+                uploadsLoaded = true
+                tracks = await musicList ?? []
+                // A video with music feels finished, so the first track is chosen to start with.
+                if musicId == nil { musicId = tracks.first?.trackId }
+            }
             if let running = UserDefaults.standard.string(forKey: videoJobKey) {
                 // A video was started for this voiceover. If it is still being made, show
                 // it, so it is never started (and paid for) a second time.
@@ -1156,8 +1165,8 @@ struct VideoFlowView: View {
             if let existing = job.brollPlanId {
                 planId = existing
                 await reloadPlan()
-                await loadMadeShapes()
                 stage = .shots
+                Task { await loadMadeShapes() }
                 Task { await quietTools() }
             } else if UserDefaults.standard.string(forKey: planJobKey) != nil {
                 stage = .planning

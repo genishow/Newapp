@@ -195,7 +195,6 @@ struct AvatarCard: View {
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("avatarSide")
                 }
-                NoteText(text: T("Your footage, graphics and captions take the other part of the screen while the avatar is on."))
             }
             if quote > 0 {
                 Text(Tf("Avatar: %@s of %@", "\(Int(presenterSeconds))", Fmt.clock(audioSec.rounded(.down))))

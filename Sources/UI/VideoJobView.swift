@@ -132,7 +132,12 @@ struct VideoJobView: View {
 
             presenterClips(status)
             if let skipped = status.avatarSkipped, !skipped.isEmpty {
-                NoteText(text: T("Presenter: ") + APIError.sentenceCase(skipped))
+                // The server's sentence is already plain; older jobs carried the
+                // provider's raw error, so anything technical gets the plain one.
+                let technical = skipped.contains("Exception") || skipped.contains("service failed")
+                NoteText(text: technical
+                         ? T("The presenter could not be made this time. Its credits were returned. Try again later.")
+                         : APIError.sentenceCase(skipped))
             }
 
             if let problem {
