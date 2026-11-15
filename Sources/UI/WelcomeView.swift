@@ -70,6 +70,7 @@ struct WelcomeView: View {
                     LogoMark(size: 34)
                     Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
                     Spacer()
+                    AppearanceButton()
                     LanguageSwitch(selection: Binding(
                         get: { lang },
                         set: { WelcomeLanguage.pick($0); chosen = $0.rawValue }))

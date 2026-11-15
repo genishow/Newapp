@@ -276,6 +276,7 @@ struct CreateView: View {
         HStack {
             LogoMark(size: 36)
             Spacer()
+            AppearanceButton()
             Button {
                 showCredits = true
             } label: {

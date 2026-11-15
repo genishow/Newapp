@@ -601,3 +601,43 @@ private struct ScreenTitle: ViewModifier {
 extension View {
     func screenTitle(amharic: String? = nil) -> some View { modifier(ScreenTitle(amharic: amharic)) }
 }
+
+/// One tap changes the colour mode: same as phone, light, dark (Geni: "an icon on the
+/// heading so I can change it"). Shares its setting with the Appearance choice in Account.
+struct AppearanceButton: View {
+    @AppStorage("kinbir.appearance") private var appearance = "system"
+
+    private var icon: String {
+        switch appearance {
+        case "light": return "sun.max.fill"
+        case "dark": return "moon.fill"
+        default: return "circle.lefthalf.filled"
+        }
+    }
+
+    private var label: String {
+        switch appearance {
+        case "light": return T("Light")
+        case "dark": return T("Dark")
+        default: return T("Same as phone")
+        }
+    }
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            appearance = appearance == "system" ? "light" : appearance == "light" ? "dark" : "system"
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.black)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Theme.grey))
+                .overlay(Circle().strokeBorder(Theme.black.opacity(0.15), lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(T("Appearance") + ", " + label)
+        .accessibilityIdentifier("appearanceButton")
+    }
+}
