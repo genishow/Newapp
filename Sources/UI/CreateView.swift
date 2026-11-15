@@ -163,17 +163,20 @@ struct CreateView: View {
                     .accessibilityIdentifier("speedPicker")
                 }
 
+                if language == .en || !script.isEmpty {
                 Button {
                     editing = false
                     showMore = true
                 } label: {
                     OptionRow(icon: "slider.horizontal.3", title: T("More options"),
-                              detail: language == .en ? T("Emphasis, change the script, script rules")
-                                                      : T("Change the script, script rules"))
+                              detail: language == .en
+                                ? (script.isEmpty ? T("English emphasis") : T("English emphasis, change the script"))
+                                : T("Change the script"))
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
                 .accessibilityIdentifier("moreOptionsButton")
+                }
 
                 if !recent.isEmpty {
                     recentList
@@ -818,6 +821,9 @@ struct WriteSheet: View {
             }
             .background(Theme.white)
             .scrollDismissesKeyboard(.interactively)
+            .navigationDestination(for: Route.self) { route in
+                if case .scriptRules = route { ScriptRulesView() }
+            }
             .toolbar {
                 if kind != nil {
                     ToolbarItem(placement: .topBarLeading) {
@@ -876,6 +882,7 @@ struct WriteSheet: View {
                 .accessibilityIdentifier("writerHeading")
             Text(T("Kinbir writes the script. You can change it afterwards."))
                 .font(Theme.body).foregroundStyle(Theme.muted)
+            rulesCard
             choice(.idea, icon: "lightbulb", title: T("From an idea"),
                    detail: T("Say what the video is about in one line."))
             choice(.source, icon: "doc.text", title: T("From any text"),
@@ -896,7 +903,38 @@ struct WriteSheet: View {
         .accessibilityIdentifier("writeChoice-\(value)")
     }
 
+    /// Script rules sit where the script is written, so they are set before writing
+    /// (Geni: "say the rules above the box").
+    private var rulesCard: some View {
+        let rules = (state.me?.scriptRules ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return NavigationLink(value: Route.scriptRules) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.black)
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.lime))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(T("Script rules")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text(rules.isEmpty
+                         ? T("Add your niche, tone, or words to avoid. Kinbir follows them every time.")
+                         : rules)
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Text(rules.isEmpty ? T("Add") : T("Edit"))
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
+            }
+            .card(fill: Theme.grey, padding: 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("writerRulesRow")
+    }
+
     @ViewBuilder private func form(_ kind: WriteRequest.Kind) -> some View {
+        rulesCard
         switch kind {
         case .idea:
             Text(T("What is the video about?")).screenTitle(amharic: A("What is the video about?"))
@@ -1117,12 +1155,6 @@ struct MoreOptionsSheet: View {
                         }
                     }
 
-                    NavigationLink(value: Route.scriptRules) {
-                        OptionRow(icon: "list.bullet.rectangle", title: T("Script Rules"),
-                                  detail: T("Tailor it to your niche"))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("scriptRulesRow")
                 }
                 .page()
             }

@@ -83,6 +83,7 @@ final class KinbirJourneyTests: XCTestCase {
     private func writeAmharicScript() {
         waitFor("writeForMeButton").tap()
         waitFor("writerHeading")
+        waitFor("writerRulesRow")       // script rules sit above the choices
         waitFor("writeChoice-source").tap()
         let editor = waitFor("sourceEditor")
         editor.tap()
