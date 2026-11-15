@@ -113,15 +113,25 @@ struct EnrollView: View {
         .card(fill: Theme.lime)
     }
 
+    /// One line that matters, the rest folded away (Geni: too much text).
     private var tips: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            tip(T("A quiet room, no music or TV."))
-            tip(T("Hold the phone close, about an arm's length."))
-            tip(T("Read every word on the screen. We check that the statement was said before the voice is made."))
-            tip(T("Read naturally, the way you normally speak."))
-            tip(T("10 to 40 seconds."))
-            tip(T("The words stay on screen while you record."))
-            tip(T("You can watch the recording before you send it."))
+        VStack(alignment: .leading, spacing: 8) {
+            Text(T("Read every word, 10 to 40 seconds. The words stay on screen while you record."))
+                .font(Theme.small).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 6) {
+                    tip(T("A quiet room, no music or TV."))
+                    tip(T("Hold the phone close, about an arm's length."))
+                    tip(T("Read the way you want every voiceover to sound."))
+                    tip(T("We check the statement was said before the voice is made."))
+                }
+                .padding(.top, 6)
+            } label: {
+                Text(T("Tips for a great voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            }
+            .tint(Theme.black)
+            .accessibilityIdentifier("enrollTips")
         }
     }
 
