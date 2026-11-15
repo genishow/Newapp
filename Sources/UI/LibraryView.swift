@@ -18,7 +18,7 @@ struct LibraryView: View {
                     ProblemCard(message: problem)
                 }
 
-                if !loaded && problem == nil {
+                if !loaded && problem == nil && items.isEmpty {
                     ProgressView().tint(Theme.black)
                 } else if jobs.isEmpty && videos.isEmpty && problem == nil {
                     EmptyState(icon: "square.stack", title: T("Nothing here yet"),
@@ -26,6 +26,8 @@ struct LibraryView: View {
                         .accessibilityIdentifier("libraryEmpty")
                 } else {
                     // One list, newest first: videos and voiceovers together.
+                    // Lazy, so only the rows on screen are drawn.
+                    LazyVStack(alignment: .leading, spacing: Theme.gap) {
                     ForEach(items) { item in
                         switch item {
                         case .video(let video):
@@ -42,6 +44,7 @@ struct LibraryView: View {
                             .accessibilityIdentifier("libraryRow")
                         }
                     }
+                    }
                 }
             }
             .page()
@@ -49,7 +52,14 @@ struct LibraryView: View {
         .background(Theme.white)
         .toolbar(.hidden, for: .navigationBar)
         .refreshable { await load() }
-        .task { await load() }
+        .task {
+            // Show the last list straight away, then refresh behind it.
+            if !loaded, let cached = state.loadLibraryCache() {
+                jobs = cached.jobs
+                videos = cached.videos
+            }
+            await load()
+        }
     }
 
     enum Item: Identifiable {
@@ -81,7 +91,10 @@ struct LibraryView: View {
             .map(\.element)
     }
 
-    private var items: [Item] { Self.merged(jobs: jobs, videos: videos) }
+    private var items: [Item] {
+        let fresh = LibraryCache(jobs: jobs, videos: videos).fresh()
+        return Self.merged(jobs: fresh.jobs, videos: fresh.videos)
+    }
 
     private func rowIcon(_ name: String) -> some View {
         Image(systemName: name)
@@ -150,9 +163,13 @@ struct LibraryView: View {
 
     private func load() async {
         do {
-            jobs = try await state.api.jobs().filter { $0.belongsInLibrary }
-            videos = (try? await state.api.videos()) ?? []
+            // Both lists at the same time, not one after the other.
+            async let videoList = try? state.api.videos()
+            let jobList = try await state.api.jobs().filter { $0.belongsInLibrary }
+            jobs = jobList
+            videos = await videoList ?? []
             problem = nil
+            state.saveLibraryCache(LibraryCache(jobs: jobs, videos: videos))
         } catch {
             if !Task.isCancelled { problem = state.report(error) }
         }

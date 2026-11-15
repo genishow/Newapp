@@ -323,4 +323,29 @@ final class SpeechCheckTests: XCTestCase {
         }
         XCTAssertTrue(SpeechCheck.isSpeech(breath + tone(0.4), sampleRate: rate))
     }
+
+    func testLibraryShowsOnlyTheLast48Hours() throws {
+        let now = Fmt.date(fromServer: "2026-11-15T12:00:00Z")!
+        let jobs = try JSON.decoder.decode([JobSummary].self, from: Data(#"""
+        [{"job_id":"new","status":"done","created_at":"2026-11-15T10:00:00Z","finished_at":"2026-11-15T10:01:00Z"},
+         {"job_id":"old","status":"done","created_at":"2026-11-13T10:00:00Z","finished_at":"2026-11-13T11:00:00Z"},
+         {"job_id":"making","status":"running"}]
+        """#.utf8))
+        let videos = try JSON.decoder.decode([VideoSummary].self, from: Data(#"""
+        [{"video_job_id":"vid-new","finished_at":"2026-11-14T13:00:00Z"},
+         {"video_job_id":"vid-old","finished_at":"2026-11-12T10:00:00Z"}]
+        """#.utf8))
+        let fresh = LibraryCache(jobs: jobs, videos: videos).fresh(now: now)
+        XCTAssertEqual(fresh.jobs.map(\.jobId), ["new", "making"])
+        XCTAssertEqual(fresh.videos.map(\.videoJobId), ["vid-new"])
+    }
+
+    func testSavedFilesAreNamedAfterTheScript() {
+        XCTAssertEqual(SaveName.base(script: "ቅንብር የሚለየውም የቪዲዮአችሁን ድምፅ በራሳችሁ ድምፅ ያደርጋል።"),
+                       "Kinbir - ቅንብር የሚለየውም የቪዲዮአችሁን ድምፅ በራሳችሁ")
+        XCTAssertEqual(SaveName.base(script: "Hello, world."), "Kinbir - Hello, world")
+        XCTAssertEqual(SaveName.base(script: "a/b: c?…"), "Kinbir - a b c")
+        XCTAssertEqual(SaveName.base(script: nil), "Kinbir")
+        XCTAssertEqual(SaveName.base(script: "   "), "Kinbir")
+    }
 }

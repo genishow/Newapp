@@ -15,7 +15,11 @@ enum PhotoSaver {
         guard status == .authorized || status == .limited else { return .notAllowed }
         do {
             try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                // keeps the file name ("Kinbir - first words.mp4") in Photos
+                let options = PHAssetResourceCreationOptions()
+                options.originalFilename = url.lastPathComponent
+                PHAssetCreationRequest.forAsset()
+                    .addResource(with: .video, fileURL: url, options: options)
             }
             return .saved
         } catch {

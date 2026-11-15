@@ -277,7 +277,8 @@ struct VideoJobView: View {
             return
         }
         do {
-            let url = try await state.api.downloadVideo(id: videoJobId)
+            let file = try await state.api.downloadVideo(id: videoJobId)
+            let url = SaveName.renamed(file, script: await scriptHead())
             switch await PhotoSaver.saveVideo(at: url) {
             case .saved:
                 Haptics.success()
@@ -292,13 +293,19 @@ struct VideoJobView: View {
         }
     }
 
+    /// The first words of the script this video was cut from, for its file name.
+    private func scriptHead() async -> String? {
+        let list = (try? await state.api.videos()) ?? []
+        return list.first { $0.videoJobId == videoJobId }?.preview
+    }
+
     private func save() async {
         saving = true
         problem = nil
         defer { saving = false }
         do {
             let url = try await state.api.downloadVideo(id: videoJobId)
-            shared = SharedFile(url: url)
+            shared = SharedFile(url: SaveName.renamed(url, script: await scriptHead()))
         } catch {
             problem = state.report(error)
         }

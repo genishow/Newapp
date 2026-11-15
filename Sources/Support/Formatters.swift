@@ -59,3 +59,46 @@ enum Fmt {
         return String(h, radix: 36)
     }
 }
+
+/// What a saved file is called: "Kinbir - " and the first few words of its
+/// script, so videos and voiceovers are easy to find in Files and Photos.
+enum SaveName {
+    static let maxWords = 5
+    static let maxChars = 40
+
+    static func base(script: String?) -> String {
+        let bad = CharacterSet(charactersIn: "/\\:?*\"<>|\n\r\t")
+        let cleaned = (script ?? "").components(separatedBy: bad).joined(separator: " ")
+        var words: [String] = []
+        var length = 0
+        for word in cleaned.split(whereSeparator: { $0 == " " }).map(String.init) {
+            if words.count == maxWords || length + word.count > maxChars { break }
+            words.append(word)
+            length += word.count + 1
+        }
+        // a word longer than the limit still gives a name, just cut short
+        if words.isEmpty, let first = cleaned.split(separator: " ").first {
+            words = [String(first.prefix(maxChars))]
+        }
+        let ending = CharacterSet(charactersIn: ".,!…።፣፤፥፦፧፨ ").union(.whitespaces)
+        let head = words.joined(separator: " ").trimmingCharacters(in: ending)
+        return head.isEmpty ? "Kinbir" : "Kinbir - " + head
+    }
+
+    /// A copy of `file` under the friendly name, in its own folder so two
+    /// items with the same first words never overwrite each other.
+    static func renamed(_ file: URL, script: String?) -> URL {
+        let folder = TempFiles.folder.appendingPathComponent("named-" + file.deletingPathExtension().lastPathComponent,
+                                                             isDirectory: true)
+        let target = folder.appendingPathComponent(base(script: script))
+            .appendingPathExtension(file.pathExtension)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: target)
+            try FileManager.default.copyItem(at: file, to: target)
+            return target
+        } catch {
+            return file
+        }
+    }
+}

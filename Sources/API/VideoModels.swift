@@ -323,3 +323,21 @@ enum ClipRules {
         max(1, Int((Double(bytes) / Double(chunkBytes)).rounded(.up)))
     }
 }
+
+/// What the Library shows: items from the last 48 hours only (D-458).
+struct LibraryCache: Codable, Equatable {
+    var jobs: [JobSummary]
+    var videos: [VideoSummary]
+
+    static let keptHours: Double = 48
+
+    /// Drops anything past 48 hours. Still being made counts as fresh.
+    func fresh(now: Date = Date()) -> LibraryCache {
+        func ok(_ iso: String?) -> Bool {
+            guard let made = Fmt.date(fromServer: iso) else { return true }
+            return now.timeIntervalSince(made) < Self.keptHours * 3600
+        }
+        return LibraryCache(jobs: jobs.filter { ok($0.finishedAt ?? $0.createdAt) },
+                            videos: videos.filter { ok($0.finishedAt) })
+    }
+}

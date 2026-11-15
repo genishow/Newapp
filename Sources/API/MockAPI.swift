@@ -4,6 +4,12 @@ import Foundation
 /// argument `-uiTestMock`, so the end-to-end UI tests can drive every screen without
 /// the network, real email or real credits.
 final class MockAPI: KinbirAPI {
+    /// A server-style time `offset` seconds from now, so mock items stay
+    /// inside the Library's 48 hours whatever day the tests run.
+    static func recent(_ offset: TimeInterval) -> String {
+        ISO8601DateFormatter().string(from: Date().addingTimeInterval(offset))
+    }
+
     struct Scenario {
         var noVoice = false
         var noCredits = false
@@ -278,8 +284,8 @@ final class MockAPI: KinbirAPI {
         return locked {
             jobOrder.compactMap { id -> JobSummary? in
                 guard let j = jobStore[id] else { return nil }
-                return JobSummary(jobId: id, status: j.status, createdAt: "2026-11-12T10:00:00Z",
-                                  finishedAt: j.isDone ? "2026-11-12T10:01:00Z" : nil,
+                return JobSummary(jobId: id, status: j.status, createdAt: Self.recent(-3600),
+                                  finishedAt: j.isDone ? Self.recent(-3540) : nil,
                                   audioSec: j.audioSec, preview: String(j.scriptText.prefix(90)),
                                   voiceId: "v-mock-1")
             }
@@ -779,7 +785,7 @@ extension MockAPI {
         if !video.videos.contains(where: { $0.videoJobId == id }) {
             video.videos.insert(VideoSummary(videoJobId: id, planId: "bp-mock", jobId: nil,
                                              orientation: "portrait", durationSec: 6,
-                                             finishedAt: "2026-11-12T10:05:00Z", preview: "ሰላም ለሁላችሁ።"),
+                                             finishedAt: Self.recent(-3300), preview: "ሰላም ለሁላችሁ።"),
                                 at: 0)
         }
         let separate = video.lastAvatar?.mode == .separate

@@ -125,6 +125,27 @@ final class AppState: ObservableObject {
         pendingRoute = route
     }
 
+    // MARK: library cache
+
+    /// The last Library list, kept on the phone so the Library shows at once
+    /// and refreshes behind it. Per account; never in UI-test runs.
+    private var libraryKey: String? {
+        guard let code = store.load() else { return nil }
+        return "library." + Fmt.ownerTag(code)
+    }
+
+    func loadLibraryCache() -> LibraryCache? {
+        guard !Launch.isMock, let key = libraryKey,
+              let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return (try? JSONDecoder().decode(LibraryCache.self, from: data))?.fresh()
+    }
+
+    func saveLibraryCache(_ cache: LibraryCache) {
+        guard !Launch.isMock, let key = libraryKey,
+              let data = try? JSONEncoder().encode(cache) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
     // MARK: draft
 
     private var draftKey: String? {

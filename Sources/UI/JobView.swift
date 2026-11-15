@@ -381,7 +381,7 @@ struct JobView: View {
         defer { sharing = false }
         do {
             let url = try await state.api.downloadAudio(jobId: jobId)
-            shared = SharedFile(url: url)
+            shared = SharedFile(url: SaveName.renamed(url, script: job?.scriptText))
         } catch {
             audioProblem = state.report(error)
         }
