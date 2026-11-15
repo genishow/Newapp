@@ -135,19 +135,6 @@ struct CreateView: View {
                     fidelPad
                 }
 
-                if !needsVoice {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(T("Voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-                        Picker(T("Voice"), selection: $voiceChoice) {
-                            Text(state.activeVoice?.name ?? T("My voice")).tag("mine")
-                            Text(T("Kinbir voice")).tag("kinbir")
-                        }
-                        .pickerStyle(.segmented)
-                        .disabled(busy)
-                        .accessibilityIdentifier("voiceChoice")
-                    }
-                    .accessibilityIdentifier("voiceLine")
-                }
 
                 // Reading speed on the page itself, where a new user sees it (D-440).
                 // Choosing it here is free; changing it after costs a new reading.
@@ -162,6 +149,8 @@ struct CreateView: View {
                     .disabled(busy)
                     .accessibilityIdentifier("speedPicker")
                 }
+
+                voiceSection
 
                 if language == .en || !script.isEmpty {
                 Button {
@@ -296,32 +285,71 @@ struct CreateView: View {
     }
 
     /// Shown only until the user has a voice: the one thing to do first.
-    /// No clone yet: they can still make a voiceover right away in the Kinbir voice.
-    /// Cloning is offered, never required (Geni, 2026-11-15).
-    private var voiceHero: some View {
+    /// Which voice reads it, under the speed: the voices first, cloning offered below,
+    /// never required (Geni, 2026-11-15).
+    private var voiceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "waveform").font(.system(size: 15, weight: .bold))
-                Text(T("Reading in the Kinbir voice")).font(Theme.bodyMedium)
+            Text(T("Voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            if needsVoice {
+                voiceRow(title: T("Kinbir voice"), selected: true, tag: "kinbir")
+            } else {
+                voiceRow(title: state.activeVoice?.name ?? T("My voice"),
+                         selected: voiceChoice != "kinbir", tag: "mine")
+                voiceRow(title: T("Kinbir voice"), selected: voiceChoice == "kinbir", tag: "kinbir")
             }
-            .foregroundStyle(Theme.black)
-            Text((state.me?.stockFreeLeft ?? 0) > 0
-                 ? Tf("Write or paste a script and hear it right away. Your first %@ are free.",
-                      Tf("%@ voiceovers", "\(state.me?.stockFreeLeft ?? 0)"))
-                 : T("Write or paste a script and hear it right away."))
-                .font(Theme.small).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            NavigationLink(value: Route.enroll) { Text(T("Use my own voice instead (optional)")) }
-                .buttonStyle(QuietButtonStyle())
+            if usingStock, let left = state.me?.stockFreeLeft, left > 0 {
+                NoteText(text: Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
+            }
+            if needsVoice {
+                NavigationLink(value: Route.enroll) {
+                    Label(T("Clone your voice"), systemImage: "person.wave.2")
+                }
+                .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("cloneVoiceButton")
+                NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice."))
+            } else {
+                NavigationLink(value: Route.voices) {
+                    Text(T("My voices"))
+                }
+                .buttonStyle(QuietButtonStyle())
+            }
         }
-        .card(fill: Theme.lime, padding: 14)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("voiceLine")
+    }
+
+    private func voiceRow(title: String, selected: Bool, tag: String) -> some View {
+        Button {
+            guard !needsVoice else { return }
+            Haptics.tap()
+            voiceChoice = tag
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: tag == "kinbir" ? "waveform" : "person.fill")
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.black)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Theme.lime))
+                Text(title).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                Spacer()
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20)).foregroundStyle(Theme.black)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 54)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(selected ? Theme.grey : Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: selected ? 2 : 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("voice-" + tag)
     }
 
     @ViewBuilder private var topCard: some View {
-        if needsVoice {
-            voiceHero
-        } else if outOfCredits {
+        if outOfCredits {
             creditsCard
         }
     }
