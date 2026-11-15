@@ -105,7 +105,7 @@ final class MockAPI: KinbirAPI {
             let made = PromoSubmission(promoId: "pr-mock\(promos.count)", status: "pending",
                                        createdAt: "2026-11-15T10:00:00Z", reviewedAt: nil,
                                        credits: 0, reason: nil, link: link.isEmpty ? nil : link,
-                                       durationSec: 30)
+                                       durationSec: 75)
             promos.insert(made, at: 0)
             return made
         }

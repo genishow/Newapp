@@ -19,8 +19,9 @@ struct PromoView: View {
     @State private var sentNote: String?
 
     private var reward: String { Fmt.credits(list?.reward ?? 20) }
-    private var lengthOk: Bool { pickedSeconds >= 10 && pickedSeconds <= 180 }
-    private var canSend: Bool { picked != nil && lengthOk && rightsOk && !sending }
+    private var lengthOk: Bool { pickedSeconds >= 60 && pickedSeconds <= 180 }
+    private var linkOk: Bool { PromoRules.isSocialLink(link) }
+    private var canSend: Bool { picked != nil && lengthOk && linkOk && rightsOk && !sending }
 
     var body: some View {
         ScrollView {
@@ -28,7 +29,7 @@ struct PromoView: View {
                 Text(T("Earn credits")).screenTitle(amharic: A("Earn credits"))
                     .accessibilityIdentifier("promoHeading")
 
-                Text(Tf("Make a short video about Kinbir, like a TikTok or a Reel, and send it here. When we approve it, you get %@ credits.", reward))
+                Text(Tf("Make a video about Kinbir, post it on your social media, then send it here with the link. When we approve it, you get %@ credits.", reward))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .card(fill: Theme.lime)
@@ -67,13 +68,13 @@ struct PromoView: View {
 
     private var tips: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(T("What works")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            Text(T("How it works")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
             ForEach([
-                T("10 seconds to 3 minutes, filmed upright (vertical)."),
-                T("Show Kinbir on your screen and say what you made with it."),
-                T("Your own face and voice are welcome. Speak in Amharic or English."),
+                T("1. Film a video about Kinbir, at least 1 minute and at most 3, upright (vertical)."),
+                T("2. Post it on your own TikTok, Instagram, YouTube, Facebook or X, and keep it up."),
+                T("3. Copy the link to your post and send it here with the same video."),
+                T("Show Kinbir on your screen and say what you made with it. Amharic or English."),
                 T("No music or clips you do not own. Use music from the app you post on, or none."),
-                T("Posted it on TikTok, Instagram or YouTube? Add the link."),
             ], id: \.self) { line in
                 HStack(alignment: .top, spacing: 8) {
                     Text("•").font(Theme.body).foregroundStyle(Theme.black)
@@ -105,12 +106,12 @@ struct PromoView: View {
 
             if picked != nil {
                 Text(lengthOk ? Tf("Video chosen, %@ long.", Fmt.clock(pickedSeconds))
-                              : Tf("This video is %@ long. It needs to be between 10 seconds and 3 minutes.", Fmt.clock(pickedSeconds)))
+                              : Tf("This video is %@ long. It needs to be between 1 and 3 minutes.", Fmt.clock(pickedSeconds)))
                     .font(Theme.small).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("promoChosenNote")
             }
 
-            TextField(T("Link to your post (optional)"), text: $link)
+            TextField(T("Link to your post"), text: $link)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.URL)
@@ -118,6 +119,11 @@ struct PromoView: View {
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.black, lineWidth: 1))
                 .accessibilityIdentifier("promoLink")
+            if !link.isEmpty && !linkOk {
+                Text(T("Paste the link to your post on TikTok, Instagram, YouTube, Facebook or X."))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("promoLinkNote")
+            }
             TextField(T("Anything we should know (optional)"), text: $note, axis: .vertical)
                 .lineLimit(1...4)
                 .font(Theme.body)
@@ -132,7 +138,7 @@ struct PromoView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: rightsOk ? "checkmark.square.fill" : "square")
                         .font(.system(size: 22)).foregroundStyle(Theme.black)
-                    Text(T("I made this video, everyone in it agreed, and Kinbir may use and edit it in its own ads and posts."))
+                    Text(T(PromoRules.rightsText))
                         .font(Theme.small).foregroundStyle(Theme.black)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -199,7 +205,7 @@ struct PromoView: View {
     private func choose(_ url: URL?) async {
         guard let url else { return }
         picked = url
-        pickedSeconds = Launch.isMock ? 30 : await VideoFiles.seconds(of: url)
+        pickedSeconds = Launch.isMock ? 75 : await VideoFiles.seconds(of: url)
     }
 
     private func send() async {
@@ -224,6 +230,23 @@ struct PromoView: View {
         } catch {
             problem = state.report(error)
         }
+    }
+}
+
+enum PromoRules {
+    /// What the customer agrees to, word for word as the server records it.
+    static let rightsText = "I made this video and posted it on my own social media. Everyone in it agreed. I give Kinbir a free, permanent, worldwide right to use, edit, repost and share it on Kinbir's social media, website and ads, with or without my name."
+
+    static let socialHosts = ["tiktok.com", "instagram.com", "youtube.com", "youtu.be", "facebook.com",
+                              "fb.watch", "x.com", "twitter.com", "snapchat.com", "threads.net", "linkedin.com"]
+
+    /// True for a link to a post on one of the social apps the server accepts.
+    static func isSocialLink(_ raw: String) -> Bool {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        if !text.lowercased().hasPrefix("http") { text = "https://" + text }
+        guard let host = URLComponents(string: text)?.host?.lowercased() else { return false }
+        return socialHosts.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 }
 
