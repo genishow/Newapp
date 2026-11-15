@@ -666,6 +666,24 @@ extension MockAPI {
         return video.beats
     }
 
+    func stretchShot(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
+        await pause()
+        guard let i = video.beats.firstIndex(where: { $0.beat == beat }),
+              video.beats.indices.contains(i + 1) else {
+            throw APIError(kind: .other, status: 409, message: "This shot's length is set by your voiceover")
+        }
+        let now = video.beats[i].dur ?? 3
+        let next = video.beats[i + 1].dur ?? 3
+        let got = min(max(ClipRules.minShotSeconds, seconds), now + next - ClipRules.minShotSeconds)
+        let start = video.beats[i].start ?? 0
+        video.beats[i].dur = got
+        video.beats[i].end = start + got
+        video.beats[i + 1].start = start + got
+        video.beats[i + 1].dur = now + next - got
+        return StretchResult(beats: video.beats, durSec: got,
+                             note: "This shot is now " + String(format: "%.1f", got) + " seconds.")
+    }
+
     func autofill(planId: String) async throws -> AutofillSubmit {
         await pause()
         for i in video.beats.indices where video.beats[i].candidates?.isEmpty != false {

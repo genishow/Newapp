@@ -6,21 +6,39 @@ import UniformTypeIdentifiers
 
 /// A stock clip playing silently on a loop, so a shot can be judged in motion. The box
 /// takes the clip's own shape, so there is no blank space around it (Geni, 2026-11-14).
+/// Until the first frame plays the clip's picture shows, with a spinner, and a clip that
+/// cannot play says so instead of leaving a black box (Geni, 2026-11-15).
 struct LoopingPreview: View {
     let url: URL
     var shape: Shape = .landscape
     /// The clip's width ÷ height when known; otherwise the video's shape is used.
     var aspect: Double?
+    /// A frame of the clip, shown while it loads.
+    var poster: URL?
     @State private var player: AVQueuePlayer?
     @State private var looper: AVPlayerLooper?
+    @State private var ready = false
+    @State private var failed = false
 
     private var ratio: Double { aspect ?? (shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0) }
 
     var body: some View {
         ZStack {
-            Theme.black
-            if let player {
-                PlayerLayer(player: player)
+            Theme.grey
+            if let poster, !ready {
+                AsyncImage(url: poster) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    Color.clear
+                }
+            }
+            if let player, !failed {
+                PlayerLayer(player: player).opacity(ready ? 1 : 0)
+            }
+            if failed {
+                PreviewNote(text: T("Preview not available"))
+            } else if !ready {
+                ProgressView().tint(Theme.black)
             }
         }
         .aspectRatio(ratio, contentMode: .fit)
@@ -29,6 +47,8 @@ struct LoopingPreview: View {
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shotPreview")
         .onAppear {
             let queue = AVQueuePlayer()
             queue.isMuted = true
@@ -36,11 +56,79 @@ struct LoopingPreview: View {
             player = queue
             queue.play()
         }
+        .task(id: url) {
+            // Watch for the first frame, or for the clip failing, for up to 30 seconds.
+            for _ in 0..<120 {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if Task.isCancelled { return }
+                if looper?.status == .failed || player?.currentItem?.status == .failed {
+                    failed = true
+                    return
+                }
+                if player?.currentItem?.status == .readyToPlay {
+                    ready = true
+                    return
+                }
+            }
+            if !ready { failed = true }
+        }
         .onDisappear {
             player?.pause()
             player = nil
             looper = nil
         }
+    }
+}
+
+/// A still picture in the big preview: a spinner while it loads, then the picture, or a
+/// short note when it cannot be shown. Never a video player, which drew a black box with
+/// bars for a picture (Geni, 2026-11-15).
+struct StillPreview: View {
+    let url: URL?
+    var shape: Shape = .landscape
+    var aspect: Double?
+
+    private var ratio: Double { aspect ?? (shape == .portrait ? 9.0 / 16.0 : 16.0 / 9.0) }
+
+    var body: some View {
+        ZStack {
+            Theme.grey
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFit()
+                    case .failure:
+                        PreviewNote(text: T("Preview not available"))
+                    default:
+                        ProgressView().tint(Theme.black)
+                    }
+                }
+            } else {
+                PreviewNote(text: T("Preview not available"))
+            }
+        }
+        .aspectRatio(ratio, contentMode: .fit)
+        .frame(maxHeight: ratio < 1 ? 440 : nil)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shotPreview")
+    }
+}
+
+/// The few words shown in a preview box that has nothing to show.
+struct PreviewNote: View {
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "eye.slash").font(.system(size: 20, weight: .medium))
+            Text(text).font(Theme.small)
+        }
+        .foregroundStyle(Theme.muted)
+        .padding(12)
     }
 }
 
@@ -75,6 +163,9 @@ final class ScreenLife: ObservableObject {
     /// True when "Make my video" was tapped on this very screen, with these options.
     var startedOneTap = false
     var stopCheck = false
+    /// The plan the quiet footage tools last ran for, and whether they are running now.
+    var quietDone: String?
+    var quietRunning = false
 }
 
 /// Turns a finished voiceover into a video: choose the shape and footage, plan the
@@ -222,14 +313,8 @@ struct VideoFlowView: View {
     private var planTools: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(T("Footage tools")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-            if !uploads.isEmpty {
-                Button(T("Place all my clips on the right shots")) { Task { await placeAll() } }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("placeAllButton")
-            }
-            Button(T("Check footage matches · free")) { Task { await freeCheck() } }
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityIdentifier("freeCheckButton")
+            // Placing own clips and the free match check run on their own (Geni,
+            // 2026-11-15), so only the paid check is a button.
             Button(Tf("Check the shots · ≈%@ credits", "\(VerifyResult.credits(shots: filledShots.count))")) {
                 Task { await paidCheck() }
             }
@@ -248,52 +333,48 @@ struct VideoFlowView: View {
 
     private var filledShots: [Beat] { beats.filter { $0.needsFootage && $0.chosen != nil } }
 
-    private func placeAll() async {
-        guard let planId else { return }
-        problem = nil
-        working = T("Placing your clips.")
-        defer { working = nil }
-        do {
-            let result = try await state.api.placeAllClips(planId: planId)
-            await reloadPlan()
-            if let note = result.note, !note.isEmpty {
-                checkNote = APIError.sentenceCase(note)
-            } else if let placed = result.placed {
-                checkNote = placed > 0 ? Tf("Placed %@ of your clips.", "\(placed)")
-                                       : T("None of your clips fit a shot. Open a shot to place one by hand.")
+    /// Runs by itself, quietly, once per shot list and again after new clips are added:
+    /// own clips go on the shots they match (the old "Place all my clips" button), then the
+    /// free check marks shots whose footage may not match the words (the old "Check
+    /// footage matches" button). Nothing here blocks the screen or shows an error.
+    private func quietTools(newClips: Bool = false) async {
+        guard let planId, stage == .shots, !life.quietRunning, !starting, !rendering else { return }
+        if !newClips && life.quietDone == planId { return }
+        life.quietRunning = true
+        defer { life.quietRunning = false }
+        life.quietDone = planId
+        // Placed once for each set of clips, so clips moved by hand are not moved back
+        // every time the screen opens.
+        let placedKey = "placedclips." + planId
+        if !uploads.isEmpty && UserDefaults.standard.integer(forKey: placedKey) < uploads.count {
+            if let result = try? await state.api.placeAllClips(planId: planId) {
+                UserDefaults.standard.set(uploads.count, forKey: placedKey)
+                if life.gone || stage != .shots { return }
+                if (result.placed ?? result.matched ?? 0) > 0 { await reloadPlan() }
             }
-        } catch {
-            problem = state.report(error)
         }
+        if life.gone || stage != .shots || starting || rendering { return }
+        await quietCheck(planId: planId)
     }
 
-    private func freeCheck() async {
-        guard let planId else { return }
-        problem = nil
-        checkNote = nil
-        working = T("Checking that the footage matches.")
-        defer { working = nil }
-        do {
-            let submit = try await state.api.rescanFootage(planId: planId)
-            var job = try await state.api.footageCheck(jobId: submit.jobId)
-            var tries = 0
-            while job.status != "done" && job.status != "failed" && tries < 90 {
-                tries += 1
-                try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
-                job = try await state.api.footageCheck(jobId: submit.jobId)
-            }
-            if job.status == "failed" {
-                problem = job.error.map(APIError.sentenceCase) ?? T("The check did not finish. Try again.")
-                return
-            }
-            let wrong = job.wrongShots
-            flags = [:]
-            for item in wrong { flags[item.beat] = T("May not match the words") }
-            await reloadPlan()
-            checkNote = wrong.isEmpty ? T("Every shot matches its words.")
-                                      : Tf("%@ shots may not match. They are marked in the list.", "\(wrong.count)")
-        } catch {
-            problem = state.report(error)
+    /// The free footage-match check, without a busy line or an error card.
+    private func quietCheck(planId: String) async {
+        guard let submit = try? await state.api.rescanFootage(planId: planId) else { return }
+        var tries = 0
+        var job = try? await state.api.footageCheck(jobId: submit.jobId)
+        while let current = job, current.status != "done", current.status != "failed", tries < 90 {
+            if life.gone { return }
+            tries += 1
+            try? await Task.sleep(nanoseconds: UInt64(Launch.jobPollSeconds * 1_000_000_000))
+            job = try? await state.api.footageCheck(jobId: submit.jobId)
+        }
+        guard let finished = job, finished.status == "done", !life.gone, stage == .shots, !checking else { return }
+        let wrong = finished.wrongShots
+        for item in wrong where flags[item.beat] == nil {
+            flags[item.beat] = T("May not match the words. Open the shot to swap the clip.")
+        }
+        if !wrong.isEmpty && checkNote == nil {
+            checkNote = Tf("%@ shots may not match their words. They are marked in the list.", "\(wrong.count)")
         }
     }
 
@@ -512,11 +593,12 @@ struct VideoFlowView: View {
                 if !urls.isEmpty { Task { await addClips(urls) } }
             }
         }
-        .sheet(item: $picking) { beat in
+        // However the sheet is closed, the list is loaded again: a shot's length can
+        // change the times of the shots after it.
+        .sheet(item: $picking, onDismiss: { Task { await reloadPlan() } }) { beat in
             ShotSheet(planId: planId ?? "", jobId: jobId, beat: beat, uploads: uploads, shape: shape,
                       previous: neighbour(of: beat, step: -1), next: neighbour(of: beat, step: 1)) {
                 picking = nil
-                Task { await reloadPlan() }
             }
             .environmentObject(state)
         }
@@ -706,6 +788,7 @@ struct VideoFlowView: View {
             } else {
                 addClipsButton
             }
+            NoteText(text: T("Each clip can be up to 10 minutes. Only the part used in your video is kept in the video."))
             NoteText(text: T("Only add footage you filmed or have permission to use."))
         }
         .card(fill: Theme.white)
@@ -768,6 +851,10 @@ struct VideoFlowView: View {
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(Capsule().fill(Theme.grey))
             .accessibilityIdentifier("shotsSummary")
+
+            if source != .stock && !beats.isEmpty {
+                clipGuide
+            }
 
             if stockLimited && !emptyShots.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
@@ -889,6 +976,27 @@ struct VideoFlowView: View {
         }
     }
 
+    /// How many own clips to add, and how long, for this shot list (Geni, 2026-11-15).
+    private var clipGuide: some View {
+        let count = beats.filter { $0.needsFootage }.count
+        let seconds = audioSec > 0 ? audioSec : (beats.compactMap(\.end).max() ?? 0)
+        let range = ClipRules.suggestedClips(shots: count)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(Tf("Your video has %@ shots, about %@ seconds.", "\(count)", "\(Int(seconds.rounded()))"))
+                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(Tf("Add %@ to %@ clips, each a few seconds or more.", "\(range.low)", "\(range.high)"))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            NoteText(text: T("Clips that do not match the words are marked in the list, so you can swap them."))
+            NoteText(text: T("Each clip can be up to 10 minutes. Only the part used in your video is kept in the video."))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(fill: Theme.white, padding: 14)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("clipGuide")
+    }
+
     private var finishCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -923,7 +1031,7 @@ struct VideoFlowView: View {
             Toggle(isOn: $render.smartEdit) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(T("Smart edit")).font(Theme.body).foregroundStyle(Theme.black)
-                    Text(T("Claude adds camera moves, smooth scene changes and highlights key words."))
+                    Text(T("Kinbir's AI adds camera moves, smooth scene changes and highlights key words."))
                         .font(Theme.small).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -963,6 +1071,7 @@ struct VideoFlowView: View {
                 planId = existing
                 await reloadPlan()
                 stage = .shots
+                Task { await quietTools() }
             } else if UserDefaults.standard.string(forKey: planJobKey) != nil {
                 stage = .planning
                 await resumePlanning()
@@ -1033,6 +1142,7 @@ struct VideoFlowView: View {
                     }
                     auto = false
                     UserDefaults.standard.removeObject(forKey: planJobKey + ".auto")
+                    if stage == .shots { Task { await quietTools() } }
                     return
                 }
                 if latest.status == "failed" {
@@ -1191,9 +1301,19 @@ struct VideoFlowView: View {
         }
     }
 
-    private func addClips(_ urls: [URL]) async {
+    private func addClips(_ picked: [URL]) async {
         problem = nil
         var done = 0
+        // A video longer than 10 minutes is not sent (the server refuses it too).
+        var urls: [URL] = []
+        var tooLong = 0
+        for url in picked {
+            if let seconds = await ClipLength.seconds(of: url), ClipRules.isTooLong(seconds: seconds) {
+                tooLong += 1
+            } else {
+                urls.append(url)
+            }
+        }
         for url in urls {
             let label = Tf("Uploading clip %@ of %@", "\(done + 1)", "\(urls.count)")
             working = label
@@ -1208,10 +1328,15 @@ struct VideoFlowView: View {
                 break
             }
         }
+        if tooLong > 0 && problem == nil {
+            problem = ClipLength.tooLongMessage(count: tooLong)
+        }
         working = nil
-        // With a plan already made, new clips go straight onto the shots.
+        // With a plan already made, new clips go straight onto the shots, then onto the
+        // shots they match best, and the shots are checked again.
         if planId != nil && done > 0 {
             await fillShots(stock: false, own: true)
+            await quietTools(newClips: true)
         }
     }
 
@@ -1250,6 +1375,26 @@ struct VideoFlowView: View {
         } catch {
             problem = state.report(error)
         }
+    }
+}
+
+/// How long a picked video is, read on the phone before it is uploaded.
+enum ClipLength {
+    static let videoEndings: Set<String> = ["mp4", "mov", "m4v", "webm"]
+
+    /// Seconds, or nil for a picture or a file that cannot be read.
+    static func seconds(of url: URL) async -> Double? {
+        guard videoEndings.contains(url.pathExtension.lowercased()) else { return nil }
+        let asset = AVURLAsset(url: url)
+        guard let time = try? await asset.load(.duration), time.isNumeric else { return nil }
+        let value = CMTimeGetSeconds(time)
+        return value.isFinite && value > 0 ? value : nil
+    }
+
+    static func tooLongMessage(count: Int) -> String {
+        let start = count == 1 ? T("This video is longer than 10 minutes, so it was not added.")
+                               : Tf("%@ videos are longer than 10 minutes, so they were not added.", "\(count)")
+        return start + " " + T("A clip can be at most 10 minutes. Trim it in Photos and add it again. Only the part used in your video is kept in the video.")
     }
 }
 
@@ -1292,8 +1437,8 @@ struct ShotRow: View {
     }
 }
 
-/// A clip's picture, cropped to fill the frame it is given. Stock clips have one; the
-/// user's own clips show a film mark.
+/// A clip's picture, cropped to fill the frame it is given. Own clips get theirs from
+/// the Kinbir server; a clip with no picture at all shows a film mark.
 struct ClipThumb: View {
     let candidate: Candidate?
 
@@ -1302,7 +1447,7 @@ struct ClipThumb: View {
         // to the box instead of spilling out of it.
         RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.grey)
             .overlay {
-                if let url = candidate?.posterURL {
+                if let url = candidate?.posterURL ?? (candidate?.isStill == true ? candidate?.previewURL : nil) {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
@@ -1345,6 +1490,10 @@ struct ShotSheet: View {
     @State private var watching: Candidate?
     @State private var showUpload = false
     @State private var uploading: String?
+    /// How many seconds the user's own clip should play on this shot.
+    @State private var playFor: Double = 0
+    @State private var stretching = false
+    @State private var stretchNote: String?
 
     /// How long this shot is on screen.
     private var length: Double? {
@@ -1378,8 +1527,20 @@ struct ShotSheet: View {
                         ProblemCard(message: problem)
                     }
 
-                    if let link = shown?.previewLink, link.hasPrefix("http"), let url = URL(string: link) {
-                        LoopingPreview(url: url, shape: shape, aspect: shown?.aspectRatio).id(link)
+                    if let shown {
+                        // A picture is shown as a picture; a clip plays. Never an empty box.
+                        if shown.isStill {
+                            StillPreview(url: shown.previewURL ?? shown.posterURL, shape: shape,
+                                         aspect: shown.aspectRatio)
+                                .id("still-\(shown.clipId)")
+                        } else if let url = shown.previewURL {
+                            LoopingPreview(url: url, shape: shape, aspect: shown.aspectRatio,
+                                           poster: shown.posterURL)
+                                .id(url.absoluteString)
+                        } else {
+                            StillPreview(url: shown.posterURL, shape: shape, aspect: shown.aspectRatio)
+                                .id("poster-\(shown.clipId)")
+                        }
                     }
                     if let watching, watching.clipId != beat.chosen?.clipId {
                         Button {
@@ -1508,6 +1669,9 @@ struct ShotSheet: View {
                                   String(format: "%.1f", length)))
                     .accessibilityIdentifier("shotLengthNote")
             }
+            if let length, beat.chosen?.isOwn == true, next != nil, (beat.type ?? "talk") == "talk" {
+                stretchRow(length: length)
+            }
             if let uploading {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.black)
@@ -1535,9 +1699,70 @@ struct ShotSheet: View {
         .card(fill: Theme.grey, padding: 14)
     }
 
+    /// The longest this shot's own clip can be asked to play: the clip's own length for a
+    /// video, so it never has to repeat, and never under the shot's length now.
+    private func longestPlay(_ length: Double) -> Double {
+        var top = 30.0
+        if let clip = beat.chosen, !clip.isStill, let duration = clip.duration, duration > 0.5 {
+            top = min(top, duration)
+        }
+        return max(top, length, ClipRules.minShotSeconds + 0.5)
+    }
+
+    /// Set how long your own clip plays here. The next shots give or take the time.
+    private func stretchRow(length: Double) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Stepper(value: $playFor, in: ClipRules.minShotSeconds...longestPlay(length), step: 0.5) {
+                Text(Tf("Your clip plays for %@ seconds", String(format: "%.1f", playFor)))
+                    .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            }
+            .accessibilityIdentifier("shotPlayForStepper")
+            Button {
+                Task { await stretch() }
+            } label: {
+                BusyLabel(title: T("Set this length"), busy: stretching)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(busy || abs(playFor - length) < 0.05)
+            .accessibilityIdentifier("shotPlayForButton")
+            if let stretchNote {
+                Text(stretchNote).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("shotPlayForNote")
+            }
+            NoteText(text: T("When this shot gets longer, the next shots get shorter by the same time, so your video still matches your voice. No shot gets shorter than 1.5 seconds."))
+        }
+        .onAppear { if playFor == 0 { playFor = length } }
+    }
+
+    private func stretch() async {
+        problem = nil
+        stretchNote = nil
+        busy = true
+        stretching = true
+        defer { busy = false; stretching = false }
+        do {
+            let result = try await state.api.stretchShot(planId: planId, beat: beat.beat, seconds: playFor)
+            if let fresh = result.beats?.first(where: { $0.beat == beat.beat }) {
+                beat = fresh
+            } else {
+                await refresh()
+            }
+            if let got = result.durSec { playFor = got }
+            Haptics.success()
+            stretchNote = result.note.map(APIError.sentenceCase) ?? T("Done. The shot length is set.")
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
     private func uploadForShot(_ url: URL) async {
         guard !jobId.isEmpty else { return }
         problem = nil
+        if let seconds = await ClipLength.seconds(of: url), ClipRules.isTooLong(seconds: seconds) {
+            problem = ClipLength.tooLongMessage(count: 1)
+            return
+        }
         busy = true
         uploading = T("Uploading")
         defer { busy = false; uploading = nil }

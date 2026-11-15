@@ -240,6 +240,31 @@ final class FootageExtrasTests: XCTestCase {
         XCTAssertEqual(verify.checks?.first?.verdict, "no")
         XCTAssertEqual(verify.autoReplaced, [3])
     }
+
+    func testOwnClipShowsItsPictureAndStillsAreImages() throws {
+        // What GET /broll/plan returns for an own clip and for an old newspaper picture.
+        let json = #"{"beats":[{"beat":1,"candidates":[{"clip_id":5,"poster":null,"link":"/models/uploads/c/up-1.mov","preview_link":"/models/uploads/c/up-1.mov","own_upload":true,"kind":"video","poster_url":"/uploads/up-1.poster.jpg/file?e=1&t=x","stream_url":"/uploads/up-1.mov/file?e=1&t=y&v=preview"}]},{"beat":2,"candidates":[{"clip_id":6,"poster":"https://example.org/p.jpg","preview_link":"https://example.org/p.jpg","kind":"still"}]}]}"#
+        let plan = try JSON.decoder.decode(StoredPlan.self, from: Data(json.utf8))
+        let own = try XCTUnwrap(plan.beats?.first?.chosen)
+        XCTAssertEqual(own.posterURL?.absoluteString, "https://api.kinbir.com/uploads/up-1.poster.jpg/file?e=1&t=x")
+        XCTAssertEqual(own.previewURL?.absoluteString, "https://api.kinbir.com/uploads/up-1.mov/file?e=1&t=y&v=preview")
+        XCTAssertFalse(own.isStill)
+        let still = try XCTUnwrap(plan.beats?.last?.chosen)
+        XCTAssertTrue(still.isStill)
+        XCTAssertEqual(still.previewURL?.absoluteString, "https://example.org/p.jpg")
+        let unmarked = Candidate(clipId: 1, previewLink: "https://x.org/a.PNG?w=3")
+        XCTAssertTrue(unmarked.isStill, "a picture link with no kind is still a picture")
+    }
+
+    func testClipGuideAndLengthLimit() throws {
+        XCTAssertEqual(ClipRules.suggestedClips(shots: 14).low, 5)
+        XCTAssertEqual(ClipRules.suggestedClips(shots: 14).high, 15)
+        XCTAssertEqual(ClipRules.suggestedClips(shots: 0).low, 1)
+        XCTAssertTrue(ClipRules.isTooLong(seconds: 601))
+        XCTAssertFalse(ClipRules.isTooLong(seconds: 600))
+        let stretch = try JSON.decoder.decode(StretchResult.self, from: Data(#"{"plan_id":"p","beats":[],"dur_sec":4.5,"changed":[1,2],"note":"This shot is now 4.5 seconds."}"#.utf8))
+        XCTAssertEqual(stretch.durSec, 4.5)
+    }
 }
 
 
