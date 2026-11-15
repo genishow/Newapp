@@ -244,6 +244,9 @@ final class KinbirJourneyTests: XCTestCase {
         el("shotRow-1").tap()
         waitFor("shotSheetHeading")
         // Tapping a clip only shows it; "Use this clip" puts it in the video.
+        // The clip tiles sit under the big preview, so scroll to them like a person would.
+        waitFor("findDifferentButton")
+        for _ in 0..<3 where !el("clip-1").exists { app.swipeUp() }
         waitFor("clip-1").tap()
         waitFor("useClipButton").tap()
         waitFor("shotsHeading")
