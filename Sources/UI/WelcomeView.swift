@@ -22,7 +22,7 @@ struct WelcomeView: View {
                         Waveform(bars: 30, color: Theme.lime)
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(T("Amharic voiceovers in"))
+                            Text(T("AI videos and voiceovers in"))
                                 .font(Theme.title).foregroundStyle(Theme.white)
                                 .fixedSize(horizontal: false, vertical: true)
                             Marker(text: T("your own voice"))
@@ -30,7 +30,7 @@ struct WelcomeView: View {
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("welcomeHeading")
 
-                        Text(T("Write Amharic, or paste English or a link. Kinbir writes the script and reads it aloud in a voice cloned from you."))
+                        Text(T("Kinbir's AI writes your script in Amharic or English, reads it in a voice cloned from you, and turns it into a finished video."))
                             .font(Theme.body).foregroundStyle(Theme.grey)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -39,6 +39,8 @@ struct WelcomeView: View {
                     if let notice = state.notice {
                         ProblemCard(message: notice)
                     }
+
+                    WhatYouGet()
 
                     DemoCard()
 
@@ -67,6 +69,44 @@ struct WelcomeView: View {
                 SignInView()
             }
         }
+    }
+}
+
+/// The whole package at a glance (Geni: "it's a full package, not only voiceovers").
+struct WhatYouGet: View {
+    private let rows: [(icon: String, title: String, detail: String)] = [
+        ("sparkles", "AI writes your script",
+         "From an idea, a link or your own words, in Amharic or English."),
+        ("waveform", "Your cloned voice reads it",
+         "Pick the speed, and fix any word with a tap."),
+        ("film", "A finished video",
+         "Stock footage or your own clips, with captions and music, vertical or horizontal."),
+        ("person.crop.square", "Your AI presenter",
+         "An avatar made from your photo speaks your script on screen."),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(T("Everything in one app")).font(Theme.heading).foregroundStyle(Theme.black)
+            ForEach(rows, id: \.title) { row in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: row.icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.black)
+                        .frame(width: 40, height: 40)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(T(row.title)).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        Text(T(row.detail)).font(Theme.small).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .card(fill: Theme.grey, padding: 18)
+        .accessibilityIdentifier("welcomeFeatures")
     }
 }
 
