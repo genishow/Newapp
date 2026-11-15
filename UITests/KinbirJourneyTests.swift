@@ -257,6 +257,12 @@ final class KinbirJourneyTests: XCTestCase {
         app.buttons["↓ Move later"].tap()
         waitFor("shotsHeading")
 
+        // The same shots can be switched to horizontal and back, for free.
+        waitFor("switchShape-landscape").tap()
+        waitFor("shotRow-1", timeout: 15)
+        waitFor("switchShape-portrait").tap()
+        waitFor("shotRow-1", timeout: 15)
+
         // Render.
         let make = waitFor("makeVideoButton")
         XCTAssertTrue(make.isEnabled, "with every shot filled the video can be made")

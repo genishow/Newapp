@@ -405,6 +405,7 @@ enum ToneFile {
 final class MockVideoState {
     var beats: [Beat] = []
     var searches = 0
+    var orientation = "portrait"
     var uploads: [UploadMeta] = []
     var assemblePolls: [String: Int] = [:]
     var videos: [VideoSummary] = []
@@ -602,6 +603,7 @@ extension MockAPI {
                      shotLength: String, breaks: MusicBreaks) async throws -> PlanSubmit {
         await pause()
         video.planPolls = 0
+        video.orientation = shape.rawValue
         video.searches = 0
         video.beats = [
             Beat(beat: 1, start: 0, end: 3, dur: 3, says: "ሰላም ለሁላችሁ።", mustShow: "people waving",
@@ -623,7 +625,7 @@ extension MockAPI {
 
     func plan(id: String) async throws -> StoredPlan {
         await pause()
-        return StoredPlan(planId: id, jobId: nil, orientation: "portrait", source: "stock",
+        return StoredPlan(planId: id, jobId: nil, orientation: video.orientation, source: "stock",
                           beats: video.beats)
     }
 
@@ -635,6 +637,7 @@ extension MockAPI {
                                 beats: video.beats, retryAfter: 1)
         }
         video.searches += 1
+        if beat == nil, let shape { video.orientation = shape.rawValue }
         for i in video.beats.indices where beat == nil || video.beats[i].beat == beat {
             let base = video.beats[i].beat * 100 + video.searches * 10
             video.beats[i].candidates = [MockAPI.stockClip(base), MockAPI.stockClip(base + 1)]

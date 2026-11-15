@@ -221,6 +221,8 @@ struct VideoFlowView: View {
     /// What the checks said about each shot, by shot number.
     @State private var flags: [Int: String] = [:]
     @State private var checkNote: String?
+    /// Shapes that already have a finished video from this voiceover.
+    @State private var madeShapes: Set<String> = []
 
     /// The website's logo choices: your logo, its corner and its size.
     @ViewBuilder private var logoRows: some View {
@@ -531,6 +533,7 @@ struct VideoFlowView: View {
                     VideoJobView(videoJobId: id, shape: shape, onEditShots: planId == nil ? nil : {
                         Task {
                             await reloadPlan()
+                            await loadMadeShapes()
                             stage = .shots
                         }
                     })
@@ -837,20 +840,103 @@ struct VideoFlowView: View {
 
     // MARK: shots
 
+    /// Vertical or horizontal for the next video, from the same shots (Geni,
+    /// 2026-11-15: after a vertical video, Make video went straight back to the
+    /// vertical shots with no way to get a horizontal one). Switching is free:
+    /// the server finds stock footage again in the new shape and keeps every
+    /// shot picked by hand and every own clip.
+    private var shapeSwitch: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                shapeChip(.portrait, title: T("Vertical"))
+                shapeChip(.landscape, title: T("Horizontal"))
+                Spacer(minLength: 0)
+                Text(T(source.title)).font(Theme.small).foregroundStyle(Theme.muted)
+            }
+            if let made = madeNote {
+                Text(made).font(Theme.small).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("shapeMadeNote")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shotsSummary")
+    }
+
+    /// Says which shapes already have a video, so the next choice is clear.
+    private var madeNote: String? {
+        let vertical = madeShapes.contains(Shape.portrait.rawValue)
+        let horizontal = madeShapes.contains(Shape.landscape.rawValue)
+        if vertical && horizontal {
+            return T("You have a vertical and a horizontal video from these shots. Make video makes a new one in the shape chosen above.")
+        }
+        if vertical {
+            return shape == .portrait
+                ? T("You already have a vertical video. Tap Horizontal to make a horizontal one from the same shots. Free to switch.")
+                : T("Horizontal chosen. Your vertical video stays in the Library.")
+        }
+        if horizontal {
+            return shape == .landscape
+                ? T("You already have a horizontal video. Tap Vertical to make a vertical one from the same shots. Free to switch.")
+                : T("Vertical chosen. Your horizontal video stays in the Library.")
+        }
+        return nil
+    }
+
+    private func shapeChip(_ value: Shape, title: String) -> some View {
+        let selected = shape == value
+        return Button {
+            Task { await switchShape(to: value) }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: value == .portrait ? "rectangle.portrait" : "rectangle")
+                Text(title).font(Theme.smallMedium)
+            }
+            .foregroundStyle(Theme.black)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Capsule().fill(selected ? Theme.lime : Theme.grey))
+            .overlay(Capsule().strokeBorder(Theme.black, lineWidth: selected ? 1.5 : 0))
+        }
+        .buttonStyle(.plain)
+        .disabled(working != nil || starting || rendering)
+        .accessibilityIdentifier("switchShape-" + value.rawValue)
+    }
+
+    private func switchShape(to value: Shape) async {
+        guard value != shape, working == nil, !starting, !rendering, planId != nil else { return }
+        Haptics.tap()
+        let before = shape
+        shape = value
+        flags = [:]
+        if source == .own, let planId {
+            // Own clips only: no stock to find, but the server must still
+            // record the new shape before the video can be made in it.
+            working = T("Changing the shape.")
+            _ = try? await state.api.searchFootage(planId: planId, shape: value, beat: nil, query: nil)
+            await reloadPlan()
+            working = nil
+        } else {
+            await fillShots(stock: true, own: false)
+        }
+        if shape != value {
+            // The server kept the old shape (reloadPlan read it back).
+            shape = before
+            if problem == nil {
+                problem = T("The shape could not be changed right now. Try again in a moment.")
+            }
+        }
+    }
+
+    private func loadMadeShapes() async {
+        let list = (try? await state.api.videos()) ?? []
+        madeShapes = Set(list.filter { $0.jobId == jobId }.compactMap(\.orientation))
+    }
+
     private var shots: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             Text(T("Your shots")).screenTitle(amharic: A("Your shots"))
                 .accessibilityIdentifier("shotsHeading")
-            // Chosen before planning. To change them, start a new shot list below.
-            HStack(spacing: 8) {
-                Image(systemName: shape == .portrait ? "rectangle.portrait" : "rectangle")
-                Text(T(shape == .portrait ? "Vertical" : "Horizontal") + " · " + T(source.title))
-                    .font(Theme.smallMedium)
-            }
-            .foregroundStyle(Theme.black)
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Capsule().fill(Theme.grey))
-            .accessibilityIdentifier("shotsSummary")
+            shapeSwitch
 
             if source != .stock && !beats.isEmpty {
                 clipGuide
@@ -956,7 +1042,7 @@ struct VideoFlowView: View {
                 NoteText(text: T("Every shot needs footage before the video can be made."))
             }
 
-            Button(T("Change shape or footage · new shot list")) { confirmNewList = true }
+            Button(T("Change footage · new shot list")) { confirmNewList = true }
             .confirmationDialog(T("Start a new shot list?"), isPresented: $confirmNewList,
                                 titleVisibility: .visible) {
                 Button(T("Plan the shots again")) {
@@ -1070,6 +1156,7 @@ struct VideoFlowView: View {
             if let existing = job.brollPlanId {
                 planId = existing
                 await reloadPlan()
+                await loadMadeShapes()
                 stage = .shots
                 Task { await quietTools() }
             } else if UserDefaults.standard.string(forKey: planJobKey) != nil {
