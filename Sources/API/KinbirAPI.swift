@@ -118,6 +118,9 @@ protocol KinbirAPI: AnyObject {
     /// shot) and "swap" (trade places with `withBeat`). Shots may be renumbered, so the
     /// whole new list comes back.
     func shotTool(planId: String, beat: Int, action: String, withBeat: Int?) async throws -> [Beat]
+    /// How many seconds one shot plays. The next few shots give or take the time, so the
+    /// video keeps the voice's length.
+    func stretchShot(planId: String, beat: Int, seconds: Double) async throws -> StretchResult
     /// Looks for footage for every empty shot. Free. Poll the job with `planJob(id:)`.
     func autofill(planId: String) async throws -> AutofillSubmit
     /// Places the user's own clips on the shots.

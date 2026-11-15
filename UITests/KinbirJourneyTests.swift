@@ -430,6 +430,8 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("shotSheetHeading")
         waitFor("shotLengthNote")
         waitFor("shotUploadSample").tap()
+        // With your own clip on the shot, you can set how long it plays.
+        waitFor("shotPlayForStepper", timeout: 20)
         waitFor("shotSheetDone", timeout: 20).tap()
         waitFor("shotsHeading", timeout: 30)
     }

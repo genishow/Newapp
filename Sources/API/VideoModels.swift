@@ -74,6 +74,12 @@ struct Candidate: Codable, Identifiable, Equatable {
     var height: Int?
     /// True when nothing was found in the asked shape, so the other shape was offered.
     var shapeFallback: Bool?
+    /// "still" for a picture, "video" for a clip.
+    var kind: String?
+    /// Own clips only: a signed address of a frame of the clip, and of the clip itself.
+    /// Both are paths on the Kinbir server, not full links.
+    var posterUrl: String?
+    var streamUrl: String?
 
     var id: Int { clipId }
     /// Whether the clip has the video's shape. A clip with no size given counts as fitting.
@@ -93,9 +99,37 @@ struct Candidate: Codable, Identifiable, Equatable {
         return height > width ? "9:16" : "16:9"
     }
     var isOwn: Bool { ownUpload == true }
+    /// The small picture. Own clips have theirs on the Kinbir server (Geni saw only a
+    /// film icon on her own clips before, 2026-11-15).
     var posterURL: URL? {
+        if let own = Candidate.serverURL(posterUrl) { return own }
         guard let poster, poster.hasPrefix("http") else { return nil }
         return URL(string: poster)
+    }
+    /// What the big preview shows: the clip, or the picture for a still.
+    var previewURL: URL? {
+        if let own = Candidate.serverURL(streamUrl) { return own }
+        if let previewLink, previewLink.hasPrefix("http") { return URL(string: previewLink) }
+        if isStill { return posterURL }
+        return nil
+    }
+    /// A picture, not a clip: shown as an image, never in a video player.
+    var isStill: Bool {
+        if kind == "still" { return true }
+        if kind == "video" { return false }
+        let path = (previewLink ?? link ?? "").lowercased()
+        let clean = path.split(separator: "?").first.map(String.init) ?? path
+        return Candidate.imageEndings.contains { clean.hasSuffix($0) }
+    }
+
+    static let imageEndings = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".bmp", ".tif", ".tiff"]
+
+    /// A path the server signed, made into a full link. Full links pass through.
+    static func serverURL(_ path: String?) -> URL? {
+        guard let path, !path.isEmpty else { return nil }
+        if path.hasPrefix("http") { return URL(string: path) }
+        guard path.hasPrefix("/") else { return nil }
+        return URL(string: RequestBuilder.defaultBase.absoluteString + path)
     }
 }
 
@@ -171,6 +205,14 @@ struct MatchResult: Codable, Equatable {
 
 struct BeatsResult: Codable, Equatable {
     var beats: [Beat]?
+}
+
+/// The answer to setting how long one shot plays. The next shots change too.
+struct StretchResult: Codable, Equatable {
+    var beats: [Beat]?
+    /// The length the shot really got. It can be less than asked.
+    var durSec: Double?
+    var note: String?
 }
 
 struct UploadMeta: Codable, Identifiable, Equatable {
@@ -252,6 +294,22 @@ struct VideoList: Codable, Equatable {
 
 /// The rules for own footage, checked on the phone before uploading.
 enum ClipRules {
+    /// One video may be at most 10 minutes long. The server says the same.
+    static let maxSeconds: Double = 600
+    /// The shortest a shot can be made when another shot gets longer.
+    static let minShotSeconds: Double = 1.5
+
+    static func isTooLong(seconds: Double) -> Bool { seconds > maxSeconds + 0.5 }
+
+    /// How many own clips to suggest for a video with this many shots.
+    /// 14 shots gives 5 to 15.
+    static func suggestedClips(shots: Int) -> (low: Int, high: Int) {
+        let count = max(1, shots)
+        let low = max(1, Int((Double(count) / 3).rounded(.up)))
+        let high = max(low, Int((Double(count) / 5).rounded(.up)) * 5)
+        return (low, high)
+    }
+
     static let extensions: Set<String> = ["mp4", "mov", "m4v", "webm", "jpg", "jpeg", "png",
                                           "heic", "heif", "webp", "gif"]
     /// Each part of an upload. Small, so a phone never holds much in memory.
