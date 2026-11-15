@@ -281,13 +281,20 @@ struct PromoSubmission: Codable, Equatable, Identifiable {
     var credits: Double?
     var reason: String?
     var link: String?
+    /// Every post link sent for this video.
+    var links: [String]?
+    /// "TikTok", "Instagram"... from those links.
+    var platforms: [String]?
     var durationSec: Double?
 
     var id: String { promoId }
+    var allLinks: [String] { links ?? (link.map { [$0] } ?? []) }
 }
 
 struct PromoList: Codable, Equatable {
     var promos: [PromoSubmission]
-    /// The usual reward in credits, to show before sending.
+    /// The full reward in credits (all four platforms), to show before sending.
     var reward: Double?
+    /// Credits for each rewarded platform posted on.
+    var perPlatform: Double?
 }

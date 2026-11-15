@@ -10,7 +10,12 @@ struct PromoView: View {
     @State private var picking = false
     @State private var picked: URL?
     @State private var pickedSeconds: Double = 0
-    @State private var link = ""
+    /// One field per post; more can be added.
+    @State private var links: [LinkEntry] = [LinkEntry()]
+    /// The video whose "add links" field is open, and what is typed there.
+    @State private var addingTo: String?
+    @State private var addLink = ""
+    @State private var adding = false
     @State private var note = ""
     @State private var rightsOk = false
     @State private var sending = false
@@ -18,9 +23,13 @@ struct PromoView: View {
     @State private var problem: String?
     @State private var sentNote: String?
 
-    private var reward: String { Fmt.credits(list?.reward ?? 20) }
+    private var reward: String { Fmt.credits(list?.reward ?? 40) }
+    private var perPlatform: String { Fmt.credits(list?.perPlatform ?? 10) }
+    private var filledLinks: [String] {
+        links.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
     private var lengthOk: Bool { pickedSeconds >= 60 && pickedSeconds <= 180 }
-    private var linkOk: Bool { PromoRules.isSocialLink(link) }
+    private var linkOk: Bool { !filledLinks.isEmpty && filledLinks.allSatisfy(PromoRules.isSocialLink) }
     private var canSend: Bool { picked != nil && lengthOk && linkOk && rightsOk && !sending }
 
     var body: some View {
@@ -29,7 +38,7 @@ struct PromoView: View {
                 Text(T("Earn credits")).screenTitle(amharic: A("Earn credits"))
                     .accessibilityIdentifier("promoHeading")
 
-                Text(Tf("Make a video about Kinbir, post it on your social media, then send it here with the link. When we approve it, you get %@ credits.", reward))
+                Text(Tf("Make a video about Kinbir and post it on your social media. Earn %@ credits for each of TikTok, Instagram, YouTube and Facebook, %@ for all four.", perPlatform, reward))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .card(fill: Theme.lime)
@@ -71,8 +80,9 @@ struct PromoView: View {
             Text(T("How it works")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
             ForEach([
                 T("1. Film a video about Kinbir, at least 1 minute and at most 3, upright (vertical)."),
-                T("2. Post it on your own TikTok, Instagram, YouTube, Facebook or X, and keep it up."),
-                T("3. Copy the link to your post and send it here with the same video."),
+                T("2. Post it on your own TikTok, Instagram, YouTube and Facebook, and keep it up."),
+                T("3. Paste the link to each post and send them here with the same video."),
+                T("Posted somewhere new later? Add the link to your video below and earn the rest."),
                 T("Show Kinbir on your screen and say what you made with it. Amharic or English."),
                 T("No music or clips you do not own. Use music from the app you post on, or none."),
             ], id: \.self) { line in
@@ -111,18 +121,43 @@ struct PromoView: View {
                     .accessibilityIdentifier("promoChosenNote")
             }
 
-            TextField(T("Link to your post"), text: $link)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .font(Theme.body)
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.black, lineWidth: 1))
-                .accessibilityIdentifier("promoLink")
-            if !link.isEmpty && !linkOk {
-                Text(T("Paste the link to your post on TikTok, Instagram, YouTube, Facebook or X."))
+            Text(T("Links to your posts")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            ForEach($links) { $entry in
+                let first = entry.id == links.first?.id
+                HStack(spacing: 8) {
+                    linkField(T(first ? "Link to your post" : "Another post link"), text: $entry.text)
+                        .accessibilityIdentifier(first ? "promoLink" : "promoLinkMore")
+                    if !first {
+                        Button {
+                            let id = entry.id
+                            links.removeAll { $0.id == id }
+                        } label: {
+                            Image(systemName: "minus.circle").font(.system(size: 20)).foregroundStyle(Theme.muted)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(T("Remove link"))
+                    }
+                }
+            }
+            if links.count < 6 {
+                Button {
+                    links.append(LinkEntry())
+                } label: {
+                    Label(T("Add another link"), systemImage: "plus")
+                }
+                .buttonStyle(QuietButtonStyle())
+                .accessibilityIdentifier("promoAddLink")
+            }
+            if filledLinks.contains(where: { !PromoRules.isSocialLink($0) }) {
+                Text(T("Paste links to your posts on TikTok, Instagram, YouTube or Facebook."))
                     .font(Theme.small).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("promoLinkNote")
+            } else if !filledLinks.isEmpty {
+                let count = PromoRules.rewardedPlatforms(filledLinks)
+                Text(Tf("%@ of 4 platforms · up to %@ credits", "\(count)",
+                        Fmt.credits(Double(count) * (list?.perPlatform ?? 10))))
+                    .font(Theme.small).foregroundStyle(Theme.muted)
+                    .accessibilityIdentifier("promoPlatformCount")
             }
             TextField(T("Anything we should know (optional)"), text: $note, axis: .vertical)
                 .lineLimit(1...4)
@@ -185,13 +220,65 @@ struct PromoView: View {
                 Text(reason).font(Theme.small).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let link = promo.link {
+            ForEach(promo.allLinks, id: \.self) { link in
                 Text(link).font(Theme.small).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            if promo.status != "rejected" {
+                if addingTo == promo.promoId {
+                    linkField(T("Link to your new post"), text: $addLink)
+                        .accessibilityIdentifier("promoAddLinkField")
+                    HStack {
+                        Button {
+                            Task { await addLinks(to: promo) }
+                        } label: {
+                            BusyLabel(title: T("Add link"), busy: adding)
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(adding || !PromoRules.isSocialLink(addLink))
+                        .accessibilityIdentifier("promoAddLinkSend")
+                        Button(T("Cancel")) { addingTo = nil; addLink = "" }
+                            .buttonStyle(QuietButtonStyle())
+                    }
+                } else {
+                    Button {
+                        addingTo = promo.promoId
+                        addLink = ""
+                    } label: {
+                        Label(T("Posted somewhere else? Add a link"), systemImage: "plus")
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("promoAddMoreLinks")
+                }
             }
         }
         .card(fill: Theme.white, padding: 14)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("promoRow")
+    }
+
+    private func linkField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .keyboardType(.URL)
+            .font(Theme.body)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.black, lineWidth: 1))
+    }
+
+    private func addLinks(to promo: PromoSubmission) async {
+        adding = true
+        defer { adding = false }
+        do {
+            _ = try await state.api.addPromoLinks(
+                promoId: promo.promoId, links: [addLink.trimmingCharacters(in: .whitespacesAndNewlines)])
+            addingTo = nil
+            addLink = ""
+            sentNote = T("Link added. We will check it and add the credits for the new platform.")
+            await load()
+        } catch {
+            problem = state.report(error)
+        }
     }
 
     private func load() async {
@@ -217,13 +304,13 @@ struct PromoView: View {
             stage = T("Getting it ready")
             let ready = Launch.isMock ? picked : await PromoVideo.prepare(picked)
             stage = T("Sending")
-            _ = try await state.api.submitPromo(videoURL: ready, link: link.trimmingCharacters(in: .whitespacesAndNewlines),
+            _ = try await state.api.submitPromo(videoURL: ready, links: filledLinks,
                                                 note: note.trimmingCharacters(in: .whitespacesAndNewlines))
             Haptics.success()
             sentNote = T("Sent. We will watch it soon, and you will get a notification and an email when it is checked.")
             self.picked = nil
             pickedSeconds = 0
-            link = ""
+            links = [LinkEntry()]
             note = ""
             rightsOk = false
             await load()
@@ -233,12 +320,37 @@ struct PromoView: View {
     }
 }
 
+struct LinkEntry: Identifiable, Equatable {
+    let id = UUID()
+    var text = ""
+}
+
 enum PromoRules {
     /// What the customer agrees to, word for word as the server records it.
     static let rightsText = "I made this video and posted it on my own social media. Everyone in it agreed. I give Kinbir a free, permanent, worldwide right to use, edit, repost and share it on Kinbir's social media, website and ads, with or without my name."
 
     static let socialHosts = ["tiktok.com", "instagram.com", "youtube.com", "youtu.be", "facebook.com",
-                              "fb.watch", "x.com", "twitter.com", "snapchat.com", "threads.net", "linkedin.com"]
+                              "fb.watch", "fb.com", "x.com", "twitter.com", "snapchat.com", "threads.net", "linkedin.com"]
+
+    static let rewardedHosts: [(String, [String])] = [
+        ("tiktok", ["tiktok.com"]), ("instagram", ["instagram.com"]),
+        ("youtube", ["youtube.com", "youtu.be"]), ("facebook", ["facebook.com", "fb.watch", "fb.com"]),
+    ]
+
+    /// How many of TikTok, Instagram, YouTube and Facebook these links cover.
+    static func rewardedPlatforms(_ links: [String]) -> Int {
+        let hosts = links.compactMap { host(of: $0) }
+        return rewardedHosts.filter { _, names in
+            hosts.contains { h in names.contains { h == $0 || h.hasSuffix("." + $0) } }
+        }.count
+    }
+
+    static func host(of raw: String) -> String? {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if !text.lowercased().hasPrefix("http") { text = "https://" + text }
+        return URLComponents(string: text)?.host?.lowercased()
+    }
 
     /// True for a link to a post on one of the social apps the server accepts.
     static func isSocialLink(_ raw: String) -> Bool {

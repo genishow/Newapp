@@ -100,15 +100,28 @@ final class MockAPI: KinbirAPI {
 
     func myPromos() async throws -> PromoList {
         await pause()
-        return locked { PromoList(promos: promos, reward: 20) }
+        return locked { PromoList(promos: promos, reward: 40, perPlatform: 10) }
     }
 
-    func submitPromo(videoURL: URL, link: String, note: String) async throws -> PromoSubmission {
+    func addPromoLinks(promoId: String, links: [String]) async throws -> PromoSubmission {
+        await pause()
+        return try locked {
+            guard let i = promos.firstIndex(where: { $0.promoId == promoId }) else {
+                throw APIError(kind: .other, status: 404, message: "Unknown video")
+            }
+            promos[i].links = promos[i].allLinks + links
+            promos[i].status = "pending"
+            return promos[i]
+        }
+    }
+
+    func submitPromo(videoURL: URL, links: [String], note: String) async throws -> PromoSubmission {
         await pause()
         return locked {
             let made = PromoSubmission(promoId: "pr-mock\(promos.count)", status: "pending",
                                        createdAt: "2026-11-15T10:00:00Z", reviewedAt: nil,
-                                       credits: 0, reason: nil, link: link.isEmpty ? nil : link,
+                                       credits: 0, reason: nil, link: links.first, links: links,
+                                       platforms: nil,
                                        durationSec: 75)
             promos.insert(made, at: 0)
             return made

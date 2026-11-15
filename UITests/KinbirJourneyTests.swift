@@ -514,9 +514,22 @@ final class KinbirJourneyTests: XCTestCase {
         XCTAssertFalse(waitFor("promoSend").isEnabled)
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 14))
         field.typeText("tiktok.com/@me/video/1")
+        // a second platform, and the reward line counts them
+        waitFor("promoAddLink").tap()
+        let second = waitFor("promoLinkMore")
+        second.tap()
+        second.typeText("instagram.com/reel/abc")
+        waitForLabel("promoPlatformCount", contains: "2 of 4")
         waitFor("promoSend").tap()
         waitFor("promoSentNote")
         waitFor("promoRow")
+        // posted somewhere new later: add the link to the same video
+        waitFor("promoAddMoreLinks").tap()
+        let more = waitFor("promoAddLinkField")
+        more.tap()
+        more.typeText("youtube.com/shorts/xyz")
+        waitFor("promoAddLinkSend").tap()
+        waitForLabel("promoSentNote", contains: "Link added")
     }
 
     /// The first launch asks for a language and the welcome page follows it.

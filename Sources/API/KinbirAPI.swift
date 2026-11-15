@@ -22,7 +22,9 @@ protocol KinbirAPI: AnyObject {
     func registerDevice(token: String) async throws
     // Promo videos (D-450)
     func myPromos() async throws -> PromoList
-    func submitPromo(videoURL: URL, link: String, note: String) async throws -> PromoSubmission
+    func submitPromo(videoURL: URL, links: [String], note: String) async throws -> PromoSubmission
+    /// More post links for a video already sent, as it goes up on more platforms.
+    func addPromoLinks(promoId: String, links: [String]) async throws -> PromoSubmission
 
     /// Takes the code explicitly: it runs while signing out, after the saved one is gone.
     func unregisterDevice(token: String, accessCode: String) async throws
