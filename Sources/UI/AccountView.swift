@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject private var state: AppState
-    @AppStorage("kinbir.appearance") private var appearance = "system"
+    @AppStorage("kinbir.appearance") private var appearance = "light"
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -63,8 +63,9 @@ struct AccountView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(T("Appearance")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                    Picker(T("Appearance"), selection: $appearance) {
-                        Text(T("Same as phone")).tag("system")
+                    Picker(T("Appearance"), selection: Binding(
+                        get: { appearance == "dark" ? "dark" : "light" },
+                        set: { appearance = $0 })) {
                         Text(T("Light")).tag("light")
                         Text(T("Dark")).tag("dark")
                     }

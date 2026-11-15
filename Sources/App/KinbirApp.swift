@@ -8,16 +8,11 @@ struct KinbirApp: App {
         return AppState.make()
     }()
     @StateObject private var store = Store()
-    /// "system", "light" or "dark", chosen on the Account page.
-    @AppStorage("kinbir.appearance") private var appearance = "system"
+    /// "light" or "dark", from the header button or the Account page.
+    /// Anything else (the old "system") shows light.
+    @AppStorage("kinbir.appearance") private var appearance = "light"
 
-    private var scheme: ColorScheme? {
-        switch appearance {
-        case "light": return .light
-        case "dark": return .dark
-        default: return nil
-        }
-    }
+    private var scheme: ColorScheme? { appearance == "dark" ? .dark : .light }
 
     var body: some Scene {
         WindowGroup {

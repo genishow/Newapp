@@ -605,28 +605,17 @@ extension View {
 /// One tap changes the colour mode: same as phone, light, dark (Geni: "an icon on the
 /// heading so I can change it"). Shares its setting with the Appearance choice in Account.
 struct AppearanceButton: View {
-    @AppStorage("kinbir.appearance") private var appearance = "system"
+    /// Light or dark only (Geni, 2026-11-15). An old "system" reads as light.
+    @AppStorage("kinbir.appearance") private var appearance = "light"
 
-    private var icon: String {
-        switch appearance {
-        case "light": return "sun.max.fill"
-        case "dark": return "moon.fill"
-        default: return "circle.lefthalf.filled"
-        }
-    }
-
-    private var label: String {
-        switch appearance {
-        case "light": return T("Light")
-        case "dark": return T("Dark")
-        default: return T("Same as phone")
-        }
-    }
+    private var isDark: Bool { appearance == "dark" }
+    private var icon: String { isDark ? "moon.fill" : "sun.max.fill" }
+    private var label: String { isDark ? T("Dark") : T("Light") }
 
     var body: some View {
         Button {
             Haptics.tap()
-            appearance = appearance == "system" ? "light" : appearance == "light" ? "dark" : "system"
+            appearance = isDark ? "light" : "dark"
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
