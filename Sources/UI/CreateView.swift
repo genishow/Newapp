@@ -88,38 +88,40 @@ struct CreateView: View {
                 // The website's control row, above the box: type in Amharic, speak, the
                 // letter pad, and Write it for me.
                 ChipRow {
-                    tool(icon: work == .listening ? "stop.fill" : "mic.fill",
-                         title: work == .listening ? T("Stop") : T("Speak to type"),
-                         active: work == .listening, id: "speakButton") {
-                        useAmharic()
-                        Task { await toggleSpeech() }
+                    // Speech to text understands Amharic only, so it shows for Amharic.
+                    if language == .am {
+                        tool(icon: work == .listening ? "stop.fill" : "mic.fill",
+                             title: work == .listening ? T("Stop") : T("Speak to type"),
+                             active: work == .listening, id: "speakButton") {
+                            Task { await toggleSpeech() }
+                        }
+                        .disabled(busy && work != .listening)
                     }
-                    .disabled(busy && work != .listening)
                     tool(icon: "sparkles", title: T("Write it for me"), active: false,
                          id: "writeForMeButton") {
                         editing = false
                         showWriter = true
                     }
                     .disabled(busy)
-                    tool(icon: "keyboard", title: "አማርኛ " + (ethOn ? "ON" : "OFF"), active: ethOn,
-                         id: "ethToggle") {
-                        ethOn.toggle()
-                        if ethOn { useAmharic() }
-                    }
-                    tool(icon: nil, title: "ፊደል " + (fidelOpen ? "▴" : "▾"), active: fidelOpen,
-                         id: "fidelTab") {
-                        fidelOpen.toggle()
-                        if fidelOpen { useAmharic() }
+                    if language == .am {
+                        tool(icon: "keyboard", title: "አማርኛ " + (ethOn ? "ON" : "OFF"), active: ethOn,
+                             id: "ethToggle") {
+                            ethOn.toggle()
+                        }
+                        tool(icon: nil, title: "ፊደል " + (fidelOpen ? "▴" : "▾"), active: fidelOpen,
+                             id: "fidelTab") {
+                            fidelOpen.toggle()
+                        }
                     }
                 }
 
-                if ethOn {
+                if ethOn && language == .am {
                     NoteText(text: "selam → ሰላም  ·  se → ሰ  ·  :: → ።")
                 }
 
                 editorCard
 
-                if fidelOpen {
+                if fidelOpen && language == .am {
                     fidelPad
                 }
 
@@ -150,9 +152,9 @@ struct CreateView: View {
                     editing = false
                     showMore = true
                 } label: {
-                    // The voiceover language lives in there, so the row says which it is.
                     OptionRow(icon: "slider.horizontal.3", title: T("More options"),
-                              detail: nil, value: language == .en ? "English" : "አማርኛ")
+                              detail: language == .en ? T("Emphasis, change the script, script rules")
+                                                      : T("Change the script, script rules"))
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
@@ -258,7 +260,6 @@ struct CreateView: View {
     private var header: some View {
         HStack {
             LogoMark(size: 36)
-            Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
             Spacer()
             Button {
                 showCredits = true
@@ -267,6 +268,11 @@ struct CreateView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("creditsPill")
+            // The script language, always in reach: only that language's tools show below.
+            LanguageSwitch(selection: Binding(
+                get: { language },
+                set: { languageRaw = $0.rawValue }))
+                .disabled(busy)
         }
     }
 
@@ -850,9 +856,9 @@ struct WriteSheet: View {
                 .font(Theme.body).foregroundStyle(Theme.muted)
             choice(.idea, icon: "lightbulb", title: T("From an idea"),
                    detail: T("Say what the video is about in one line."))
-            choice(.source, icon: "doc.text", title: language == .en ? T("From any text") : T("From English text"),
+            choice(.source, icon: "doc.text", title: T("From any text"),
                    detail: language == .en ? T("Paste text and get a video script.")
-                                           : T("Paste English and get a natural Amharic script."))
+                                           : T("Paste text in any language and get a natural Amharic script."))
             choice(.link, icon: "link", title: T("From a link"),
                    detail: T("Paste a link to an article."))
         }
@@ -885,7 +891,7 @@ struct WriteSheet: View {
             }
             lengthRow
         case .source:
-            Text(language == .en ? T("Paste the text") : T("Paste the English text"))
+            Text(T("Paste the text"))
                 .screenTitle()
             TextEditor(text: $draft.source)
                 .font(Theme.body)
@@ -1050,20 +1056,6 @@ struct MoreOptionsSheet: View {
                 VStack(alignment: .leading, spacing: 24) {
                     Text(T("More options")).screenTitle(amharic: A("More options"))
                         .accessibilityIdentifier("moreHeading")
-
-                    // The website's own sections, in its order and words.
-                    VStack(alignment: .leading, spacing: 10) {
-                        label(T("Language"))
-                        Picker(T("Voiceover language"), selection: Binding(
-                            get: { language.rawValue },
-                            set: { languageRaw = $0 })
-                        ) {
-                            Text("አማርኛ").tag(Lang.am.rawValue)
-                            Text("English").tag(Lang.en.rawValue)
-                        }
-                        .pickerStyle(.segmented)
-                        .accessibilityIdentifier("languagePicker")
-                    }
 
                     if language == .en {
                         VStack(alignment: .leading, spacing: 10) {

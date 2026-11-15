@@ -1,68 +1,46 @@
 import SwiftUI
 
-/// The signed-out screen: hear the voice, then start.
+/// The language a new visitor chose on the first screen. It decides the language of the
+/// welcome page and the script language they start with; the rest of the interface stays
+/// English with Amharic under the titles, as the owner chose.
+enum WelcomeLanguage {
+    static let key = "kinbir.welcomeLang"
+
+    /// "am" or "en", or "" before anyone chose.
+    static func pick(_ lang: Lang) {
+        UserDefaults.standard.set(lang.rawValue, forKey: key)
+        // The Create page starts in the same language, until changed there.
+        UserDefaults.standard.set(lang.rawValue, forKey: "kinbir.language")
+    }
+}
+
+/// English or Amharic, for text on the welcome screens only.
+private func W(_ lang: Lang, _ english: String, _ amharic: String) -> String {
+    lang == .am ? amharic : english
+}
+
+/// The signed-out screens: choose a language once, then a short welcome, then start.
 struct WelcomeView: View {
     @EnvironmentObject private var state: AppState
+    @AppStorage(WelcomeLanguage.key) private var chosen = ""
     @State private var showSignIn = false
+
+    /// The UI tests start on the English welcome page, past the language question.
+    private var lang: Lang? {
+        if let picked = Lang(rawValue: chosen) { return picked }
+        return Launch.isMock && !Launch.mockAskLanguage ? .en : nil
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.gap) {
-                    // The first thing anyone sees: dark, with the lime sound bars moving.
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack(spacing: 12) {
-                            LogoMark(size: 48)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.white)
-                                Text("ቅንብር").font(Theme.small).foregroundStyle(Theme.grey)
-                            }
-                        }
-
-                        Waveform(bars: 30, color: Theme.lime)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(T("AI videos and voiceovers in"))
-                                .font(Theme.title).foregroundStyle(Theme.white)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Marker(text: T("your own voice"))
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("welcomeHeading")
-
-                        Text(T("Kinbir's AI writes your script in Amharic or English, reads it in a voice cloned from you, and turns it into a finished video."))
-                            .font(Theme.body).foregroundStyle(Theme.grey)
-                            .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if let lang {
+                    welcome(lang)
+                } else {
+                    LanguageChoice { picked in
+                        withAnimation(.easeInOut(duration: 0.25)) { WelcomeLanguage.pick(picked) }
+                        chosen = picked.rawValue
                     }
-                    .card(fill: Theme.black, padding: 22)
-
-                    if let notice = state.notice {
-                        ProblemCard(message: notice)
-                    }
-
-                    WhatYouGet()
-
-                    DemoCard()
-
-                    NoteText(text: T("Your first voiceovers are free. No card needed."))
-
-                    HStack(spacing: 20) {
-                        Link(T("Privacy"), destination: URL(string: "https://kinbir.com/privacy")!)
-                        Link(T("Terms"), destination: URL(string: "https://kinbir.com/terms")!)
-                    }
-                    .font(Theme.smallMedium)
-                    .foregroundStyle(Theme.black)
-                    .padding(.top, 4)
-                }
-                .page()
-            }
-            .background(Theme.white)
-            .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom) {
-                BottomBar {
-                    Button(T("Start free")) { showSignIn = true }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("startButton")
                 }
             }
             .navigationDestination(isPresented: $showSignIn) {
@@ -70,34 +48,116 @@ struct WelcomeView: View {
             }
         }
     }
-}
 
-/// The whole package at a glance (Geni: "it's a full package, not only voiceovers").
-struct WhatYouGet: View {
-    private let rows: [(icon: String, title: String, detail: String)] = [
-        ("sparkles", "AI writes your script",
-         "From an idea, a link or your own words, in Amharic or English."),
-        ("waveform", "Your cloned voice reads it",
-         "Pick the speed, and fix any word with a tap."),
-        ("film", "A finished video",
-         "Stock footage or your own clips, with captions and music, vertical or horizontal."),
-        ("person.crop.square", "Your AI presenter",
-         "An avatar made from your photo speaks your script on screen."),
-    ]
+    private func welcome(_ lang: Lang) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                // Top bar: the brand, and the language, changeable any time.
+                HStack(spacing: 10) {
+                    LogoMark(size: 34)
+                    Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
+                    Spacer()
+                    LanguageSwitch(selection: Binding(
+                        get: { lang },
+                        set: { WelcomeLanguage.pick($0); chosen = $0.rawValue }))
+                }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(T("Everything in one app")).font(Theme.heading).foregroundStyle(Theme.black)
-            ForEach(rows, id: \.title) { row in
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: row.icon)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.black)
-                        .frame(width: 40, height: 40)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(T(row.title)).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                        Text(T(row.detail)).font(Theme.small).foregroundStyle(Theme.muted)
+                hero(lang)
+
+                if let notice = state.notice {
+                    ProblemCard(message: notice)
+                }
+
+                steps(lang)
+
+                DemoCard(lang: lang)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(W(lang, "Your first voiceovers are free. No card needed.",
+                           "የመጀመሪያዎቹ የድምፅ ቅጂዎች ነፃ ናቸው። ካርድ አያስፈልግም።"))
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 20) {
+                        Link(W(lang, "Privacy", "ግላዊነት"), destination: URL(string: "https://kinbir.com/privacy")!)
+                        Link(W(lang, "Terms", "ውሎች"), destination: URL(string: "https://kinbir.com/terms")!)
+                    }
+                    .font(Theme.smallMedium)
+                    .foregroundStyle(Theme.black)
+                }
+            }
+            .page()
+        }
+        .background(Theme.white)
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            BottomBar {
+                Button(W(lang, "Start free", "በነፃ ይጀምሩ")) { showSignIn = true }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("startButton")
+            }
+        }
+    }
+
+    /// One promise, one sentence, the sound bars. Nothing else.
+    private func hero(_ lang: Lang) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(W(lang, "AI · AMHARIC · ENGLISH", "ኤአይ · አማርኛ · እንግሊዝኛ"))
+                .font(Theme.font(12, .bold, relativeTo: .caption)).kerning(1.2)
+                .foregroundStyle(Theme.lime)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(W(lang, "Videos and voiceovers in", "ቪዲዮና የድምፅ ቅጂ"))
+                    .font(Theme.title).foregroundStyle(Theme.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Marker(text: W(lang, "your own voice", "በራስዎ ድምፅ"))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("welcomeHeading")
+            Text(W(lang, "Kinbir's AI writes your script, reads it in your cloned voice, and makes the video.",
+                   "የቅንብር ኤአይ ፅሁፍዎን ይጽፋል፣ በራስዎ ድምፅ ያነበዋል፣ ቪዲዮውንም ይሰራል።"))
+                .font(Theme.body).foregroundStyle(Theme.grey)
+                .lineSpacing(lang == .am ? Theme.amharicLineSpacing : 2)
+                .fixedSize(horizontal: false, vertical: true)
+            Waveform(bars: 30, color: Theme.lime)
+                .padding(.top, 4)
+        }
+        .card(fill: Theme.black, padding: 24)
+    }
+
+    /// How it works, in three short steps.
+    private func steps(_ lang: Lang) -> some View {
+        let rows: [(String, String, String)] = [
+            ("sparkles",
+             W(lang, "AI writes the script", "ኤአይ ፅሁፉን ይጽፋል"),
+             W(lang, "From an idea, a link or your own words.", "ከሀሳብ፣ ከሊንክ ወይም ከራስዎ ቃላት።")),
+            ("waveform",
+             W(lang, "Read in your voice", "በራስዎ ድምፅ ይነበባል"),
+             W(lang, "Clone your voice once, in about a minute.", "ድምፅዎን አንድ ጊዜ፣ በአንድ ደቂቃ ገደማ ይቅረጹ።")),
+            ("film",
+             W(lang, "A finished video", "የተጠናቀቀ ቪዲዮ"),
+             W(lang, "Footage, captions, music and your AI presenter.",
+               "ምስሎች፣ የፅሁፍ መግለጫ፣ ሙዚቃ እና የእርስዎ ኤአይ አቅራቢ።")),
+        ]
+        return VStack(alignment: .leading, spacing: 18) {
+            Text(W(lang, "How it works", "እንዴት ይሰራል"))
+                .font(Theme.heading).foregroundStyle(Theme.black)
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack(alignment: .bottomTrailing) {
+                        Image(systemName: row.0)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Theme.black)
+                            .frame(width: 46, height: 46)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.lime))
+                        Text("\(index + 1)")
+                            .font(Theme.font(11, .bold, relativeTo: .caption2))
+                            .foregroundStyle(Theme.white)
+                            .frame(width: 18, height: 18)
+                            .background(Circle().fill(Theme.black))
+                            .offset(x: 5, y: 5)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(row.1).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        Text(row.2).font(Theme.small).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -105,13 +165,108 @@ struct WhatYouGet: View {
                 .accessibilityElement(children: .combine)
             }
         }
-        .card(fill: Theme.grey, padding: 18)
         .accessibilityIdentifier("welcomeFeatures")
+    }
+}
+
+/// The very first screen: which language? Two big choices, nothing else.
+struct LanguageChoice: View {
+    let onPick: (Lang) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer(minLength: 40)
+            VStack(alignment: .leading, spacing: 18) {
+                LogoMark(size: 56)
+                Waveform(bars: 24, color: Theme.lime)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Choose your language").font(Theme.title).foregroundStyle(Theme.black)
+                    Text("ቋንቋዎን ይምረጡ").font(Theme.heading).foregroundStyle(Theme.muted)
+                }
+            }
+            Spacer(minLength: 32)
+            VStack(spacing: 14) {
+                choice(.am, title: "አማርኛ", detail: "Amharic", id: "pickAmharic")
+                choice(.en, title: "English", detail: "እንግሊዝኛ", id: "pickEnglish")
+            }
+            Text("You can change it any time. · በማንኛውም ጊዜ መቀየር ይችላሉ።")
+                .font(Theme.small).foregroundStyle(Theme.muted)
+                .padding(.top, 16)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 24)
+        }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(Theme.white)
+        .accessibilityIdentifier("languageChoice")
+    }
+
+    private func choice(_ lang: Lang, title: String, detail: String, id: String) -> some View {
+        Button {
+            Haptics.tap()
+            onPick(lang)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Theme.font(24, .bold, relativeTo: .title2)).foregroundStyle(Theme.black)
+                    Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.black)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Theme.lime))
+            }
+            .padding(20)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.grey))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.black, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+}
+
+/// አማ | EN, a small two-way switch for the top right corner.
+struct LanguageSwitch: View {
+    @Binding var selection: Lang
+
+    var body: some View {
+        HStack(spacing: 2) {
+            option(.am, "አማ")
+            option(.en, "EN")
+        }
+        .padding(3)
+        .background(Capsule().fill(Theme.grey))
+        .overlay(Capsule().strokeBorder(Theme.black.opacity(0.15), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("languageSwitch")
+    }
+
+    private func option(_ lang: Lang, _ label: String) -> some View {
+        Button {
+            guard selection != lang else { return }
+            Haptics.tap()
+            selection = lang
+        } label: {
+            Text(label)
+                .font(Theme.font(13, .bold, relativeTo: .footnote))
+                .foregroundStyle(selection == lang ? Theme.white : Theme.black)
+                .frame(minWidth: 40, minHeight: 30)
+                .background(Capsule().fill(selection == lang ? Theme.black : Color.clear))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(lang == .am ? "Amharic" : "English")
+        .accessibilityAddTraits(selection == lang ? .isSelected : [])
+        .accessibilityIdentifier("lang-" + lang.rawValue)
     }
 }
 
 /// Type a sentence, or tap a sample, and hear it in the built-in Kinbir voice. No account needed.
 struct DemoCard: View {
+    var lang: Lang = .en
     @EnvironmentObject private var state: AppState
     @StateObject private var player = AudioPlayer()
     // Starts empty: their own words are the point, and a sample is one tap away.
@@ -127,9 +282,10 @@ struct DemoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(T("Hear it first")).font(Theme.heading).foregroundStyle(Theme.black)
+            Text(W(lang, "Hear it first", "መጀመሪያ ያዳምጡ")).font(Theme.heading).foregroundStyle(Theme.black)
 
-            TextField(T("የራስዎን ፅሁፍ በአማርኛ እዚህ ይጻፉ… Type your own Amharic or English here, or tap a sample below"),
+            TextField(W(lang, "Type a sentence, or tap a sample below",
+                        "አንድ ዓረፍተ ነገር ይጻፉ፣ ወይም ከታች ያለውን ናሙና ይንኩ"),
                       text: $text, axis: .vertical)
                 .lineLimit(3...6)
                 .lineSpacing(Theme.amharicLineSpacing)
@@ -151,10 +307,18 @@ struct DemoCard: View {
             }
 
             ChipRow {
-                Chip(title: T("Amharic sample")) { useSample(DemoRules.sampleAmharic) }
-                    .accessibilityIdentifier("demoSampleAm")
-                Chip(title: T("English sample")) { useSample(DemoRules.sampleEnglish) }
-                    .accessibilityIdentifier("demoSampleEn")
+                // The chosen language's sample first.
+                if lang == .am {
+                    Chip(title: "የአማርኛ ናሙና") { useSample(DemoRules.sampleAmharic) }
+                        .accessibilityIdentifier("demoSampleAm")
+                    Chip(title: "English sample") { useSample(DemoRules.sampleEnglish) }
+                        .accessibilityIdentifier("demoSampleEn")
+                } else {
+                    Chip(title: "English sample") { useSample(DemoRules.sampleEnglish) }
+                        .accessibilityIdentifier("demoSampleEn")
+                    Chip(title: "Amharic sample") { useSample(DemoRules.sampleAmharic) }
+                        .accessibilityIdentifier("demoSampleAm")
+                }
             }
             .disabled(busy)
 
@@ -184,7 +348,8 @@ struct DemoCard: View {
         if ready {
             Text(T("Ready")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("demoReady")
-            NoteText(text: T("That is the Kinbir voice. Clone yours and your videos speak as you."))
+            NoteText(text: W(lang, "That is the Kinbir voice. Clone yours and your videos speak as you.",
+                             "ይህ የቅንብር ድምፅ ነው። የራስዎን ይቅረጹ፣ ቪዲዮዎችዎም በእርስዎ ድምፅ ይናገራሉ።"))
         }
         if let problem {
             NoteText(text: problem).accessibilityIdentifier("demoProblem")
@@ -193,8 +358,8 @@ struct DemoCard: View {
 
     private var buttonTitle: String {
         if busy { return reading ? T("Reading your text") : T("Waking the voice") }
-        if ready { return player.isPlaying ? T("Pause") : T("Play again") }
-        return T("Hear it in the Kinbir voice")
+        if ready { return player.isPlaying ? W(lang, "Pause", "አቁም") : W(lang, "Play again", "እንደገና አጫውት") }
+        return W(lang, "Hear it in the Kinbir voice", "በቅንብር ድምፅ ያዳምጡ")
     }
 
     /// The official samples are read through the same demo call as typed text. The server

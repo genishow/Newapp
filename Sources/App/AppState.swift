@@ -32,6 +32,7 @@ final class AppState: ObservableObject {
         if Launch.isMock {
             // Each UI test starts from the same place: Amharic, nothing half done.
             UserDefaults.standard.removeObject(forKey: "kinbir.language")
+            UserDefaults.standard.removeObject(forKey: "kinbir.welcomeLang")
             // Each UI test starts clean: nothing remembered from the test before it.
             for key in UserDefaults.standard.dictionaryRepresentation().keys
             where key.hasPrefix("videojob.") || key.hasPrefix("planjob.") || key.hasPrefix("kinbir.fixBatch.")

@@ -350,13 +350,13 @@ final class KinbirJourneyTests: XCTestCase {
     func testEnglishVoiceover() {
         launch()
         signIn()
+        // The language switch sits top right; English hides the Amharic tools.
+        waitFor("lang-en").tap()
+        XCTAssertFalse(app.buttons["ethToggle"].exists)
+        XCTAssertFalse(app.buttons["speakButton"].exists)
         waitFor("moreOptionsButton").tap()
-        waitFor("languagePicker")
-        app.buttons["English"].tap()
         waitFor("englishCard")
         waitFor("moreDone").tap()
-        // The row on the main screen says which language the voiceover is in.
-        waitForLabel("moreOptionsButton", contains: "English")
         type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
         waitFor("scriptCounter")
         el("voiceButton").tap()
@@ -516,5 +516,16 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("promoSend").tap()
         waitFor("promoSentNote")
         waitFor("promoRow")
+    }
+
+    /// The first launch asks for a language and the welcome page follows it.
+    func testFirstLaunchAsksForLanguage() {
+        launch(["-mockAskLanguage"])
+        waitFor("languageChoice")
+        waitFor("pickAmharic").tap()
+        waitForLabel("welcomeHeading", contains: "በራስዎ ድምፅ")
+        waitFor("lang-en").tap()
+        waitForLabel("welcomeHeading", contains: "your own voice")
+        waitFor("startButton")
     }
 }
