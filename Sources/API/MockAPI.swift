@@ -92,6 +92,25 @@ final class MockAPI: KinbirAPI {
         }
     }
 
+    private var promos: [PromoSubmission] = []
+
+    func myPromos() async throws -> PromoList {
+        await pause()
+        return locked { PromoList(promos: promos, reward: 20) }
+    }
+
+    func submitPromo(videoURL: URL, link: String, note: String) async throws -> PromoSubmission {
+        await pause()
+        return locked {
+            let made = PromoSubmission(promoId: "pr-mock\(promos.count)", status: "pending",
+                                       createdAt: "2026-11-15T10:00:00Z", reviewedAt: nil,
+                                       credits: 0, reason: nil, link: link.isEmpty ? nil : link,
+                                       durationSec: 30)
+            promos.insert(made, at: 0)
+            return made
+        }
+    }
+
     func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult {
         await pause()
         return locked {

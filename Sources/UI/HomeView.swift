@@ -14,6 +14,7 @@ enum Route: Hashable {
     case deleteAccount
     case scriptRules
     case buyCredits
+    case promo
 }
 
 /// The signed-in app: Create, Library, Account.
@@ -70,6 +71,8 @@ struct RouteDestinations: ViewModifier {
                 ScriptRulesView()
             case .buyCredits:
                 BuyCreditsView()
+            case .promo:
+                PromoView()
             }
         }
     }

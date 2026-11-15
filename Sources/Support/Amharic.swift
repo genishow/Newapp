@@ -40,7 +40,7 @@ func Tf(_ english: String, _ values: String...) -> String {
 enum Amharic {
     static let table: [String: String] = [
         // Tabs and common words
-        "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Buy credits": "ክሬዲት ይግዙ", "Kinbir": "ቅንብር",
+        "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Buy credits": "ክሬዲት ይግዙ", "Earn credits": "ክሬዲት ያግኙ", "Kinbir": "ቅንብር",
         "Done": "ጨርስ", "Cancel": "ሰርዝ", "Continue": "ቀጥል", "Close": "ዝጋ", "Save": "አስቀምጥ",
         "Delete": "አጥፋ", "Rename": "ስም ቀይር", "Remove": "አስወግድ", "Change": "ቀይር",
         "Undo": "መልስ", "Clear": "አጽዳ", "Copy": "ቅዳ", "Copied": "ተቀድቷል", "Listen": "አድምጥ",

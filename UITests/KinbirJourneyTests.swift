@@ -490,4 +490,22 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("buyBalance", contains: "110")
         waitFor("restorePurchases")
     }
+
+    /// A promo video is sent from the Account page and listed as waiting for review.
+    func testPromoVideoIsSent() {
+        launch()
+        signIn()
+        app.tabBars.buttons["Account"].tap()
+        waitFor("earnCreditsButton").tap()
+        waitFor("promoHeading")
+        // nothing to send until a video is chosen and the rights box is ticked
+        XCTAssertFalse(waitFor("promoSend").isEnabled)
+        waitFor("promoChooseVideo").tap()
+        waitForLabel("promoChosenNote", contains: "Video chosen")
+        XCTAssertFalse(waitFor("promoSend").isEnabled)
+        waitFor("promoRightsTick").tap()
+        waitFor("promoSend").tap()
+        waitFor("promoSentNote")
+        waitFor("promoRow")
+    }
 }

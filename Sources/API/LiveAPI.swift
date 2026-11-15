@@ -81,6 +81,27 @@ final class LiveAPI: KinbirAPI {
         try await decode(WhoAmI.self, builder.get("/whoami"))
     }
 
+    func myPromos() async throws -> PromoList {
+        try await decode(PromoList.self, builder.get("/promo/mine"))
+    }
+
+    func submitPromo(videoURL: URL, link: String, note: String) async throws -> PromoSubmission {
+        guard let data = try? Data(contentsOf: videoURL) else {
+            throw APIError(kind: .other, status: 0, message: "That video could not be read. Try another.")
+        }
+        let ext = videoURL.pathExtension.lowercased().isEmpty ? "mp4" : videoURL.pathExtension.lowercased()
+        var form = Multipart()
+        form.addField(name: "access_code", value: builder.accessCode() ?? "")
+        form.addField(name: "link", value: link)
+        form.addField(name: "note", value: note)
+        form.addField(name: "rights_ok", value: "1")
+        form.addFile(name: "video", filename: "promo." + ext,
+                     mimeType: Multipart.mimeType(forExtension: ext), data: data)
+        var request = builder.multipart("/promo/submit", form: form)
+        request.timeoutInterval = 600
+        return try await decode(PromoSubmission.self, request)
+    }
+
     func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult {
         try await decode(ApplePurchaseResult.self,
                          builder.post("/billing/apple", body: ["signed_transaction": signedTransaction]))

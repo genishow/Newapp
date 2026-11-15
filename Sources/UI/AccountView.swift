@@ -38,6 +38,11 @@ struct AccountView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("buyCreditsButton")
+                    NavigationLink(value: Route.promo) {
+                        Text(T("Earn free credits with a video"))
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("earnCreditsButton")
                 }
                 .card(fill: Theme.lime)
 

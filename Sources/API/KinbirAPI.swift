@@ -20,6 +20,10 @@ protocol KinbirAPI: AnyObject {
     func reportApplePurchase(signedTransaction: String) async throws -> ApplePurchaseResult
     /// This phone's notification token, so "your voiceover is ready" can reach it.
     func registerDevice(token: String) async throws
+    // Promo videos (D-450)
+    func myPromos() async throws -> PromoList
+    func submitPromo(videoURL: URL, link: String, note: String) async throws -> PromoSubmission
+
     /// Takes the code explicitly: it runs while signing out, after the saved one is gone.
     func unregisterDevice(token: String, accessCode: String) async throws
 

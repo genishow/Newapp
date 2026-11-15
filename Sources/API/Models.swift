@@ -269,3 +269,23 @@ struct ApplePurchaseResult: Codable, Equatable {
     var creditsBalance: Double?
     var tier: String?
 }
+
+/// A promo video the customer sent (D-450), as the server reports it.
+struct PromoSubmission: Codable, Equatable, Identifiable {
+    let promoId: String
+    var status: String
+    var createdAt: String?
+    var reviewedAt: String?
+    var credits: Double?
+    var reason: String?
+    var link: String?
+    var durationSec: Double?
+
+    var id: String { promoId }
+}
+
+struct PromoList: Codable, Equatable {
+    var promos: [PromoSubmission]
+    /// The usual reward in credits, to show before sending.
+    var reward: Double?
+}
