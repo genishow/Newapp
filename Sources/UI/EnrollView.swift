@@ -117,6 +117,7 @@ struct EnrollView: View {
         VStack(alignment: .leading, spacing: 6) {
             tip(T("A quiet room, no music or TV."))
             tip(T("Hold the phone close, about an arm's length."))
+            tip(T("Read every word on the screen. We check that the statement was said before the voice is made."))
             tip(T("Read naturally, the way you normally speak."))
             tip(T("10 to 40 seconds."))
             tip(T("The words stay on screen while you record."))
