@@ -258,7 +258,14 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("shotsHeading")
 
         // The same shots can be switched to horizontal and back, for free.
-        waitFor("switchShape-landscape").tap()
+        // The shot sheet has to finish closing first, or the tap lands on it.
+        let sheetGone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                                  object: el("shotSheetHeading"))
+        XCTAssertEqual(XCTWaiter.wait(for: [sheetGone], timeout: 15), .completed, "the shot sheet stayed open")
+        let landscape = waitFor("switchShape-landscape")
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: landscape)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
+        landscape.tap()
         waitFor("shotRow-1", timeout: 15)
         waitFor("switchShape-portrait").tap()
         waitFor("shotRow-1", timeout: 15)
