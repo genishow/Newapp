@@ -212,6 +212,8 @@ struct LanguageChoice: View {
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Theme.white)
+        // keeps the two buttons findable on their own
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("languageChoice")
     }
 
