@@ -13,6 +13,9 @@ on:
   push:
     paths-ignore:
       - "docs/**"
+  # Lets a build be started from the Actions tab (or by Claude) without a new commit,
+  # for example after the repo was private when the last commit was pushed.
+  workflow_dispatch:
       - "**.md"
   pull_request:
   workflow_dispatch:
