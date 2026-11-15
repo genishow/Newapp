@@ -36,6 +36,8 @@ struct WhoAmI: Codable, Equatable {
     var planVia: String?
     /// Attached to every App Store purchase so Apple's later notices name this account.
     var appleAccountToken: String?
+    /// Free voiceovers left in the Kinbir voice (no clone needed).
+    var stockFreeLeft: Int?
 
     var amharicVoices: [VoiceSummary] { (voices ?? []).filter { $0.isAmharic } }
     var allVoices: [VoiceSummary] { voices ?? [] }

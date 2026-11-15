@@ -33,6 +33,8 @@ final class AppState: ObservableObject {
             // Each UI test starts from the same place: Amharic, nothing half done.
             UserDefaults.standard.removeObject(forKey: "kinbir.language")
             UserDefaults.standard.removeObject(forKey: "kinbir.welcomeLang")
+            UserDefaults.standard.removeObject(forKey: "kinbir.pendingScript")
+            UserDefaults.standard.removeObject(forKey: "kinbir.voiceChoice")
             // Each UI test starts clean: nothing remembered from the test before it.
             for key in UserDefaults.standard.dictionaryRepresentation().keys
             where key.hasPrefix("videojob.") || key.hasPrefix("planjob.") || key.hasPrefix("kinbir.fixBatch.")

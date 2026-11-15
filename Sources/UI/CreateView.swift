@@ -20,6 +20,8 @@ struct CreateView: View {
     @State private var draftId: String?
     @State private var draftText: String?
     @State private var voice = VoiceOptions()
+    /// "kinbir" reads in the built-in voice even when the user has cloned their own.
+    @AppStorage("kinbir.voiceChoice") private var voiceChoice = "mine"
     @State private var seededVoice = false
     @State private var recent: [SavedScript] = []
     @State private var showWriter = false
@@ -57,12 +59,16 @@ struct CreateView: View {
     private var seconds: Double { ScriptMath.seconds(script, language: language) }
     private var voiceCost: Double { ScriptMath.voiceCredits(seconds: seconds) }
     /// As on the website, the balance is the gate: nothing can be voiced at zero.
-    private var outOfCredits: Bool { state.me != nil && !needsVoice && state.balance <= 0 }
+    /// The built-in Kinbir voice reads it: always before a clone exists, or when chosen.
+    private var usingStock: Bool { needsVoice || voiceChoice == "kinbir" }
+    /// A free Kinbir-voice try is left (D-453).
+    private var freeStock: Bool { usingStock && (state.me?.stockFreeLeft ?? 0) > 0 }
+    private var outOfCredits: Bool { state.me != nil && state.balance <= 0 && !freeStock }
     private var shownNote: String? { noteText == text ? note : nil }
 
     /// The website's sentence when a free-trial script is over the limit. Nil when it fits.
     private var trialLine: String? {
-        guard !needsVoice, !outOfCredits,
+        guard !outOfCredits,
               let line = TrialRule.problem(script, language: language,
                                            trialMaxChars: state.me?.trialMaxChars) else { return nil }
         return T(line) + " " + T(APIError.buyingNote)
@@ -70,7 +76,11 @@ struct CreateView: View {
 
     /// The website's line by the button: what is left afterwards, and how long the audio is.
     private var leavesLine: String? {
-        guard !needsVoice, !outOfCredits, !script.isEmpty, state.me != nil else { return nil }
+        guard !outOfCredits, !script.isEmpty, state.me != nil else { return nil }
+        if freeStock {
+            return Tf("Free in the Kinbir voice · %@ free left · ≈ %@s of audio",
+                      "\(state.me?.stockFreeLeft ?? 0)", "\(max(1, Int(seconds.rounded())))")
+        }
         return Tf("Leaves you %@ of %@ credits · ≈ %@s of audio",
                   Fmt.credits(ScriptMath.balanceAfter(balance: state.balance, credits: voiceCost)),
                   Fmt.credits(state.balance), "\(max(1, Int(seconds.rounded())))")
@@ -126,11 +136,16 @@ struct CreateView: View {
                 }
 
                 if !needsVoice {
-                    NavigationLink(value: Route.voices) {
-                        OptionRow(icon: "waveform", title: T("Voice"),
-                                  value: state.activeVoice?.name ?? T("My voice"))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(T("Voice")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        Picker(T("Voice"), selection: $voiceChoice) {
+                            Text(state.activeVoice?.name ?? T("My voice")).tag("mine")
+                            Text(T("Kinbir voice")).tag("kinbir")
+                        }
+                        .pickerStyle(.segmented)
+                        .disabled(busy)
+                        .accessibilityIdentifier("voiceChoice")
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("voiceLine")
                 }
 
@@ -277,17 +292,26 @@ struct CreateView: View {
     }
 
     /// Shown only until the user has a voice: the one thing to do first.
+    /// No clone yet: they can still make a voiceover right away in the Kinbir voice.
+    /// Cloning is offered, never required (Geni, 2026-11-15).
     private var voiceHero: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(T("First, record your voice")).font(Theme.heading).foregroundStyle(Theme.black)
-            Text(T("Read a few lines on camera, about 30 seconds. After that, everything is in your voice."))
-                .font(Theme.body).foregroundStyle(Theme.black)
+            HStack(spacing: 8) {
+                Image(systemName: "waveform").font(.system(size: 15, weight: .bold))
+                Text(T("Reading in the Kinbir voice")).font(Theme.bodyMedium)
+            }
+            .foregroundStyle(Theme.black)
+            Text((state.me?.stockFreeLeft ?? 0) > 0
+                 ? Tf("Write or paste a script and hear it right away. Your first %@ are free.",
+                      Tf("%@ voiceovers", "\(state.me?.stockFreeLeft ?? 0)"))
+                 : T("Write or paste a script and hear it right away."))
+                .font(Theme.small).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
-            NavigationLink(value: Route.enroll) { Text(T("Record my voice")) }
-                .buttonStyle(SecondaryButtonStyle())
+            NavigationLink(value: Route.enroll) { Text(T("Use my own voice instead (optional)")) }
+                .buttonStyle(QuietButtonStyle())
                 .accessibilityIdentifier("cloneVoiceButton")
         }
-        .card(fill: Theme.lime)
+        .card(fill: Theme.lime, padding: 14)
     }
 
     @ViewBuilder private var topCard: some View {
@@ -463,26 +487,22 @@ struct CreateView: View {
     }
 
     /// The one lime button, always in reach. It says what it will do and what it costs.
-    @ViewBuilder private var mainButton: some View {
-        if needsVoice {
-            NavigationLink(value: Route.enroll) { Text(T("Record my voice")) }
-                .buttonStyle(PrimaryButtonStyle())
-        } else {
-            Button {
-                editing = false
-                Task { await makeVoiceover() }
-            } label: {
-                BusyLabel(title: mainTitle, busy: work == .starting)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(busy || script.isEmpty || outOfCredits || trialLine != nil)
-            .accessibilityIdentifier("voiceButton")
+    private var mainButton: some View {
+        Button {
+            editing = false
+            Task { await makeVoiceover() }
+        } label: {
+            BusyLabel(title: mainTitle, busy: work == .starting)
         }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(busy || script.isEmpty || outOfCredits || trialLine != nil)
+        .accessibilityIdentifier("voiceButton")
     }
 
     private var mainTitle: String {
         if work == .starting { return T("Starting") }
         if script.isEmpty { return T("Make voiceover") }
+        if freeStock { return T("Make voiceover") + " · " + T("Free") }
         return T("Make voiceover") + " · ≈ " + Fmt.credits(voiceCost) + " " + T("credits")
     }
 
@@ -608,11 +628,11 @@ struct CreateView: View {
         // The script must be in the voiceover's language, or the voice reads nonsense.
         let kind = TextKind.detect(script)
         if language == .am && kind == .english {
-            problem = T("This script is in English. Tap Write it for me to turn it into Amharic, or switch the voiceover language in More options.")
+            problem = T("This script is in English. Tap Write it for me to turn it into Amharic, or switch to EN at the top.")
             return
         }
         if language == .en && kind == .amharic {
-            problem = T("This script is in Amharic. Switch the voiceover language to Amharic in More options.")
+            problem = T("This script is in Amharic. Switch to አማ at the top.")
             return
         }
         // The free trial voices a limited script at a time. Said here, before the server refuses.
@@ -623,6 +643,7 @@ struct CreateView: View {
         do {
             var options = voice
             options.language = language
+            options.useStockVoice = usingStock
             let submit = try await state.api.generate(text: script, draftId: draftId, voice: options)
             await state.refresh()
             path.append(.job(submit.jobId))

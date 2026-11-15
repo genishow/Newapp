@@ -96,6 +96,8 @@ struct CreateTab: View {
         .onAppear {
             if !loaded {
                 text = state.loadDraft()
+                // What they typed on the welcome page is waiting for them.
+                if text.isEmpty, let pending = PendingScript.take() { text = pending }
                 loaded = true
             }
         }

@@ -63,11 +63,16 @@ struct VoiceOptions: Equatable {
     var language: Lang = .am
     var pace = "normal"
     var emphasis = "none"
+    /// Read in the built-in Kinbir voice instead of the user's clone (D-453).
+    var useStockVoice = false
 
     /// Amharic sends its speed too (D-440); emphasis is English only.
     var fields: [String: Any] {
-        guard language == .en else { return ["pace": pace] }
-        return ["language": "en", "pace": pace, "emphasis": emphasis]
+        var out: [String: Any] = language == .en
+            ? ["language": "en", "pace": pace, "emphasis": emphasis]
+            : ["pace": pace]
+        if useStockVoice { out["use_stock_voice"] = true }
+        return out
     }
 }
 

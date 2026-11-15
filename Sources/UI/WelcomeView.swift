@@ -1,5 +1,18 @@
 import SwiftUI
 
+/// Text typed on the welcome page, carried to the Create page after sign in.
+enum PendingScript {
+    static let key = "kinbir.pendingScript"
+
+    /// Hands it over once.
+    static func take() -> String? {
+        let text = (UserDefaults.standard.string(forKey: key) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        UserDefaults.standard.removeObject(forKey: key)
+        return text.isEmpty ? nil : text
+    }
+}
+
 /// The language a new visitor chose on the first screen. It decides the language of the
 /// welcome page and the script language they start with; the rest of the interface stays
 /// English with Amharic under the titles, as the owner chose.
@@ -296,6 +309,8 @@ struct DemoCard: View {
                 .onChange(of: text) { _, new in
                     if new.count > DemoRules.maxChars { text = String(new.prefix(DemoRules.maxChars)) }
                     ready = false
+                    // Waits on the Create page after sign in, so nothing is typed twice.
+                    UserDefaults.standard.set(text, forKey: PendingScript.key)
                 }
 
             // A clear way to put the keyboard away, right under the field.

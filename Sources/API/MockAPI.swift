@@ -85,14 +85,18 @@ final class MockAPI: KinbirAPI {
                 copy.active = (v.voiceId == activeVoiceId)
                 return copy
             }
-            return WhoAmI(email: MockAPI.email, voices: list, activeVoiceId: activeVoiceId,
-                          creditsBalance: credits, tier: nil, hasPaid: false, trialMaxChars: 900,
-                          scriptRules: video.scriptRules, scriptRulesDefault: "Keep sentences short.",
-                          enPace: "normal", enEmphasis: "none")
+            var me = WhoAmI(email: MockAPI.email, voices: list, activeVoiceId: activeVoiceId,
+                            creditsBalance: credits, tier: nil, hasPaid: false, trialMaxChars: 900,
+                            scriptRules: video.scriptRules, scriptRulesDefault: "Keep sentences short.",
+                            enPace: "normal", enEmphasis: "none")
+            me.stockFreeLeft = stockFreeLeft
+            return me
         }
     }
 
     private var promos: [PromoSubmission] = []
+    /// Free Kinbir-voice voiceovers left, as the server counts them.
+    private var stockFreeLeft = 3
 
     func myPromos() async throws -> PromoList {
         await pause()
@@ -229,17 +233,19 @@ final class MockAPI: KinbirAPI {
         await pause()
         video.lastVoiceOptions = voice
         return try locked {
-            guard activeVoiceId != nil else {
+            guard activeVoiceId != nil || voice.useStockVoice else {
                 throw APIError(kind: .other, status: 400,
                                message: "Clone your voice first - your account has no voice yet")
             }
-            guard credits >= 2.5 else {
+            let freeTry = voice.useStockVoice && stockFreeLeft > 0
+            if freeTry { stockFreeLeft -= 1 }
+            guard freeTry || credits >= 2.5 else {
                 throw APIError.from(
                     status: 402,
                     data: Data(#"{"detail":"insufficient credits (need ~2.5, have 0.0) - top up or upgrade your plan"}"#.utf8),
                     path: "/generate")
             }
-            credits -= 2.5
+            if !freeTry { credits -= 2.5 }
             let id = nextId("job")
             jobStore[id] = JobStatus(jobId: id, type: "generate", status: "queued", segmentsDone: 0,
                                  segmentsTotal: 2, error: nil, audioSec: nil, segments: [text],

@@ -528,4 +528,22 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("welcomeHeading", contains: "your own voice")
         waitFor("startButton")
     }
+
+    /// No clone needed: what was typed on the welcome page is waiting, and the Kinbir
+    /// voice reads it at once, free. Cloning is offered, not required.
+    func testKinbirVoiceWithoutCloning() {
+        launch(["-mockNoVoice"])
+        let field = waitFor("demoField")
+        field.tap()
+        field.typeText("ሰላም ለሁላችሁ")
+        let done = el("demoKeyboardDone")
+        if done.waitForExistence(timeout: 3) { done.tap() }
+        signIn()
+        waitFor("cloneVoiceButton")
+        let editor = waitFor("scriptEditor")
+        XCTAssertTrue((editor.value as? String ?? "").contains("ሰላም"), "the welcome text carries over")
+        waitForLabel("voiceButton", contains: "Free")
+        el("voiceButton").tap()
+        waitFor("resultHeading", timeout: 40)
+    }
 }

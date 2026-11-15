@@ -359,10 +359,10 @@ enum Amharic {
         "The video could not be made. Your credits were returned.": "ቪዲዮው ሊዘጋጅ አልቻለም። ክሬዲትዎ ተመልሷል።",
         "The video was stopped and the credits were returned.": "ቪዲዮው ቆሟል፤ ክሬዲቱም ተመልሷል።",
         "This is taking longer than usual. Check your voiceover again in a few minutes.": "ከተለመደው በላይ እየቆየ ነው። ከጥቂት ደቂቃ በኋላ ትረካዎን እንደገና ይመልከቱ።",
-        "This script is in Amharic. Switch the voiceover language to Amharic in More options.":
-            "ይህ ስክሪፕት በአማርኛ ነው። በተጨማሪ አማራጮች ውስጥ የትረካ ቋንቋውን ወደ አማርኛ ይቀይሩ።",
-        "This script is in English. Tap Write it for me to turn it into Amharic, or switch the voiceover language in More options.":
-            "ይህ ስክሪፕት በእንግሊዝኛ ነው። ወደ አማርኛ ለመቀየር ጻፍልኝን ይንኩ፣ ወይም በተጨማሪ አማራጮች ውስጥ የትረካ ቋንቋውን ይቀይሩ።",
+        "This script is in Amharic. Switch to አማ at the top.":
+            "ይህ ስክሪፕት በአማርኛ ነው። ከላይ ወደ አማ ይቀይሩ።",
+        "This script is in English. Tap Write it for me to turn it into Amharic, or switch to EN at the top.":
+            "ይህ ስክሪፕት በእንግሊዝኛ ነው። ወደ አማርኛ ለመቀየር ጻፍልኝን ይንኩ፣ ወይም ከላይ ወደ EN ይቀይሩ።",
         "Track": "ሙዚቃ", "Uploading clip %@ of %@": "ክሊፕ %@ ከ %@ እየተጫነ ነው",
         "Video": "ቪዲዮ", "Voice": "ድምፅ", "Voice %@": "ድምፅ %@", "Voiceover": "ትረካ",
         "Voiceover language": "የትረካ ቋንቋ", "What is the video about?": "ቪዲዮው ስለ ምንድን ነው?",
