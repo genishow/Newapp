@@ -66,12 +66,14 @@ Ask Claude to walk you through each one. Then run **Actions**, **TestFlight (opt
 
 ## 7. The listing
 
-**Name:** Kinbir
-**Subtitle (30 characters):** AI videos in your own voice
+**Name (30):** Kinbir: Amharic AI Video Maker
+**Subtitle (30):** Voice clone & text to speech
+**Primary language:** English (U.S.). App Store Connect has no Amharic listing language, and the Amharic audience on iPhone is mostly outside Ethiopia. Amharic goes in the screenshots and in the description's second half.
 **Category:** Photo & Video (secondary: Productivity)
 **Age rating:** the app is for adults: sign-in says "You must be 18 or older", and cloning a voice or face needs an adult's consent. In the age questionnaire answer no to violence, mature content, gambling and unrestricted web access, then under **Age Assurance / override** choose the highest rating offered (**18+**, or 17+ where 18+ is not offered). A 4+ rating next to an "18 or older" sign-in screen gets rejected. User-generated content: No, scripts stay private to the account.
 **Price:** Free (with in-app purchases)
-**Support URL:** https://kinbir.com
+**Support URL:** https://kinbir.com (support email: support@kinbir.com)
+**Availability:** every country except the 27 European Union countries, so no home address has to be shown (EU law makes Apple show a seller's address and phone there). Add the EU later with a business address or P.O. box.
 **Privacy Policy URL:** https://kinbir.com/privacy
 **Terms (EULA):** add https://kinbir.com/terms in the description's last line and in App Information, License Agreement, custom.
 
@@ -100,7 +102,8 @@ Plans renew monthly until cancelled in your iPhone Settings. Terms: https://kinb
 **Description in Amharic (add Amharic later only if App Store Connect offers it for the region; otherwise keep it at the end of the English one):**
 ቅንብር በራስዎ ድምፅ የድምፅ ቅጂ ይሠራል። አንድ ጊዜ ስክሪፕት ሲያነቡ ይቅረጹ፤ ከዚያ በኋላ የሚጽፉትን ማንኛውንም ስክሪፕት በአማርኛ ወይም በእንግሊዝኛ በራስዎ ድምፅ ያነባል። የተሳሳተ ቃል ካለ ነክተው ያስተካክሉ፣ ወደ ቪዲዮ ይቀይሩ፣ በፎቶዎች ያስቀምጡ ወይም ያጋሩ።
 
-**Keywords (100):** amharic,voiceover,voice clone,ethiopia,tts,text to speech,narration,tiktok,reels,captions
+**Keywords (100):** ethiopia,ethiopian,habesha,voiceover,tts,reels,shorts,caption,avatar,narration,script,dubbing,አማርኛ
+(No word from the name or subtitle is repeated: Apple already searches those. No other companies' names: Apple can reject for that.)
 
 **Screenshots** (6.9-inch iPhone, 1320 x 2868; at least 3): the Create page with a script, the voiceover player with the speed buttons, the word fix screen, a finished vertical video, the Buy credits screen is not needed. Take them on a 16 Pro Max or Pro Max size, or ask Claude to produce them from the simulator **(Claude)**.
 
