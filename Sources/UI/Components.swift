@@ -604,6 +604,24 @@ extension View {
 
 /// One tap changes the colour mode: same as phone, light, dark (Geni: "an icon on the
 /// heading so I can change it"). Shares its setting with the Appearance choice in Account.
+/// Shown once work has started on the server: it is safe to leave now.
+struct LeaveNote: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16)).foregroundStyle(Theme.black)
+            Text(T("You can leave now. It will be in your Library."))
+                .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.45)))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("leaveNote")
+    }
+}
+
 struct AppearanceButton: View {
     /// Light or dark only (Geni, 2026-11-15). An old "system" reads as light.
     @AppStorage("kinbir.appearance") private var appearance = "light"

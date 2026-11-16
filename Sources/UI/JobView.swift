@@ -107,7 +107,7 @@ struct JobView: View {
                 }
             }
 
-            NoteText(text: T("You can leave this screen. It will be in your Library."))
+            LeaveNote()
 
             if let problem {
                 ProblemCard(message: problem)

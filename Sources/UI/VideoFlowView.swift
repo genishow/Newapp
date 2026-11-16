@@ -222,6 +222,8 @@ struct VideoFlowView: View {
     @State private var flags: [Int: String] = [:]
     @State private var checkNote: String?
     @State private var uploadsLoaded = false
+    /// A shape switch: clips picked for the old shape are searched again, not cropped.
+    @State private var freshShape = false
     /// Shapes that already have a finished video from this voiceover.
     @State private var madeShapes: Set<String> = []
 
@@ -513,9 +515,13 @@ struct VideoFlowView: View {
         guard seconds > 0 else {
             return T("The presenter is on but has no place in the video. Open the presenter and pick one, or turn it off.")
         }
-        let side = Fmt.credits(AvatarChoice.credits(seconds: seconds, fullFrame: false))
-        let full = Fmt.credits(AvatarChoice.credits(seconds: seconds, fullFrame: true))
-        return Tf("The presenter adds about %@ credits, or about %@ if your photo fills the frame.", side, full)
+        return nil   // the total is on the button
+    }
+
+    /// Credits the presenter adds, 0 when it is off.
+    private var presenterCredits: Double {
+        guard avatar.enabled else { return 0 }
+        return AvatarChoice.credits(seconds: avatar.totalSeconds(audioSec: audioSec), fullFrame: false)
     }
 
     private var presenterBlocked: Bool {
@@ -751,9 +757,8 @@ struct VideoFlowView: View {
     /// The setup screen's one main button, with what it will cost in total.
     private var setupTitle: String {
         guard let estimate else { return T("Make my video") }
-        let price: String = Fmt.credits(estimate + 2)
+        let price: String = Fmt.credits(estimate + 2 + presenterCredits)
         return T("Make my video") + " · ≈ " + price + " " + T("credits")
-            + (avatar.enabled ? " " + T("+ presenter") : "")
     }
 
     @ViewBuilder private var setupBar: some View {
@@ -921,7 +926,9 @@ struct VideoFlowView: View {
             await reloadPlan()
             working = nil
         } else {
+            freshShape = true
             await fillShots(stock: true, own: false)
+            freshShape = false
         }
         if shape != value {
             // The server kept the old shape (reloadPlan read it back).
@@ -1033,8 +1040,8 @@ struct VideoFlowView: View {
             Button {
                 Task { await makeVideo() }
             } label: {
-                BusyLabel(title: avatar.enabled ? T("Make video · 2 credits + presenter")
-                                                : T("Make video · 2 credits"), busy: starting)
+                BusyLabel(title: Tf("Make video · %@ credits", Fmt.credits(2 + presenterCredits)),
+                          busy: starting)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(starting || working != nil || !emptyShots.isEmpty || presenterBlocked)
@@ -1281,7 +1288,8 @@ struct VideoFlowView: View {
             for _ in 0..<20 {
                 do {
                     let slice = try await state.api.searchFootage(planId: planId, shape: shape,
-                                                                  beat: nil, query: nil)
+                                                                  beat: nil, query: nil,
+                                                                  freshShape: freshShape)
                     if slice.stockLimited {
                         refusals += 1
                         if refusals >= 2 {

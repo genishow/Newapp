@@ -631,7 +631,7 @@ extension MockAPI {
     }
 
     func searchFootage(planId: String, shape: Shape?, beat: Int?,
-                       query: String?) async throws -> SearchResult {
+                       query: String?, freshShape: Bool) async throws -> SearchResult {
         await pause()
         if video.stockLimited {
             return SearchResult(searched: 0, remaining: video.beats.count, gaps: [],

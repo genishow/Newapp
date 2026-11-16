@@ -347,8 +347,9 @@ extension LiveAPI {
     }
 
     func searchFootage(planId: String, shape: Shape?, beat: Int?,
-                       query: String?) async throws -> SearchResult {
+                       query: String?, freshShape: Bool) async throws -> SearchResult {
         var body: [String: Any] = ["plan_id": planId]
+        if freshShape && beat == nil { body["fresh_shape"] = true }
         if let beat {
             // A single shot keeps the plan's own shape, so no orientation is sent.
             body["beat"] = beat

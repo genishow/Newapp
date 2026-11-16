@@ -112,7 +112,9 @@ protocol KinbirAPI: AnyObject {
     func planJob(id: String) async throws -> PlanJob
     func plan(id: String) async throws -> StoredPlan
     /// One slice of the stock search. Pass `beat` to search a single shot again.
-    func searchFootage(planId: String, shape: Shape?, beat: Int?, query: String?) async throws -> SearchResult
+    /// `freshShape`: on a shape switch, clips picked for the old shape are searched again.
+    func searchFootage(planId: String, shape: Shape?, beat: Int?, query: String?,
+                       freshShape: Bool) async throws -> SearchResult
     func chooseClip(planId: String, beat: Int, clipId: Int) async throws
     /// The website's shot tools: "clear" (remove the clip), "split", "merge" (with the next
     /// shot) and "swap" (trade places with `withBeat`). Shots may be renumbered, so the
@@ -257,5 +259,11 @@ extension KinbirAPI {
 
     func fixApply(jobId: String, fixes: [FixEdit], pace: String?) async throws -> FixBatch {
         try await fixApply(jobId: jobId, fixes: fixes, pace: pace, whole: false)
+    }
+}
+
+extension KinbirAPI {
+    func searchFootage(planId: String, shape: Shape?, beat: Int?, query: String?) async throws -> SearchResult {
+        try await searchFootage(planId: planId, shape: shape, beat: beat, query: query, freshShape: false)
     }
 }

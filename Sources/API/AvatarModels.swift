@@ -38,9 +38,8 @@ struct AvatarChoice: Equatable {
     var endSeconds: Int?
     /// One length per middle appearance. The count is how many there are.
     var middles: [Int] = []
-    /// Where the presenter sits (D-460): "bottom" or "top" half on a vertical
-    /// video, "right" or "left" panel on a horizontal one. Graphics and
-    /// captions take the other part.
+    /// Where the presenter sits: "bottom", "top" or "full" on a vertical video,
+    /// "right", "left" or "full" on a horizontal one.
     var sideVertical = "bottom"
     var sideHorizontal = "right"
 

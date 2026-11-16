@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 /// Text typed on the welcome page, carried to the Create page after sign in.
@@ -68,7 +69,12 @@ struct WelcomeView: View {
                 // Top bar: the brand, and the language, changeable any time.
                 HStack(spacing: 10) {
                     LogoMark(size: 34)
-                    Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Kinbir").font(Theme.heading).foregroundStyle(Theme.black)
+                        Text("ቅንብር").font(Theme.font(12, .medium, relativeTo: .caption))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .accessibilityElement(children: .combine)
                     Spacer()
                     AppearanceButton()
                     LanguageSwitch(selection: Binding(
@@ -120,15 +126,17 @@ struct WelcomeView: View {
                 .font(Theme.font(12, .bold, relativeTo: .caption)).kerning(1.2)
                 .foregroundStyle(Theme.lime)
             VStack(alignment: .leading, spacing: 8) {
-                Text(W(lang, "Videos and voiceovers in", "ቪዲዮና የድምፅ ቅጂ"))
-                    .font(Theme.title).foregroundStyle(Theme.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                Marker(text: W(lang, "your own voice", "በራስዎ ድምፅ"))
+                // Sized so each line sits whole on a phone: no word left alone on a line.
+                Text(W(lang, "Videos and voiceovers", "ቪዲዮና የድምፅ ቅጂ"))
+                    .font(Theme.font(28, .bold, relativeTo: .title)).foregroundStyle(Theme.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Marker(text: W(lang, "in your own voice", "በራስዎ ድምፅ"),
+                       font: Theme.font(28, .bold, relativeTo: .title))
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("welcomeHeading")
             Text(W(lang, "Kinbir's AI writes your script, reads it in your cloned voice, and makes the video.",
-                   "የቅንብር ኤአይ ፅሁፍዎን ይጽፋል፣ በራስዎ ድምፅ ያነበዋል፣ ቪዲዮውንም ይሰራል።"))
+                   "ቅንብር ያስገቡለትን ጽሑፎች ወደ ፕሮፌሽናል የአማርኛ ስክሪፕት ይለውጣል፤ በተፈጥሯዊ ድምፅና ከተስማሚ ቪዲዎች ጋር አቀናጅቶ ያዘጋጅልዎታል።"))
                 .font(Theme.body).foregroundStyle(Theme.grey)
                 .lineSpacing(lang == .am ? Theme.amharicLineSpacing : 2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -292,11 +300,17 @@ struct DemoCard: View {
     @State private var reading = false
     @State private var ready = false
     @State private var problem: String?
-    @State private var startedAt = Date()
+    @State private var quiet = false
+    /// Typed listens before sign in (the samples are free and do not count).
+    @AppStorage("kinbir.demoTries") private var tries = 0
     @FocusState private var typing: Bool
+
+    static let freeTries = 5
+    private var usedUp: Bool { !Launch.isMock && tries >= Self.freeTries }
 
     private var clean: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var over: Bool { DemoRules.isOver(clean) }
+    private var isSample: Bool { clean == DemoRules.sampleAmharic || clean == DemoRules.sampleEnglish }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -310,6 +324,8 @@ struct DemoCard: View {
                 .padding(.vertical, 8)
                 .field()
                 .focused($typing)
+                .disabled(busy)
+                .opacity(busy ? 0.5 : 1)
                 .accessibilityIdentifier("demoField")
                 .onChange(of: text) { _, new in
                     if new.count > DemoRules.maxChars { text = String(new.prefix(DemoRules.maxChars)) }
@@ -341,6 +357,7 @@ struct DemoCard: View {
                 }
             }
             .disabled(busy)
+            .opacity(busy ? 0.4 : 1)
 
             Button {
                 typing = false
@@ -349,7 +366,7 @@ struct DemoCard: View {
                 BusyLabel(title: buttonTitle, busy: busy)
             }
             .buttonStyle(SecondaryButtonStyle())
-            .disabled(busy || clean.isEmpty || over)
+            .disabled(busy || clean.isEmpty || over || (usedUp && !ready && !isSample))
             .accessibilityIdentifier("demoPlayButton")
 
             NoteText(text: T(DemoRules.meta(clean))).accessibilityIdentifier("demoMeta")
@@ -361,24 +378,25 @@ struct DemoCard: View {
 
     @ViewBuilder private var status: some View {
         if busy {
-            // The first listen wakes the voice engine (up to about 2 minutes); later ones
-            // take seconds. Say so, and show it moving, so nobody thinks it is stuck.
-            TimelineView(.periodic(from: startedAt, by: 1)) { context in
-                let elapsed = context.date.timeIntervalSince(startedAt)
-                VStack(alignment: .leading, spacing: 6) {
-                    ProgressView(value: reading ? max(0.85, min(0.97, elapsed / 140)) : min(0.8, elapsed / 120))
-                        .tint(Theme.black)
-                    Text((reading
-                          ? W(lang, "Almost there, the voice is reading your words.",
-                              "ሊደርስ ነው፤ ድምፁ ፅሁፍዎን እያነበበ ነው።")
-                          : W(lang, "Waking up the voice. The first listen can take up to 2 minutes; after that it takes seconds.",
-                              "ድምፁ እየተዘጋጀ ነው። የመጀመሪያው እስከ 2 ደቂቃ ሊወስድ ይችላል፤ ከዚያ በኋላ በሰከንዶች ይደርሳል።"))
-                         + " · " + Fmt.clock(elapsed))
-                        .font(Theme.small).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            // No clock (Geni): a moving bar and one short line.
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView().progressViewStyle(.linear).tint(Theme.black)
+                Text(W(lang, "The first one takes a few minutes. After that, seconds.",
+                       "የመጀመሪያው ጥቂት ደቂቃ ይወስዳል። ከዚያ በኋላ በሰከንዶች።"))
+                    .font(Theme.small).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityIdentifier("demoProgress")
+        }
+        if quiet {
+            NoteText(text: W(lang, "Turn up your phone volume to hear it.",
+                             "ለመስማት የስልክዎን ድምፅ ይጨምሩ።"))
+                .accessibilityIdentifier("demoVolumeNote")
+        }
+        if usedUp {
+            NoteText(text: W(lang, "That was your 5 free tries. Tap Start free to make your own.",
+                             "5 ነፃ ሙከራዎችዎን ጨርሰዋል። የራስዎን ለመስራት በነፃ ይጀምሩ የሚለውን ይንኩ።"))
+                .accessibilityIdentifier("demoUsedUp")
         }
         if ready {
             Text(T("Ready")).font(Theme.smallMedium).foregroundStyle(Theme.black)
@@ -410,9 +428,11 @@ struct DemoCard: View {
     private func play(_ fixed: String? = nil) async {
         let words = fixed ?? clean
         guard !words.isEmpty, !DemoRules.isOver(words) else { return }
+        let typed = fixed == nil && words != DemoRules.sampleAmharic && words != DemoRules.sampleEnglish
+        if typed && usedUp { return }
         busy = true
         reading = false
-        startedAt = Date()
+        quiet = false
         problem = nil
         defer { busy = false }
         do {
@@ -435,6 +455,9 @@ struct DemoCard: View {
             let url = try await state.api.demoAudio(id: ref.demoId)
             if player.load(url: url) {
                 ready = true
+                if typed { tries += 1 }
+                // A phone on low volume plays it unheard, so say so.
+                quiet = !Launch.isMock && AVAudioSession.sharedInstance().outputVolume < 0.2
                 player.toggle()
             } else {
                 problem = T("The audio could not be played. Try again.")

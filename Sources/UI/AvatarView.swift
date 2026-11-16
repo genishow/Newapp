@@ -90,15 +90,9 @@ struct AvatarCard: View {
             .accessibilityIdentifier("avatarLengthPicker")
 
             Text(T("Where do you appear?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            Toggle(T("The whole video"), isOn: $choice.wholeVideo)
-                .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                .accessibilityIdentifier("avatarWholeToggle")
-            if choice.wholeVideo {
-                NoteText(text: T("Generated in 14 second pieces. You will see a small jump between pieces."))
-            } else {
-                places
-                middlePart
-            }
+            // One appearance is at most 14 seconds; the whole-video choice is gone (Geni).
+            places
+            middlePart
             delivery
         }
     }
@@ -178,19 +172,21 @@ struct AvatarCard: View {
             NoteText(text: choice.mode == .inVideo
                      ? T("The avatar plays inside your finished video at the places you picked.")
                      : T("The video is built without it, and the avatar downloads on its own so you can cut it in yourself."))
-            if choice.mode == .inVideo && !fullFrame {
+            if choice.mode == .inVideo {
                 Text(T("Where should your avatar be?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                 if shape == .portrait {
                     Picker(T("Avatar place"), selection: $choice.sideVertical) {
-                        Text(T("Bottom half")).tag("bottom")
-                        Text(T("Top half")).tag("top")
+                        Text(T("Bottom")).tag("bottom")
+                        Text(T("Top")).tag("top")
+                        Text(T("Full screen")).tag("full")
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("avatarSide")
                 } else {
                     Picker(T("Avatar place"), selection: $choice.sideHorizontal) {
-                        Text(T("Right side")).tag("right")
-                        Text(T("Left side")).tag("left")
+                        Text(T("Right")).tag("right")
+                        Text(T("Left")).tag("left")
+                        Text(T("Full screen")).tag("full")
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("avatarSide")
@@ -209,8 +205,49 @@ struct AvatarCard: View {
         }
     }
 
+    /// What a good presenter photo looks like, drawn, next to the upload (Geni,
+    /// 2026-11-16): serious face, cropped close, no empty space around the head.
+    private var photoGuide: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                guideTile(good: true)
+                guideTile(good: false)
+            }
+            NoteText(text: T("Serious face, no smile. Crop close: head and shoulders, no empty space around."))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("avatarPhotoGuide")
+    }
+
+    private func guideTile(good: Bool) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.grey)
+                Image(systemName: "person.fill")
+                    .resizable().scaledToFit()
+                    .foregroundStyle(Theme.black.opacity(0.75))
+                    // good: the person fills the picture; not good: small, with empty space
+                    .frame(width: good ? 78 : 30, height: good ? 78 : 30)
+                    .offset(y: good ? 10 : 22)
+            }
+            .frame(width: 90, height: 90)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.black, lineWidth: good ? 2 : 1))
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: good ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Theme.black, good ? Theme.lime : Theme.white)
+                    .padding(4)
+            }
+            Text(good ? T("Like this") : T("Not like this"))
+                .font(Theme.small).foregroundStyle(Theme.black)
+        }
+    }
+
     private var uploadPart: some View {
         VStack(alignment: .leading, spacing: 10) {
+            photoGuide
             Toggle(T("This is a photo of me"), isOn: $declared)
                 .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
                 .accessibilityIdentifier("avatarDeclare")

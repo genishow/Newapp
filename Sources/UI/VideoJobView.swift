@@ -60,7 +60,7 @@ struct VideoJobView: View {
                          detail: clipDetail,
                          estimate: T("usually 2 to 5 minutes"))
             }
-            NoteText(text: T("You can leave this screen. It will be in your Library."))
+            LeaveNote()
 
             if let problem {
                 ProblemCard(message: problem)
