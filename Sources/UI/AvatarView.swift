@@ -17,6 +17,21 @@ struct AvatarCard: View {
     @State private var problem: String?
 
     private var ready: Bool { info?.isReady == true }
+    @State private var askedForMore = false
+
+    /// Accounts that have not paid get short appearances (the server enforces it too).
+    private var paid: Bool { state.me?.hasPaid == true }
+    private var maxSeconds: Int { paid ? AvatarChoice.maxSeconds : AvatarChoice.freeMaxSeconds }
+
+    /// Brings every length inside what this account may use.
+    private func capLengths() {
+        let cap = maxSeconds
+        if choice.seconds > cap { choice.seconds = cap }
+        if let s = choice.startSeconds, s > cap { choice.startSeconds = cap }
+        if let e = choice.endSeconds, e > cap { choice.endSeconds = cap }
+        choice.middles = choice.middles.map { min($0, cap) }
+        if !paid { choice.wholeVideo = false }
+    }
 
     /// Full frame, at four times the price, when the photo and the video share a shape.
     private var fullFrame: Bool {
@@ -51,7 +66,11 @@ struct AvatarCard: View {
             }
         }
         .card(fill: Theme.white)
-        .task { await load() }
+        .task {
+            capLengths()
+            await load()
+        }
+        .onChange(of: paid) { _, _ in capLengths() }
         .onChange(of: pickerItem) { _, item in
             if let item { Task { await upload(item) } }
         }
@@ -83,11 +102,32 @@ struct AvatarCard: View {
     private var options: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(T("Length of each appearance")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            Picker(T("Seconds"), selection: $choice.seconds) {
+            Picker(T("Seconds"), selection: Binding(
+                get: { choice.seconds },
+                set: { picked in
+                    // Longer appearances are for accounts that have bought credits.
+                    if picked > maxSeconds {
+                        choice.seconds = maxSeconds
+                        askedForMore = true
+                    } else {
+                        choice.seconds = picked
+                        askedForMore = false
+                    }
+                })) {
                 ForEach(AvatarChoice.lengths, id: \.self) { Text("\($0)s").tag($0) }
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("avatarLengthPicker")
+            if !paid {
+                Text(T("Free accounts get up to 5 seconds. Longer appearances open after your first credit purchase."))
+                    .font(askedForMore ? Theme.smallMedium : Theme.small)
+                    .foregroundStyle(askedForMore ? Theme.black : Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(askedForMore ? 10 : 0)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(askedForMore ? Theme.lime.opacity(0.45) : Color.clear))
+                    .accessibilityIdentifier("avatarPaidNote")
+            }
 
             Text(T("Where do you appear?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             // One appearance is at most 14 seconds; the whole-video choice is gone (Geni).
@@ -155,7 +195,7 @@ struct AvatarCard: View {
     }
 
     private func secondsStepper(_ value: Binding<Int>, label: String? = nil) -> some View {
-        Stepper(value: value, in: AvatarChoice.minSeconds...AvatarChoice.maxSeconds) {
+        Stepper(value: value, in: AvatarChoice.minSeconds...maxSeconds) {
             Text((label.map { $0 + ": " } ?? "") + Tf("%@ seconds", "\(value.wrappedValue)"))
                 .font(Theme.small).foregroundStyle(Theme.black)
         }

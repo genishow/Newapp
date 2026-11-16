@@ -25,6 +25,8 @@ struct AvatarChoice: Equatable {
     /// One appearance is 3 to 14 seconds.
     static let minSeconds = 3
     static let maxSeconds = 14
+    /// The longest appearance before the account has bought credits.
+    static let freeMaxSeconds = 5
 
     var enabled = false
     /// The length an appearance uses until it is given its own.
