@@ -301,7 +301,7 @@ struct DemoCard: View {
     @State private var ready = false
     @State private var problem: String?
     @State private var quiet = false
-    /// Typed listens before sign in (the samples are free and do not count).
+    /// Listens before sign in, samples included (Geni: five tries, then Start free).
     @AppStorage("kinbir.demoTries") private var tries = 0
     @FocusState private var typing: Bool
 
@@ -310,7 +310,6 @@ struct DemoCard: View {
 
     private var clean: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var over: Bool { DemoRules.isOver(clean) }
-    private var isSample: Bool { clean == DemoRules.sampleAmharic || clean == DemoRules.sampleEnglish }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -356,8 +355,8 @@ struct DemoCard: View {
                         .accessibilityIdentifier("demoSampleAm")
                 }
             }
-            .disabled(busy)
-            .opacity(busy ? 0.4 : 1)
+            .disabled(busy || usedUp)
+            .opacity(busy || usedUp ? 0.4 : 1)
 
             Button {
                 typing = false
@@ -366,7 +365,7 @@ struct DemoCard: View {
                 BusyLabel(title: buttonTitle, busy: busy)
             }
             .buttonStyle(SecondaryButtonStyle())
-            .disabled(busy || clean.isEmpty || over || (usedUp && !ready && !isSample))
+            .disabled(busy || clean.isEmpty || over || (usedUp && !ready))
             .accessibilityIdentifier("demoPlayButton")
 
             NoteText(text: T(DemoRules.meta(clean))).accessibilityIdentifier("demoMeta")
@@ -394,7 +393,7 @@ struct DemoCard: View {
                 .accessibilityIdentifier("demoVolumeNote")
         }
         if usedUp {
-            NoteText(text: W(lang, "That was your 5 free tries. Tap Start free to make your own.",
+            NoteText(text: W(lang, "That was your 5 free listens. Tap Start free to make your own.",
                              "5 ነፃ ሙከራዎችዎን ጨርሰዋል። የራስዎን ለመስራት በነፃ ይጀምሩ የሚለውን ይንኩ።"))
                 .accessibilityIdentifier("demoUsedUp")
         }
@@ -428,8 +427,7 @@ struct DemoCard: View {
     private func play(_ fixed: String? = nil) async {
         let words = fixed ?? clean
         guard !words.isEmpty, !DemoRules.isOver(words) else { return }
-        let typed = fixed == nil && words != DemoRules.sampleAmharic && words != DemoRules.sampleEnglish
-        if typed && usedUp { return }
+        if usedUp { return }
         busy = true
         reading = false
         quiet = false
@@ -455,7 +453,7 @@ struct DemoCard: View {
             let url = try await state.api.demoAudio(id: ref.demoId)
             if player.load(url: url) {
                 ready = true
-                if typed { tries += 1 }
+                tries += 1
                 // A phone on low volume plays it unheard, so say so.
                 quiet = !Launch.isMock && AVAudioSession.sharedInstance().outputVolume < 0.2
                 player.toggle()
