@@ -238,6 +238,8 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("shotsHeading", timeout: 30)
         waitFor("shotRow-1")
         waitFor("shotRow-2")
+        // The page says the shots can be changed.
+        waitFor("shotsHint")
 
         // Open a shot and pick the other clip.
         el("shotRow-1").tap()
