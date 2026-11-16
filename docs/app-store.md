@@ -102,7 +102,7 @@ Plans renew monthly until cancelled in your iPhone Settings. Terms: https://kinb
 **Description in Amharic (add Amharic later only if App Store Connect offers it for the region; otherwise keep it at the end of the English one):**
 ቅንብር በራስዎ ድምፅ የድምፅ ቅጂ ይሠራል። አንድ ጊዜ ስክሪፕት ሲያነቡ ይቅረጹ፤ ከዚያ በኋላ የሚጽፉትን ማንኛውንም ስክሪፕት በአማርኛ ወይም በእንግሊዝኛ በራስዎ ድምፅ ያነባል። የተሳሳተ ቃል ካለ ነክተው ያስተካክሉ፣ ወደ ቪዲዮ ይቀይሩ፣ በፎቶዎች ያስቀምጡ ወይም ያጋሩ።
 
-**Keywords (100):** ethiopia,ethiopian,habesha,voiceover,tts,reels,shorts,caption,avatar,narration,script,dubbing,አማርኛ
+**Keywords (100):** ethiopia,ethiopian,habesha,voiceover,tts,reels,shorts,caption,avatar,generator,script,አማርኛ,ቅንብር
 (No word from the name or subtitle is repeated: Apple already searches those. No other companies' names: Apple can reject for that.)
 
 **Screenshots** (6.9-inch iPhone, 1320 x 2868; at least 3): the Create page with a script, the voiceover player with the speed buttons, the word fix screen, a finished vertical video, the Buy credits screen is not needed. Take them on a 16 Pro Max or Pro Max size, or ask Claude to produce them from the simulator **(Claude)**.
