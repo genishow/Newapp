@@ -582,6 +582,23 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual(body["caption_font"] as? String, "serif")
         XCTAssertEqual(body["graphics"] as? Bool, true)
         XCTAssertEqual(body["graphics_color"] as? String, "blue")
+        XCTAssertEqual(body["price_v"] as? Int, 2)
+    }
+
+    /// The same numbers as the server's tests/test_pricing.py.
+    func testRenderCreditsMatchTheServer() {
+        var plain = RenderOptions()
+        plain.smartEdit = false
+        XCTAssertEqual(plain.credits(durationSec: 40), 2)
+        XCTAssertEqual(plain.credits(durationSec: 180), 2)
+        XCTAssertEqual(plain.credits(durationSec: 181), 3)
+        XCTAssertEqual(plain.credits(durationSec: 600), 5)
+        XCTAssertEqual(plain.credits(durationSec: 1200), 8)
+        var all = RenderOptions()
+        all.graphics = true
+        XCTAssertEqual(all.credits(durationSec: 60), 4)
+        all.quality = "8k"
+        XCTAssertEqual(all.credits(durationSec: 60), 6)
     }
 
     func testAnotherAccountsItemDoesNotSignYouOut() {

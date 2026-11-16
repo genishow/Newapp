@@ -46,9 +46,20 @@ struct RenderOptions: Equatable {
     /// Claude plans camera moves, shot entries and caption highlights (D-448).
     var smartEdit = true
 
+    /// What making the video costs, the same sum the server does (api/pricing.py):
+    /// 2 credits for the first 3 minutes, 1 more for each further 3 minutes, that
+    /// part doubled for 8K, then 1 each for on-screen graphics and smart edit.
+    func credits(durationSec: Double) -> Double {
+        let blocks = (max(0, durationSec - 180) / 180).rounded(.up)
+        var render = 2 + blocks
+        if quality.lowercased() == "8k" { render *= 2 }
+        return render + (graphics ? 1 : 0) + (smartEdit ? 1 : 0)
+    }
+
     /// What is added to the render request.
     func payload(music: Bool, captions: Bool) -> [String: Any] {
-        var body: [String: Any] = ["quality": quality, "smart_edit": smartEdit]
+        // price_v tells the server this app shows the price above
+        var body: [String: Any] = ["quality": quality, "smart_edit": smartEdit, "price_v": 2]
         if music { body["music_level"] = musicLevel }
         if captions { body["caption_font"] = captionFont }
         if graphics {

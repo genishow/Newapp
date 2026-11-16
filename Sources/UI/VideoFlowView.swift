@@ -748,7 +748,7 @@ struct VideoFlowView: View {
     /// The setup screen's one main button, with what it will cost in total.
     private var setupTitle: String {
         guard let estimate else { return T("Make my video") }
-        let price: String = Fmt.credits(estimate + 2 + presenterCredits)
+        let price: String = Fmt.credits(estimate + render.credits(durationSec: audioSec) + presenterCredits)
         return T("Make my video") + " · ≈ " + price + " " + T("credits")
     }
 
@@ -1036,7 +1036,7 @@ struct VideoFlowView: View {
             Button {
                 Task { await makeVideo() }
             } label: {
-                BusyLabel(title: Tf("Make video · %@ credits", Fmt.credits(2 + presenterCredits)),
+                BusyLabel(title: Tf("Make video · %@ credits", Fmt.credits(render.credits(durationSec: audioSec) + presenterCredits)),
                           busy: starting)
             }
             .buttonStyle(PrimaryButtonStyle())
