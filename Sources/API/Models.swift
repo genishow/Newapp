@@ -38,6 +38,8 @@ struct WhoAmI: Codable, Equatable {
     var appleAccountToken: String?
     /// Free voiceovers left in the Kinbir voice (no clone needed).
     var stockFreeLeft: Int?
+    /// Presenter tries left before the first purchase. Nil means no limit.
+    var avatarFreeLeft: Int?
 
     var amharicVoices: [VoiceSummary] { (voices ?? []).filter { $0.isAmharic } }
     var allVoices: [VoiceSummary] { voices ?? [] }

@@ -22,6 +22,8 @@ struct AvatarCard: View {
     /// Accounts that have not paid get short appearances (the server enforces it too).
     private var paid: Bool { state.me?.hasPaid == true }
     private var maxSeconds: Int { paid ? AvatarChoice.maxSeconds : AvatarChoice.freeMaxSeconds }
+    /// Presenter tries left before the first purchase; nil when there is no limit.
+    private var freeLeft: Int? { paid ? nil : state.me?.avatarFreeLeft }
 
     /// Brings every length inside what this account may use.
     private func capLengths() {
@@ -31,6 +33,7 @@ struct AvatarCard: View {
         if let e = choice.endSeconds, e > cap { choice.endSeconds = cap }
         choice.middles = choice.middles.map { min($0, cap) }
         if !paid { choice.wholeVideo = false }
+        if freeLeft != nil { choice.middles = [] }
     }
 
     /// Full frame, at four times the price, when the photo and the video share a shape.
@@ -57,10 +60,32 @@ struct AvatarCard: View {
 
             if ready {
                 photoRow
-                Toggle(T("Use the presenter in this video"), isOn: $choice.enabled)
-                    .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
-                    .accessibilityIdentifier("avatarToggle")
-                if choice.enabled { options }
+                if freeLeft == 0 {
+                    // The one free try is used: the presenter opens with a purchase.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(T("You have used your free presenter. It opens again after your first purchase."))
+                            .font(Theme.body).foregroundStyle(Theme.black)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(T("Buy credits")) {
+                            state.selectedTab = 2
+                            state.pendingAccountRoute = .buyCredits
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("avatarBuyCredits")
+                    }
+                    .card(fill: Theme.grey, padding: 14)
+                    .accessibilityIdentifier("avatarLocked")
+                    .onAppear { choice.enabled = false }
+                } else {
+                    Toggle(T("Use the presenter in this video"), isOn: $choice.enabled)
+                        .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
+                        .accessibilityIdentifier("avatarToggle")
+                    if freeLeft != nil {
+                        NoteText(text: T("Free try: one 5-second appearance in one video. More opens after your first purchase."))
+                            .accessibilityIdentifier("avatarFreeTryNote")
+                    }
+                    if choice.enabled { options }
+                }
             } else {
                 uploadPart
             }
@@ -132,7 +157,8 @@ struct AvatarCard: View {
             Text(T("Where do you appear?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             // One appearance is at most 14 seconds; the whole-video choice is gone (Geni).
             places
-            middlePart
+            // The free try is one appearance, so no middle ones until a purchase.
+            if freeLeft == nil { middlePart }
             delivery
         }
     }
