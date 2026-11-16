@@ -990,6 +990,11 @@ struct VideoFlowView: View {
                 ProblemCard(message: problem)
             }
 
+            if !beats.isEmpty {
+                Text(T("Tap any shot to change its clip, use your own, or move it."))
+                    .font(Theme.small).foregroundStyle(Theme.muted)
+                    .accessibilityIdentifier("shotsHint")
+            }
             // Lazy: only the shots on screen are drawn and their pictures loaded.
             LazyVStack(alignment: .leading, spacing: Theme.gap) {
             ForEach(beats.filter { $0.needsFootage }) { beat in
@@ -1500,6 +1505,13 @@ struct ShotRow: View {
     /// What a check said is wrong with this shot, if anything.
     var flag: String?
 
+    /// "Add footage", or "Change · 4 more" when other clips were found for it.
+    private var changeLabel: String {
+        if beat.isEmpty { return T("Add footage") }
+        let more = max(0, (beat.candidates?.count ?? 0) - 1)
+        return more > 0 ? Tf("Change · %@ more", "\(more)") : T("Change")
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ClipThumb(candidate: beat.chosen)
@@ -1525,8 +1537,23 @@ struct ShotRow: View {
                     Text("! " + flag).font(Theme.smallMedium).foregroundStyle(Theme.black)
                         .lineLimit(2).multilineTextAlignment(.leading)
                 }
+                // Says plainly that the shot can be changed, and how many other
+                // clips are waiting (Geni, 2026-11-16).
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(changeLabel).font(Theme.font(12, .bold, relativeTo: .caption))
+                }
+                .foregroundStyle(Theme.black)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Capsule().fill(Theme.lime))
+                .overlay(Capsule().strokeBorder(Theme.black, lineWidth: 1))
+                .padding(.top, 2)
             }
             Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.muted)
+                .frame(maxHeight: .infinity, alignment: .center)
         }
         .card(fill: beat.isEmpty ? Theme.grey : Theme.white, padding: 12)
     }
