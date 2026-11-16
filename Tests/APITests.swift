@@ -526,9 +526,10 @@ final class VideoDecodingTests: XCTestCase {
 final class AvatarTests: XCTestCase {
     func testCreditsMatchTheServerFormula() {
         // api/avatar.py: 14 s is 5.5 credits as a side panel and 22 full frame.
-        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: false), 5.5)
-        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: true), 22)
-        XCTAssertEqual(AvatarChoice.credits(seconds: 1, fullFrame: false), 0.5)
+        // the same numbers the server gives (avatar_chain.user_price_usd)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: false), 13)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 14, fullFrame: true), 13)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 1, fullFrame: false), 2)
         XCTAssertEqual(AvatarChoice.credits(seconds: 0, fullFrame: true), 0)
     }
 
@@ -902,10 +903,10 @@ final class AvatarPlacementTests: XCTestCase {
 
     func testCreditsRoundTheDollarsFirst() {
         // The totals where the website once quoted half a credit less than the charge.
-        XCTAssertEqual(AvatarChoice.credits(seconds: 155, fullFrame: false), 60.5)
-        XCTAssertEqual(AvatarChoice.credits(seconds: 310, fullFrame: false), 120.5)
-        XCTAssertEqual(AvatarChoice.credits(seconds: 38, fullFrame: false), 15)
-        XCTAssertEqual(AvatarChoice.credits(seconds: 28, fullFrame: true), 43.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 155, fullFrame: false), 140)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 310, fullFrame: false), 280)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 38, fullFrame: false), 34.5)
+        XCTAssertEqual(AvatarChoice.credits(seconds: 28, fullFrame: true), 25.5)
     }
 
     func testClipAddressesAndDecoding() throws {

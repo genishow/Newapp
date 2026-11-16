@@ -162,12 +162,15 @@ struct AvatarChoice: Equatable {
     /// The same formula the server charges with (api/avatar.py). `fullFrame` is true when
     /// the photo and the video have the same shape, which costs four times as much.
     /// The dollars are rounded to six places first, as the server does.
+    /// Mirrors the server since the avatar model chain (D-461): quoted from the
+    /// dearest model, 14 provider credits a second at $0.005 with a 2x markup,
+    /// at least $0.25, then $0.155 per Kinbir credit rounded up to a half.
+    /// Full frame no longer changes the price; the parameter stays for callers.
     static func credits(seconds: Double, fullFrame: Bool) -> Double {
         guard seconds > 0 else { return 0 }
-        let rate = fullFrame ? 0.06 : 0.015
-        let usd = (seconds * rate * 1e6).rounded() / 1e6
-        let raw = usd * 4 / 0.155
-        return max(0.5, (raw * 2).rounded(.up) / 2)
+        let raw = seconds * 14 * 0.005 * 2.0
+        let usd = (max(0.25, raw) * 1e4).rounded() / 1e4
+        return max(0.5, (usd / 0.155 * 2).rounded(.up) / 2)
     }
 }
 

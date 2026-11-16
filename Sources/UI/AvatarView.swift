@@ -202,9 +202,6 @@ struct AvatarCard: View {
                     .accessibilityIdentifier("avatarSeconds")
                 NoteText(text: Tf("The presenter adds about %@ credits. Any part that cannot be made is refunded.", Fmt.credits(quote)))
                     .accessibilityIdentifier("avatarQuote")
-                NoteText(text: fullFrame
-                         ? T("Your photo fills the whole frame at 720p, which costs 4x the side-panel rate.")
-                         : T("Side panel at 480p. A photo shaped like the video fills the frame at 720p and costs 4x."))
             } else {
                 NoteText(text: T("Pick at least one place for your avatar, or turn it off."))
                     .accessibilityIdentifier("avatarNothingPicked")
