@@ -251,6 +251,45 @@ extension View {
             .padding(.vertical, Theme.gap)
             .frame(maxWidth: .infinity, alignment: .leading)
             .modifier(RiseIn())
+            .modifier(KeyboardRoom())
+    }
+}
+
+/// Extra room under the page while the keyboard is up, so the last lines can be
+/// scrolled into view above it (Geni, 2026-11-16: the keyboard covered the bottom).
+private struct KeyboardRoom: ViewModifier {
+    @State private var up = false
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.bottom, up ? 140 : 0)
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                up = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                up = false
+            }
+    }
+}
+
+/// The same top row on every main page: the logo, light or dark, and the credits.
+struct PageHeader: View {
+    @EnvironmentObject private var state: AppState
+
+    var body: some View {
+        HStack {
+            LogoMark(size: 36)
+            Spacer()
+            AppearanceButton()
+            Button {
+                state.selectedTab = 2
+                state.pendingAccountRoute = .buyCredits
+            } label: {
+                Pill(text: Fmt.credits(state.balance) + " " + T("credits"))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("headerCredits")
+        }
     }
 }
 

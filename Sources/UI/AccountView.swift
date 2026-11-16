@@ -14,6 +14,7 @@ struct AccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
+                PageHeader()
                 Text(T("Account")).screenTitle(amharic: A("Account"))
                     .accessibilityIdentifier("accountHeading")
 

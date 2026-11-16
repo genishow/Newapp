@@ -11,6 +11,7 @@ struct LibraryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
+                PageHeader()
                 Text(T("Library")).screenTitle(amharic: A("Library"))
                     .accessibilityIdentifier("libraryHeading")
 

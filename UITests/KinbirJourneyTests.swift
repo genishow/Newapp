@@ -96,7 +96,6 @@ final class KinbirJourneyTests: XCTestCase {
     /// The step-by-step video path lives under More options on the setup screen.
     private func planShotsMyself() {
         waitFor("videoSetupHeading")
-        waitFor("setupMoreOptions").tap()
         app.swipeUp()   // the button sits low, behind the pinned bar on smaller phones
         waitFor("planButton").tap()
     }

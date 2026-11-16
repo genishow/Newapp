@@ -136,7 +136,7 @@ struct EnrollView: View {
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 6) {
                     tip(L("A quiet room, no music or TV.", "ፀጥ ያለ ክፍል፤ ሙዚቃ ወይም ቴሌቪዥን የሌለበት።"))
-                    tip(L("Hold the phone close, about an arm's length.", "ስልኩን ቅርብ ይያዙ፤ በክንድ ርዝመት ያህል።"))
+                    tip(L("Hold the phone close to your mouth, with your face still showing in the video.", "ስልኩን ወደ አፍዎ አቅርበው ይያዙ፤ ፊትዎ ግን በቪዲዮው ላይ ይታይ።"))
                     tip(L("Read the way you want every voiceover to sound.",
                           "እያንዳንዱ የድምፅ ቅጂዎ እንዲሰማ በሚፈልጉት መንገድ ያንብቡ።"))
                     tip(L("We check the statement was said before the voice is made.",

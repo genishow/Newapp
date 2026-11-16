@@ -644,50 +644,41 @@ struct VideoFlowView: View {
                 clipsCard
             }
 
-            // Captions and music are set on the shots page only, so they are not asked twice.
-            // "Make my video" uses captions on and the first track.
-
-            DisclosureGroup(isExpanded: $showSetupOptions) {
-                VStack(alignment: .leading, spacing: 14) {
-                    menuRow(T("Shot length"),
-                            value: T(RenderOptions.shotLengths.first { $0.id == shotLength }?.title ?? "Same as before")) {
-                        ForEach(RenderOptions.shotLengths, id: \.id) { item in
-                            Button(T(item.title)) { shotLength = item.id }
-                        }
-                    }
-                    .accessibilityIdentifier("shotLengthMenu")
-                    menuRow(T("Music breaks"),
-                            value: T(MusicBreaks.choices.first { $0.id == breaks.choice }?.title ?? "None")) {
-                        ForEach(MusicBreaks.choices, id: \.id) { item in
-                            Button(T(item.title)) { breaks.choice = item.id }
-                        }
-                    }
-                    renderRows
-                    Button {
-                        showPresenter = true
-                    } label: {
-                        OptionRow(icon: "person.crop.square", title: T("Add yourself as presenter"),
-                                  value: avatar.enabled ? T("On") : T("Off"))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("presenterRow")
-                    Button {
-                        auto = false
-                        Task { await startPlan() }
-                    } label: {
-                        BusyLabel(title: T("Review the shots first"), busy: starting && !auto)
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
-                    .accessibilityIdentifier("planButton")
+            // Four choices only (Geni, 2026-11-16: shape, footage, shot length,
+            // music). Everything else is on the shots page, once.
+            stepLabel("3", T("Shot length"))
+            menuRow(T("Shot length"),
+                    value: T(RenderOptions.shotLengths.first { $0.id == shotLength }?.title ?? "Same as before")) {
+                ForEach(RenderOptions.shotLengths, id: \.id) { item in
+                    Button(T(item.title)) { shotLength = item.id }
                 }
-                .padding(.top, 12)
-            } label: {
-                Text(T("More options")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("setupMoreOptions")
             }
-            .tint(Theme.black)
+            .accessibilityIdentifier("shotLengthMenu")
+
+            stepLabel("4", T("Music"))
+            HStack {
+                Text(T("Music")).font(Theme.body).foregroundStyle(Theme.black)
+                Spacer()
+                Picker(T("Music"), selection: $musicId) {
+                    Text(T("None")).tag(String?.none)
+                    ForEach(tracks) { track in
+                        Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Theme.black)
+                .accessibilityIdentifier("setupMusicPicker")
+            }
+
+            Button {
+                auto = false
+                Task { await startPlan() }
+            } label: {
+                BusyLabel(title: T("See the shots first"), busy: starting && !auto)
+            }
+            .buttonStyle(QuietButtonStyle())
+            .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+            .accessibilityIdentifier("planButton")
         }
     }
 
@@ -772,7 +763,7 @@ struct VideoFlowView: View {
         .disabled(starting || working != nil || (source == .own && uploads.isEmpty) || presenterBlocked)
         .accessibilityIdentifier("autoVideoButton")
         if source == .own && uploads.isEmpty {
-            NoteText(text: T("Add your clips in More options first, or set Footage to Stock."))
+            NoteText(text: T("Add your clips above first, or set Footage to Stock."))
         }
         if let presenterNote {
             Text(presenterNote).font(Theme.small).foregroundStyle(Theme.black)

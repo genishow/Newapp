@@ -792,6 +792,7 @@ struct WriteSheet: View {
     @State private var estimate: Double?
     @State private var fetching = false
     @State private var problem: String?
+    @State private var newsHint = false
     @FocusState private var typing: Bool
 
     private static let ideas: [(title: String, am: String, en: String)] = [
@@ -970,7 +971,16 @@ struct WriteSheet: View {
                 .accessibilityIdentifier("ideaField")
             ChipRow {
                 ForEach(WriteSheet.ideas, id: \.title) { item in
-                    Chip(title: T(item.title)) { draft.idea = language == .en ? item.en : item.am }
+                    Chip(title: T(item.title)) {
+                        // Kinbir cannot see today's news by itself, so News asks for
+                        // the story's link instead of inventing one (Geni, 2026-11-16).
+                        if item.title == "News" {
+                            newsHint = true
+                            draft.kind = .link
+                        } else {
+                            draft.idea = language == .en ? item.en : item.am
+                        }
+                    }
                 }
             }
             lengthRow
@@ -990,6 +1000,10 @@ struct WriteSheet: View {
             if !draft.faithful { lengthRow }
         case .link:
             Text(T("Paste the link")).screenTitle(amharic: A("Paste the link"))
+            if newsHint {
+                NoteText(text: T("Paste the link to the news story. Kinbir reads it and writes your script from it."))
+                    .accessibilityIdentifier("newsHint")
+            }
             TextField("https://", text: $draft.link)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
