@@ -147,6 +147,7 @@ struct VideoJobView: View {
 
             NoteText(text: [Fmt.length(status.durationSec), T("Kept for 48 hours. Save it if you need it later.")]
                 .filter { !$0.isEmpty }.joined(separator: " · "))
+            ReportLink(id: videoJobId)
         }
     }
 

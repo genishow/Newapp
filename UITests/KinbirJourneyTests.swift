@@ -551,6 +551,18 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("promoSentNote", contains: "Link added")
     }
 
+    /// After sign in, the AI processing notice is agreed to once before anything is made.
+    func testAIConsentIsAskedAfterSignIn() {
+        launch(["-mockAskAIConsent"])
+        signIn()
+        waitFor("aiConsentHeading")
+        waitFor("aiConsentAgree").tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: el("aiConsentHeading"))
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 15), .completed, "the notice stayed open")
+        waitFor("voiceLine")
+    }
+
     /// The first launch asks for a language and the welcome page follows it.
     func testFirstLaunchAsksForLanguage() {
         launch(["-mockAskLanguage"])

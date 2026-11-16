@@ -604,6 +604,26 @@ extension View {
 
 /// One tap changes the colour mode: same as phone, light, dark (Geni: "an icon on the
 /// heading so I can change it"). Shares its setting with the Appearance choice in Account.
+/// "Report a problem" under a finished result: AI output can be wrong, so there
+/// is always a way to tell us about one (App Review asks for this in AI apps).
+struct ReportLink: View {
+    let id: String
+
+    private var url: URL {
+        var parts = URLComponents()
+        parts.scheme = "mailto"
+        parts.path = "support@kinbir.com"
+        parts.queryItems = [URLQueryItem(name: "subject", value: "Problem with a Kinbir result (" + id + ")")]
+        return parts.url ?? URL(string: "mailto:support@kinbir.com")!
+    }
+
+    var body: some View {
+        Link(T("Report a problem with this result"), destination: url)
+            .font(Theme.small).foregroundStyle(Theme.muted)
+            .accessibilityIdentifier("reportLink")
+    }
+}
+
 /// Shown once work has started on the server: it is safe to leave now.
 struct LeaveNote: View {
     var body: some View {

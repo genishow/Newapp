@@ -210,6 +210,7 @@ struct JobView: View {
             }
 
             NoteText(text: T("This file is deleted from our servers within 48 hours. Download it now."))
+            ReportLink(id: jobId)
         }
     }
 

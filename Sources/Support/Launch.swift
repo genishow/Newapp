@@ -10,6 +10,8 @@ enum Launch {
     static let mockStockLimit = args.contains("-mockStockLimit")
     /// The UI tests normally start past the first-launch language question.
     static let mockAskLanguage = args.contains("-mockAskLanguage")
+    /// Shows the AI processing consent in UI tests (they skip it otherwise).
+    static let mockAskAIConsent = args.contains("-mockAskAIConsent")
 
     /// How often the app asks the server about a running job.
     static var jobPollSeconds: Double { isMock ? 0.3 : 3.0 }

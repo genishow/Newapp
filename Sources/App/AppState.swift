@@ -125,6 +125,29 @@ final class AppState: ObservableObject {
         pendingRoute = route
     }
 
+    // MARK: AI processing consent
+
+    /// Apple's review rule 5.1.2(i): before personal data goes to a third-party
+    /// AI service, the app says so and the person agrees. Asked once per account
+    /// on this phone, right after sign in.
+    @Published var aiConsentTick = 0
+
+    private var aiConsentKey: String? {
+        guard let code = store.load() else { return nil }
+        return "aiConsent." + Fmt.ownerTag(code)
+    }
+
+    var needsAIConsent: Bool {
+        if Launch.isMock { return Launch.mockAskAIConsent && aiConsentTick == 0 }
+        guard let key = aiConsentKey else { return false }
+        return !UserDefaults.standard.bool(forKey: key)
+    }
+
+    func giveAIConsent() {
+        if let key = aiConsentKey, !Launch.isMock { UserDefaults.standard.set(true, forKey: key) }
+        aiConsentTick += 1
+    }
+
     // MARK: library cache
 
     /// The last Library list, kept on the phone so the Library shows at once

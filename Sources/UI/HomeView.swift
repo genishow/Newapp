@@ -43,6 +43,75 @@ struct HomeView: View {
                 .tag(2)
         }
         .tint(Theme.black)
+        .fullScreenCover(isPresented: Binding(get: { state.needsAIConsent }, set: { _ in })) {
+            AIConsentView()
+        }
+    }
+}
+
+/// Asked once after sign in: what is sent to AI services, and who they are in
+/// kind. Agree to go on, or sign out. The same facts are in the Privacy Policy.
+struct AIConsentView: View {
+    @EnvironmentObject private var state: AppState
+
+    private let rows: [(String, String, String)] = [
+        ("text.alignleft", "Your scripts and ideas",
+         "sent to an AI writing service to write and improve scripts, and to plan your video."),
+        ("waveform", "Your voice recordings",
+         "used to make your cloned voice and to turn speech into text."),
+        ("person.crop.square", "Your photo and voiceover",
+         "sent to an AI video service to make your presenter, only if you add one."),
+        ("film", "Your clips and video frames",
+         "checked by an AI service so footage matches your words."),
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.gap) {
+                LogoMark(size: 44)
+                Text(T("How Kinbir uses AI")).screenTitle()
+                    .accessibilityIdentifier("aiConsentHeading")
+                Text(T("Kinbir makes your content with AI. Some of it runs on services from other companies that work for us. Here is what they receive:"))
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(rows, id: \.1) { row in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: row.0)
+                                .font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.black)
+                                .frame(width: 36, height: 36)
+                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.lime))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(T(row.1)).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                                Text(T(row.2)).font(Theme.small).foregroundStyle(Theme.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+                .card(fill: Theme.grey)
+
+                NoteText(text: T("They receive it only to make what you ask for. It is not sold and not used for advertising. You can delete your account and everything in it at any time."))
+                Link(T("Privacy Policy"), destination: URL(string: "https://kinbir.com/privacy")!)
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
+            }
+            .page()
+        }
+        .background(Theme.white)
+        .safeAreaInset(edge: .bottom) {
+            BottomBar {
+                VStack(spacing: 10) {
+                    Button(T("I agree")) { state.giveAIConsent() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("aiConsentAgree")
+                    Button(T("Not now, sign me out")) { state.signOut() }
+                        .buttonStyle(QuietButtonStyle())
+                        .accessibilityIdentifier("aiConsentDecline")
+                }
+            }
+        }
+        .interactiveDismissDisabled()
     }
 }
 

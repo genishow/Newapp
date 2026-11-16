@@ -69,7 +69,7 @@ Ask Claude to walk you through each one. Then run **Actions**, **TestFlight (opt
 **Name:** Kinbir
 **Subtitle (30 characters):** AI videos in your own voice
 **Category:** Photo & Video (secondary: Productivity)
-**Age rating:** 4+ answers: no violence, no mature content, no gambling, no unrestricted web access. Answer **Yes** to "User-generated content"? No: scripts stay private to the account.
+**Age rating:** the app is for adults: sign-in says "You must be 18 or older", and cloning a voice or face needs an adult's consent. In the age questionnaire answer no to violence, mature content, gambling and unrestricted web access, then under **Age Assurance / override** choose the highest rating offered (**18+**, or 17+ where 18+ is not offered). A 4+ rating next to an "18 or older" sign-in screen gets rejected. User-generated content: No, scripts stay private to the account.
 **Price:** Free (with in-app purchases)
 **Support URL:** https://kinbir.com
 **Privacy Policy URL:** https://kinbir.com/privacy
@@ -114,7 +114,8 @@ Data collected, all **linked to the user**, **not used for tracking**:
 | User content: Audio data (voice recording) | App functionality |
 | User content: Photos or videos (enrollment video, uploaded clips, presenter photo) | App functionality |
 | User content: Other user content (scripts) | App functionality |
-| Identifiers: Device ID (push token) | App functionality |
+| Identifiers: Device ID (push token, and an app-made phone ID that stops repeat free gifts) | App functionality |
+| Identifiers: User ID (the account) | App functionality |
 | Purchases: Purchase history | App functionality |
 | Usage data: Product interaction | Analytics |
 
@@ -131,9 +132,17 @@ Sign-in required: yes. Kinbir signs in with a code sent by email, so give the re
 - Make a reviewer account with credits and a voice already enrolled, then give it a fixed sign-in code with `POST /admin/review-login` (admin only; only one account, removed after approval) **(Claude)**.
 - Contact: your name, phone, support@kinbir.com.
 
+Before submitting, also check:
+- **AI data sharing (rule 5.1.2(i)).** After sign-in the app shows "How Kinbir uses AI" and needs "I agree" before anything is made; the Privacy Policy lists the same providers by kind. Nothing to do, just know it is there if the reviewer asks.
+- **Credits (rule 3.1.1).** Bought top-up credits never expire; only the monthly plan allowance is capped at renewal.
+- **iPad.** The app is iPhone-only, but Apple also opens it on an iPad in iPhone size. Open the TestFlight build on an iPad once if you can borrow one.
+- **Paid Apps agreement, tax and bank forms** in App Store Connect, Business: purchases do not load for the reviewer until these are Active.
+- **Screenshots must show the real app**, and one must show the Buy credits screen for the in-app purchase review.
+
 Notes text:
 > Kinbir creates voiceovers in the user's own cloned voice. A voice can only be made from a video of the person themself reading a consent statement and a script; enrollment asks for two explicit consents and every voice is checked before use.
 > Sign in: enter the email below, tap Send code, then type the 6-digit code below (this review account accepts it instead of an emailed code).
+> AI: scripts are written by an AI writing service, the presenter video by an AI video service; the app shows this and asks for agreement right after sign-in ("How Kinbir uses AI"). The voice clone and presenter need the person's own consent and a self-declaration, and a "Report a problem with this result" link is under every result.
 > The account already has an enrolled voice and credits, so you can write a script and press Generate (about 30 seconds). Credits are bought through In-App Purchase (Account, Buy credits). Notifications tell the user when a voiceover or video is ready.
 
 ## 11. Submit
