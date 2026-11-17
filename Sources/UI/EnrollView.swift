@@ -268,7 +268,7 @@ struct EnrollView: View {
                 .accessibilityIdentifier("consentVoiceTick")
             tick(isOn: $agreedPolicy,
                  title: T("I have read and agree to the Voice Policy"),
-                 detail: T("My own voice only, no impersonation, and Kinbir may revoke any voice that breaks the rules."))
+                 detail: T("My own voice only, no impersonation. Kinbir checks recordings and removes any voice that is not the person's own, at any time."))
                 .accessibilityIdentifier("consentPolicyTick")
             Link(T("Read the Voice Policy"), destination: EnrollView.policyURL)
                 .font(Theme.smallMedium)
