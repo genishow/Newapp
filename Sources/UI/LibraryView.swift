@@ -7,6 +7,8 @@ struct LibraryView: View {
     @State private var videos: [VideoSummary] = []
     @State private var loaded = false
     @State private var problem: String?
+    /// The item the person asked to delete, until they confirm.
+    @State private var deleting: String?
 
     var body: some View {
         ScrollView {
@@ -39,12 +41,14 @@ struct LibraryView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("videoRow")
+                            .overlay(alignment: .topTrailing) { rowMenu(id: video.videoJobId) }
                         case .voiceover(let job):
                             NavigationLink(value: Route.job(job.jobId)) {
                                 row(job)
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("libraryRow")
+                            .overlay(alignment: .topTrailing) { rowMenu(id: job.jobId) }
                         }
                     }
                     }
@@ -55,6 +59,18 @@ struct LibraryView: View {
         .background(Theme.white)
         .toolbar(.hidden, for: .navigationBar)
         .refreshable { await load() }
+        .confirmationDialog(T("Delete this from your Library?"),
+                            isPresented: Binding(get: { deleting != nil },
+                                                 set: { if !$0 { deleting = nil } }),
+                            titleVisibility: .visible) {
+            Button(T("Delete"), role: .destructive) {
+                if let id = deleting { Task { await delete(id) } }
+                deleting = nil
+            }
+            Button(T("Cancel"), role: .cancel) { deleting = nil }
+        } message: {
+            Text(T("It cannot be brought back. Credits are not returned."))
+        }
         .task {
             // Show the last list straight away, then refresh behind it.
             if !loaded, let cached = state.loadLibraryCache() {
@@ -161,6 +177,34 @@ struct LibraryView: View {
         case "failed": return T("Did not work")
         case "running": return T("Recording")
         default: return T("In line")
+        }
+    }
+
+    /// The three dots on a row: delete it now instead of waiting 48 hours.
+    private func rowMenu(id: String) -> some View {
+        Menu {
+            Button(role: .destructive) { deleting = id } label: {
+                Label(T("Delete"), systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.muted)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(T("More"))
+        .accessibilityIdentifier("rowMenu-" + id)
+    }
+
+    private func delete(_ id: String) async {
+        problem = nil
+        do {
+            try await state.api.deleteLibraryItem(id: id)
+            jobs.removeAll { $0.jobId == id }
+            videos.removeAll { $0.videoJobId == id }
+            state.saveLibraryCache(LibraryCache(jobs: jobs, videos: videos))
+        } catch {
+            problem = state.report(error)
         }
     }
 

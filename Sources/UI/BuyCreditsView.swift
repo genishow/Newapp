@@ -52,6 +52,14 @@ struct BuyCreditsView: View {
                     }
                 }
 
+                if !Launch.isMock, !store.loading, store.products.isEmpty {
+                    // The App Store did not answer: say so and offer another try,
+                    // instead of a page of "Not available".
+                    Button(T("Load prices again")) { Task { await store.load() } }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("reloadPrices")
+                }
+
                 // Anyone can buy a top-up, with or without a plan (Geni, 2026-11-17).
                 Text(T("Buy once")).font(Theme.heading).foregroundStyle(Theme.black)
                 ForEach(Store.plans.filter(\.isTopUp)) { plan in

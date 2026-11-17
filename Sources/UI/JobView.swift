@@ -184,7 +184,7 @@ struct JobView: View {
             Button {
                 Task { await share() }
             } label: {
-                BusyLabel(title: "↓ " + T("Download") + " · " + Fmt.clock(job.audioSec ?? player.duration),
+                BusyLabel(title: T("Share or save as a file") + " · " + Fmt.clock(job.audioSec ?? player.duration),
                           busy: sharing)
             }
             .buttonStyle(SecondaryButtonStyle())

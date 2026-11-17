@@ -150,6 +150,10 @@ final class LiveAPI: KinbirAPI {
         _ = try await send(builder.post("/voices/rename", body: ["voice_id": id, "name": name]))
     }
 
+    func deleteLibraryItem(id: String) async throws {
+        _ = try await send(builder.get("/jobs/\(id)", method: "DELETE"))
+    }
+
     func deleteVoice(id: String) async throws {
         _ = try await send(builder.get("/voices/\(id)", method: "DELETE"))
     }

@@ -34,6 +34,8 @@ protocol KinbirAPI: AnyObject {
     // Voices
     func activateVoice(id: String) async throws
     func renameVoice(id: String, name: String) async throws
+    /// Removes one of the account's own voiceovers or videos from the Library (D-484).
+    func deleteLibraryItem(id: String) async throws
     func deleteVoice(id: String) async throws
     func enrollScript(language: Lang) async throws -> String
     func enroll(videoURL: URL, language: Lang) async throws -> EnrollResult

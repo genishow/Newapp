@@ -66,6 +66,9 @@ enum Amharic {
         "Sign out?": "ይውጡ?", "Yes, sign out": "አዎ፣ ውጣ", "Your work stays in your account. Sign in again with the same email.": "ሥራዎ በመለያዎ ይቆያል። በተመሳሳይ ኢሜይል እንደገና ይግቡ።",
         "Rules": "ደንቦች", "Earned so far: %@ credits": "እስካሁን ያገኙት፦ %@ ክሬዲት",
         "Buy once": "አንድ ጊዜ ይግዙ", "No plan needed. Top-up credits never expire.": "ዕቅድ አያስፈልግም። ተጨማሪ ክሬዲቶች አያልቁም።",
+        "Delete this from your Library?": "ይህን ከማህደርዎ ያጥፉ?",
+        "It cannot be brought back. Credits are not returned.": "መልሶ ማግኘት አይቻልም። ክሬዲት አይመለስም።",
+        "Load prices again": "ዋጋዎችን እንደገና ጫን",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

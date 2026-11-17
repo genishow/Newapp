@@ -178,6 +178,14 @@ final class MockAPI: KinbirAPI {
         }
     }
 
+    func deleteLibraryItem(id: String) async throws {
+        await pause()
+        locked {
+            jobOrder.removeAll { $0 == id }
+            jobStore[id] = nil
+        }
+    }
+
     func deleteVoice(id: String) async throws {
         await pause()
         locked {

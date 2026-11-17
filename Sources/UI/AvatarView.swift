@@ -236,12 +236,12 @@ struct AvatarCard: View {
             }
             .pickerStyle(.segmented)
             NoteText(text: choice.mode == .inVideo
-                     ? T("The avatar plays inside your finished video at the places you picked.")
-                     : T("The video is built without it, and the avatar downloads on its own so you can cut it in yourself."))
+                     ? T("The presenter plays inside your finished video at the places you picked.")
+                     : T("The video is built without it, and the presenter downloads on its own so you can cut it in yourself."))
             if choice.mode == .inVideo {
-                Text(T("Where should your avatar be?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                Text(T("Where should your presenter be?")).font(Theme.smallMedium).foregroundStyle(Theme.black)
                 if shape == .portrait {
-                    Picker(T("Avatar place"), selection: $choice.sideVertical) {
+                    Picker(T("Presenter place"), selection: $choice.sideVertical) {
                         Text(T("Bottom")).tag("bottom")
                         Text(T("Top")).tag("top")
                         Text(T("Full screen")).tag("full")
@@ -249,7 +249,7 @@ struct AvatarCard: View {
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("avatarSide")
                 } else {
-                    Picker(T("Avatar place"), selection: $choice.sideHorizontal) {
+                    Picker(T("Presenter place"), selection: $choice.sideHorizontal) {
                         Text(T("Right")).tag("right")
                         Text(T("Left")).tag("left")
                         Text(T("Full screen")).tag("full")
@@ -259,13 +259,13 @@ struct AvatarCard: View {
                 }
             }
             if quote > 0 {
-                Text(Tf("Avatar: %@s of %@", "\(Int(presenterSeconds))", Fmt.clock(audioSec.rounded(.down))))
+                Text(Tf("Presenter: %@s of %@", "\(Int(presenterSeconds))", Fmt.clock(audioSec.rounded(.down))))
                     .font(Theme.small).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("avatarSeconds")
                 NoteText(text: Tf("The presenter adds about %@ credits. Any part that cannot be made is refunded.", Fmt.credits(quote)))
                     .accessibilityIdentifier("avatarQuote")
             } else {
-                NoteText(text: T("Pick at least one place for your avatar, or turn it off."))
+                NoteText(text: T("Pick at least one place for your presenter, or turn it off."))
                     .accessibilityIdentifier("avatarNothingPicked")
             }
         }
