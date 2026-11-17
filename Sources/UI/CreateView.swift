@@ -68,7 +68,19 @@ struct CreateView: View {
     private var voiceCost: Double { ScriptMath.voiceCredits(seconds: seconds) }
     /// As on the website, the balance is the gate: nothing can be voiced at zero.
     /// The built-in Kinbir voice reads it: always before a clone exists, or when chosen.
-    private var usingStock: Bool { needsVoice || voiceChoice == "kinbir" }
+    /// The account's own voice for the language being written: the one in use if it
+    /// was recorded in that language, else another of theirs that was. A voice
+    /// recorded in Amharic does not read English well, and the other way round
+    /// (Geni listened, 2026-11-17), so the voice follows the script.
+    private var ownVoice: VoiceSummary? {
+        let voices = state.me?.allVoices ?? []
+        func fits(_ v: VoiceSummary) -> Bool { v.isAmharic == (language == .am) }
+        if let active = state.activeVoice, fits(active) { return active }
+        return voices.first(where: fits)
+    }
+    /// They have a voice, but none recorded in this language.
+    private var wrongLanguageVoice: Bool { state.me?.hasVoice == true && ownVoice == nil }
+    private var usingStock: Bool { needsVoice || voiceChoice == "kinbir" || wrongLanguageVoice }
     /// A free Kinbir-voice try is left (D-453).
     private var freeStock: Bool { usingStock && (state.me?.stockFreeLeft ?? 0) > 0 }
     private var outOfCredits: Bool { state.me != nil && state.balance <= 0 && !freeStock }
@@ -287,7 +299,7 @@ struct CreateView: View {
     /// The voice that reads it: one row naming the chosen voice, which opens the voices
     /// page to change it. Cloning sits below as an option, never a requirement.
     private var chosenVoiceName: String {
-        usingStock ? T("Kinbir voice") : (state.activeVoice?.name ?? T("My voice"))
+        usingStock ? T("Kinbir voice") : (ownVoice?.name ?? T("My voice"))
     }
 
     private var voiceSection: some View {
@@ -298,6 +310,23 @@ struct CreateView: View {
             .buttonStyle(.plain)
             .disabled(busy)
             .accessibilityIdentifier("voiceLine")
+            if wrongLanguageVoice {
+                // Said plainly, with the way out: this is why it is not their voice.
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(language == .en
+                         ? T("Your voice was recorded in Amharic, so English is read in the Kinbir voice.")
+                         : T("Your voice was recorded in English, so Amharic is read in the Kinbir voice."))
+                        .font(Theme.small).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                    NavigationLink(value: Route.enroll) {
+                        Text(language == .en ? T("Record an English voice") : T("Record an Amharic voice"))
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("recordOtherLanguage")
+                }
+                .card(fill: Theme.grey, padding: 12)
+                .accessibilityIdentifier("wrongLanguageNote")
+            }
             if usingStock, let left = state.me?.stockFreeLeft, left > 0 {
                 NoteText(text: Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
             }

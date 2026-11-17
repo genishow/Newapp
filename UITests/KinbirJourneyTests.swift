@@ -375,6 +375,8 @@ final class KinbirJourneyTests: XCTestCase {
         XCTAssertFalse(app.buttons["speakButton"].exists)
         // English emphasis sits right on the page
         waitFor("englishCard")
+        // The mock voice was recorded in Amharic, so English says it uses the Kinbir voice.
+        waitFor("wrongLanguageNote")
         type("Coffee was first discovered in Ethiopia.", into: "scriptEditor")
         waitFor("scriptCounter")
         el("voiceButton").tap()

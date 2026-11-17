@@ -71,6 +71,11 @@ enum Amharic {
         "Load prices again": "ዋጋዎችን እንደገና ጫን",
         "Open Kinbir to use it.": "ለመጠቀም ቅንብርን ይክፈቱ።",
         "Your voice could not be made": "ድምፅዎን ማዘጋጀት አልተቻለም", "Open Kinbir and send the recording again.": "ቅንብርን ከፍተው ቅጂውን እንደገና ይላኩ።",
+        "Your voice was recorded in Amharic, so English is read in the Kinbir voice.":
+            "ድምፅዎ በአማርኛ ስለተቀረፀ እንግሊዝኛው በቅንብር ድምፅ ይነበባል።",
+        "Your voice was recorded in English, so Amharic is read in the Kinbir voice.":
+            "ድምፅዎ በእንግሊዝኛ ስለተቀረፀ አማርኛው በቅንብር ድምፅ ይነበባል።",
+        "Record an English voice": "የእንግሊዝኛ ድምፅ ይቅረጹ", "Record an Amharic voice": "የአማርኛ ድምፅ ይቅረጹ",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
