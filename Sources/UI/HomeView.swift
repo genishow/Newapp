@@ -16,6 +16,7 @@ enum Route: Hashable {
     case buyCredits
     case promo
     case creditHistory
+    case faq
 }
 
 /// The signed-in app: Create, Library, Account.
@@ -145,6 +146,8 @@ struct RouteDestinations: ViewModifier {
                 PromoView()
             case .creditHistory:
                 CreditHistoryView()
+            case .faq:
+                FAQView()
             }
         }
     }

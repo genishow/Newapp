@@ -52,6 +52,8 @@ enum Amharic {
         "Script writing": "ስክሪፕት መጻፍ", "Word fix": "የቃል ማስተካከያ", "Voice preview": "የድምፅ ቅምሻ",
         "AI shot": "የኤአይ ቀረጻ", "Top-up": "ተጨማሪ ክሬዲት", "Short video": "አጭር ቪዲዮ", "Returned": "የተመለሰ",
         "Kinbir work": "የቅንብር ሥራ",
+        "Questions": "ጥያቄዎች", "Voice Policy": "የድምፅ ፖሊሲ", "Copyright and reports": "የቅጂ መብትና ሪፖርቶች",
+        "Still have a question? Email us": "ሌላ ጥያቄ አለዎት? ኢሜይል ይላኩልን",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

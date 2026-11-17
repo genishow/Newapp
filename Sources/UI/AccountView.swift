@@ -57,6 +57,13 @@ struct AccountView: View {
                     NavigationLink(value: Route.scriptRules) { rowLabel(T("Script rules")) }
                         .accessibilityIdentifier("scriptRulesRow")
                     divider
+                    NavigationLink(value: Route.faq) { rowLabel(T("Questions")) }
+                        .accessibilityIdentifier("faqRow")
+                    divider
+                    Link(destination: URL(string: "https://kinbir.com/voice-policy")!) { rowLabel(T("Voice Policy")) }
+                    divider
+                    Link(destination: URL(string: "https://kinbir.com/copyright")!) { rowLabel(T("Copyright and reports")) }
+                    divider
                     Link(destination: URL(string: "https://kinbir.com/privacy")!) { rowLabel(T("Privacy")) }
                     divider
                     Link(destination: URL(string: "https://kinbir.com/terms")!) { rowLabel(T("Terms")) }

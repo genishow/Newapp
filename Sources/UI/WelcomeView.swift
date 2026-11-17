@@ -38,6 +38,7 @@ struct WelcomeView: View {
     @EnvironmentObject private var state: AppState
     @AppStorage(WelcomeLanguage.key) private var chosen = ""
     @State private var showSignIn = false
+    @State private var showFAQ = false
 
     /// The UI tests start on the English welcome page, past the language question.
     private var lang: Lang? {
@@ -101,6 +102,8 @@ struct WelcomeView: View {
                         // Kept in English in both languages: the words people know (Geni).
                         Link("Privacy", destination: URL(string: "https://kinbir.com/privacy")!)
                         Link("Terms", destination: URL(string: "https://kinbir.com/terms")!)
+                        Button(W(lang, "Questions", "ጥያቄዎች")) { showFAQ = true }
+                            .accessibilityIdentifier("welcomeFAQ")
                     }
                     .font(Theme.smallMedium)
                     .foregroundStyle(Theme.black)
@@ -110,6 +113,16 @@ struct WelcomeView: View {
         }
         .background(Theme.white)
         .scrollDismissesKeyboard(.interactively)
+        .sheet(isPresented: $showFAQ) {
+            NavigationStack {
+                FAQView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(T("Close")) { showFAQ = false }
+                        }
+                    }
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             BottomBar {
                 Button(W(lang, "Start free", "በነፃ ይጀምሩ")) { showSignIn = true }
