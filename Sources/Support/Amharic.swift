@@ -65,7 +65,7 @@ enum Amharic {
         "No email after a minute? Check your spam folder.": "ከአንድ ደቂቃ በኋላ ኢሜይል ካልደረሰዎት የአይፈለጌ (spam) ማህደርዎን ይመልከቱ።",
         "Sign out?": "ይውጡ?", "Yes, sign out": "አዎ፣ ውጣ", "Your work stays in your account. Sign in again with the same email.": "ሥራዎ በመለያዎ ይቆያል። በተመሳሳይ ኢሜይል እንደገና ይግቡ።",
         "Rules": "ደንቦች", "Earned so far: %@ credits": "እስካሁን ያገኙት፦ %@ ክሬዲት",
-        "Buy once": "አንድ ጊዜ ይግዙ", "No plan needed. Top-up credits never expire.": "ዕቅድ አያስፈልግም። ተጨማሪ ክሬዲቶች አያልቁም።",
+        "Top-up credits never expire.": "ተጨማሪ ክሬዲቶች አያልቁም።",
         "Delete this from your Library?": "ይህን ከማህደርዎ ያጥፉ?",
         "It cannot be brought back. Credits are not returned.": "መልሶ ማግኘት አይቻልም። ክሬዲት አይመለስም።",
         "Load prices again": "ዋጋዎችን እንደገና ጫን",

@@ -505,8 +505,8 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("buyCreditsButton").tap()
         waitFor("buyHeading")
         waitForLabel("buyBalance", contains: "0")
-        // Anyone can buy a top-up, with or without a plan.
-        waitFor("buy-topup10")
+        // Top-ups are for plans only, as on the website.
+        XCTAssertFalse(app.buttons["buy-topup10"].exists)
         waitFor("buy-starter").tap()
         waitForLabel("buyMessage", contains: "110 credits were added")
         waitForLabel("buyBalance", contains: "110")

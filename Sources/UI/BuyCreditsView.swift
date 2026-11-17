@@ -60,12 +60,17 @@ struct BuyCreditsView: View {
                         .accessibilityIdentifier("reloadPrices")
                 }
 
-                // Anyone can buy a top-up, with or without a plan (Geni, 2026-11-17).
-                Text(T("Buy once")).font(Theme.heading).foregroundStyle(Theme.black)
-                ForEach(Store.plans.filter(\.isTopUp)) { plan in
-                    planRow(plan, current: false)
+                // Top-ups are for plan holders (Geni, 2026-11-17: a top-up is cheaper
+                // per credit than Starter, so open to all it would replace the plans).
+                if hasPlan {
+                    Text(T("Top up")).font(Theme.heading).foregroundStyle(Theme.black)
+                    ForEach(Store.plans.filter(\.isTopUp)) { plan in
+                        planRow(plan, current: false)
+                    }
+                    NoteText(text: T("Top-up credits never expire."))
+                } else {
+                    NoteText(text: T("Top-ups are for plans. Start a plan first, then top up any time."))
                 }
-                NoteText(text: T("No plan needed. Top-up credits never expire."))
 
                 Button {
                     Task { await store.restore() }
