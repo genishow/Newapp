@@ -50,7 +50,7 @@ New accounts start with free credits. Making voiceovers and videos uses credits.
 • Starter: 110 credits a month, $19.99 per month
 • Pro: 325 credits a month, $49.99 per month
 • Studio: 650 credits a month, $99.99 per month
-• Top-up: 60 credits, $9.99, one time (for subscribers)
+• Top-up: 60 credits, $9.99, one time, no plan needed
 
 Plans renew every month until you cancel. Payment is charged to your Apple Account at purchase, and the plan renews unless cancelled at least 24 hours before the end of the period. Manage or cancel in iPhone Settings, Apple Account, Subscriptions. Prices may differ by country.
 
@@ -87,7 +87,7 @@ AI CONTENT (5.1.2, 1.2)
 Scripts are written by an AI writing service and the presenter video by an AI video service. The app says so and asks for agreement right after sign-in ("How Kinbir uses AI"). Under every result there is a "Report a problem with this result" link, and support@kinbir.com answers reports. Scripts, voices and videos are private to the account; there is no public feed, chat or sharing between users inside the app.
 
 PURCHASES (3.1.1, 3.1.2)
-Credits are sold only through In-App Purchase: Account, Buy credits. Three auto-renewing monthly subscriptions (Starter, Pro, Studio) and one consumable top-up for subscribers. The purchase screen shows the price, the period, the renewal terms, Restore Purchases, and links to the Terms and Privacy Policy. Credits bought as a top-up never expire. The review account can buy in the sandbox and will receive the credits.
+Credits are sold only through In-App Purchase: Account, Buy credits. Three auto-renewing monthly subscriptions (Starter, Pro, Studio) and one consumable top-up that anyone can buy. The purchase screen shows the price, the period, the renewal terms, Restore Purchases, and links to the Terms and Privacy Policy. Credits bought as a top-up never expire. The review account can buy in the sandbox and will receive the credits.
 
 ACCOUNT DELETION (5.1.1(v))
 Account, Delete account. It deletes the account, the voice, and the files.

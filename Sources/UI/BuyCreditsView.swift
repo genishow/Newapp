@@ -52,14 +52,12 @@ struct BuyCreditsView: View {
                     }
                 }
 
-                if hasPlan {
-                    Text(T("Top up")).font(Theme.heading).foregroundStyle(Theme.black)
-                    ForEach(Store.plans.filter(\.isTopUp)) { plan in
-                        planRow(plan, current: false)
-                    }
-                } else {
-                    NoteText(text: T("Top-ups are for plans. Start a plan first, then top up any time."))
+                // Anyone can buy a top-up, with or without a plan (Geni, 2026-11-17).
+                Text(T("Buy once")).font(Theme.heading).foregroundStyle(Theme.black)
+                ForEach(Store.plans.filter(\.isTopUp)) { plan in
+                    planRow(plan, current: false)
                 }
+                NoteText(text: T("No plan needed. Top-up credits never expire."))
 
                 Button {
                     Task { await store.restore() }
