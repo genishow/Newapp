@@ -32,6 +32,19 @@ enum Notifications {
         if granted { UIApplication.shared.registerForRemoteNotifications() }
     }
 
+    /// Says something now, on the lock screen, when notifications are allowed.
+    static func tellNow(title: String, body: String, id: String) async {
+        guard !Launch.isMock else { return }
+        let center = UNUserNotificationCenter.current()
+        let status = await center.notificationSettings().authorizationStatus
+        guard status == .authorized || status == .provisional || status == .ephemeral else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+    }
+
     /// Called when a result is ready to play. Asks the first time only.
     static func askOnce() async {
         guard !Launch.isMock else { return }
@@ -114,6 +127,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         return true
+    }
+
+    /// iOS finished an upload that was started before the app was put away.
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        guard identifier == BackgroundUploader.sessionId else { completionHandler(); return }
+        BackgroundUploader.shared.systemCompletion = completionHandler
+        BackgroundUploader.shared.onFinishedUnattended = { status in
+            let ok = (200..<300).contains(status)
+            Task {
+                await Notifications.tellNow(
+                    title: ok ? T("Your voice is ready") : T("Your voice could not be made"),
+                    body: ok ? T("Open Kinbir to use it.") : T("Open Kinbir and send the recording again."),
+                    id: "kinbir.voice")
+            }
+        }
+        BackgroundUploader.shared.wake()
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

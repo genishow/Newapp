@@ -69,6 +69,8 @@ enum Amharic {
         "Delete this from your Library?": "ይህን ከማህደርዎ ያጥፉ?",
         "It cannot be brought back. Credits are not returned.": "መልሶ ማግኘት አይቻልም። ክሬዲት አይመለስም።",
         "Load prices again": "ዋጋዎችን እንደገና ጫን",
+        "Open Kinbir to use it.": "ለመጠቀም ቅንብርን ይክፈቱ።",
+        "Your voice could not be made": "ድምፅዎን ማዘጋጀት አልተቻለም", "Open Kinbir and send the recording again.": "ቅንብርን ከፍተው ቅጂውን እንደገና ይላኩ።",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

@@ -176,7 +176,23 @@ final class LiveAPI: KinbirAPI {
         form.addField(name: "language", value: language.rawValue)
         form.addFile(name: "video", filename: "enroll." + ext,
                      mimeType: Multipart.mimeType(forExtension: ext), data: data)
-        return try await decode(EnrollResult.self, builder.multipart("/enroll", form: form))
+        // Handed to iOS, so it goes on when the app is put away: the server needs
+        // about a minute to make the voice, and people do not sit and watch.
+        var request = builder.multipart("/enroll", form: form)
+        let body = request.httpBody ?? Data()
+        request.httpBody = nil
+        let file = BackgroundUploader.bodyFile()
+        defer { try? FileManager.default.removeItem(at: file) }
+        do {
+            try body.write(to: file, options: .atomic)
+            let (answer, status) = try await BackgroundUploader.shared.upload(request, bodyFile: file)
+            guard (200..<300).contains(status) else {
+                throw APIError.from(status: status, data: answer, path: "/enroll")
+            }
+            return try JSON.decoder.decode(EnrollResult.self, from: answer)
+        } catch {
+            throw APIError.wrap(error)
+        }
     }
 
     func enrollCheck(videoURL: URL, language: Lang) async throws -> EnrollCheck {

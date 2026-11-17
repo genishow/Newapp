@@ -197,7 +197,7 @@ struct EnrollView: View {
             if uploading {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.black)
-                    Text(T("Cloning your voice from the recording. This takes about a minute, and this screen moves on by itself when it is done. Please keep the app open."))
+                    Text(T("Cloning your voice from the recording. This takes about a minute. You can leave the app: it goes on, and Kinbir tells you when your voice is ready."))
                         .font(Theme.small).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -531,12 +531,23 @@ struct EnrollView: View {
         uploading = true
         problem = nil
         defer { uploading = false }
+        // So "tell you when it is ready" can be kept: asked once, at this moment.
+        Task { if await Notifications.canAsk() { await Notifications.askNow() } }
         do {
             let answer = try await state.api.enroll(videoURL: take, language: language)
             await state.refresh()
             result = answer
+            if UIApplication.shared.applicationState != .active {
+                await Notifications.tellNow(title: T("Your voice is ready"),
+                                            body: T("Open Kinbir to use it."), id: "kinbir.voice")
+            }
         } catch {
             problem = state.report(error)
+            if UIApplication.shared.applicationState != .active {
+                await Notifications.tellNow(title: T("Your voice could not be made"),
+                                            body: T("Open Kinbir and send the recording again."),
+                                            id: "kinbir.voice")
+            }
         }
     }
 
