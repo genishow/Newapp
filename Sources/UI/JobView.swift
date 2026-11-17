@@ -96,6 +96,9 @@ struct JobView: View {
                         }
                     }
                     .font(Theme.small).foregroundStyle(Theme.grey)
+                    Text(T("Usually 1 to 3 minutes."))
+                        .font(Theme.small).foregroundStyle(Theme.grey)
+                        .accessibilityIdentifier("jobEstimate")
                 }
                 .card(fill: Theme.black)
 
@@ -169,7 +172,15 @@ struct JobView: View {
 
             playerCard(job)
 
-            // Same order as the website: download, fix, then on to the video.
+            // The next step first: it used to sit under the download, the speed
+            // card and the whole fix panel, where people did not find it.
+            NavigationLink(value: Route.video(jobId)) {
+                Text((job.brollPlanId == nil ? T("Turn this into a video") : T("Continue the video")) + " →")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("makeVideoLink")
+
+            // Then download and fix.
             Button {
                 Task { await share() }
             } label: {
@@ -195,12 +206,6 @@ struct JobView: View {
                         })
                     .card(fill: Theme.white, padding: 14)
             }
-
-            NavigationLink(value: Route.video(jobId)) {
-                Text((job.brollPlanId == nil ? T("Turn this into a video") : T("Continue the video")) + " →")
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("makeVideoLink")
 
             if let onMakeAnother {
                 Button(T("Compose another") + " →") { onMakeAnother() }

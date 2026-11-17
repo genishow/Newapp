@@ -434,7 +434,7 @@ struct DemoCard: View {
 
     private var buttonTitle: String {
         if busy { return reading ? T("Reading your text") : T("Waking the voice") }
-        if ready { return player.isPlaying ? "Stop" : "Play" }
+        if ready { return player.isPlaying ? W(lang, "Stop", "አቁም") : W(lang, "Play", "አጫውት") }
         return W(lang, "Hear it in the Kinbir voice", "በቅንብር ድምፅ ያዳምጡ")
     }
 

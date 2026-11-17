@@ -557,7 +557,8 @@ struct CreditsSheet: View {
         ("waveform", "A one-minute voiceover", "≈ 2.5"),
         ("sparkles", "Kinbir writes or changes a script", "≈ 1"),
         ("wand.and.stars", "Fixing words, all together", "1.5"),
-        ("film", "A finished video", "≈ 5"),
+        ("list.bullet.rectangle", "Planning the shots of a video", "by length"),
+        ("film", "Making the video", "from 2"),
     ]
 
     var body: some View {
@@ -695,15 +696,36 @@ struct MailButton<Label: View>: View {
 
 /// Shown once work has started on the server: it is safe to leave now.
 struct LeaveNote: View {
+    /// The phone has not been asked about notifications yet. This is the moment
+    /// they are worth something: the person is about to leave and wait.
+    @State private var canAsk = false
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16)).foregroundStyle(Theme.black)
-            Text(T("You can leave now. It will be in your Library."))
-                .font(Theme.smallMedium).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 16)).foregroundStyle(Theme.black)
+                Text(T("You can leave now. It will be in your Library."))
+                    .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            if canAsk {
+                Button {
+                    Task {
+                        await Notifications.askNow()
+                        canAsk = false
+                    }
+                } label: {
+                    Label(T("Tell me when it is ready"), systemImage: "bell")
+                        .font(Theme.smallMedium).foregroundStyle(Theme.black)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("notifyMeButton")
+            }
         }
+        .task { canAsk = await Notifications.canAsk() }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.45)))
         .accessibilityElement(children: .combine)

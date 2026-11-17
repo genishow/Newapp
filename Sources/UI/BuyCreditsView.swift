@@ -23,7 +23,7 @@ struct BuyCreditsView: View {
                         .accessibilityIdentifier("buyBalance")
                     Text(T("credits now")).font(Theme.body).foregroundStyle(Theme.black)
                 }
-                NoteText(text: T("A one-minute voiceover is about 2.5 credits. A one-minute video with footage is about 12."))
+                NoteText(text: T("A one-minute voiceover is about 2.5 credits. A video is priced by its length, and you see the price before you make it."))
 
                 if let message = store.message {
                     Text(message).font(Theme.body).foregroundStyle(Theme.black)

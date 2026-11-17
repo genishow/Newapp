@@ -43,6 +43,11 @@ struct SignInView: View {
                         .onChange(of: code) { _, new in
                             let digits = new.filter { $0.isNumber }
                             if digits != new || digits.count > 6 { code = String(digits.prefix(6)) }
+                            // Six digits is the whole code: go on without another tap.
+                            // (The screen tests press Continue themselves.)
+                            else if digits.count == 6, !busy, !Launch.isMock {
+                                Task { await verify() }
+                            }
                         }
 
                     Button {
@@ -67,6 +72,8 @@ struct SignInView: View {
                         }
                         .buttonStyle(QuietButtonStyle())
                     }
+                    NoteText(text: T("No email after a minute? Check your spam folder."))
+                        .accessibilityIdentifier("spamHint")
                 } else {
                     Text(T("No password. We email you a code. If you are new, this also creates your account."))
                         .font(Theme.body).foregroundStyle(Theme.muted)

@@ -26,6 +26,8 @@ struct LibraryView: View {
                                detail: T("Your voiceovers and videos appear here for 48 hours."))
                         .accessibilityIdentifier("libraryEmpty")
                 } else {
+                    NoteText(text: T("Files are kept for 48 hours. Save what you want to keep."))
+                        .accessibilityIdentifier("libraryKeepNote")
                     // One list, newest first: videos and voiceovers together.
                     // Lazy, so only the rows on screen are drawn.
                     LazyVStack(alignment: .leading, spacing: Theme.gap) {
@@ -116,7 +118,7 @@ struct LibraryView: View {
                 .multilineTextAlignment(.leading)
             HStack(spacing: 8) {
                 Pill(text: statusLabel(job.status), fill: job.status == "done" ? Theme.lime : Theme.grey)
-                if job.status == "done", let hours = Fmt.hoursLeft(job.finishedAt), hours <= 12 {
+                if job.status == "done", let hours = Fmt.hoursLeft(job.finishedAt) {
                     Pill(text: Tf("%@ h left", "\(hours)"), fill: Theme.white)
                 }
                 Text([Fmt.length(job.audioSec), Fmt.ago(job.finishedAt ?? job.createdAt)]
@@ -140,7 +142,7 @@ struct LibraryView: View {
                 .multilineTextAlignment(.leading)
             HStack(spacing: 8) {
                 Pill(text: video.orientation == "landscape" ? T("Horizontal") : T("Vertical"))
-                if let hours = Fmt.hoursLeft(video.finishedAt), hours <= 12 {
+                if let hours = Fmt.hoursLeft(video.finishedAt) {
                     Pill(text: Tf("%@ h left", "\(hours)"), fill: Theme.white)
                 }
                 Text([Fmt.length(video.durationSec), Fmt.ago(video.finishedAt)]

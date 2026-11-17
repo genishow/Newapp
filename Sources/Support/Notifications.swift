@@ -16,6 +16,22 @@ enum Notifications {
 
     weak static var state: AppState?
 
+    /// True when the phone has never been asked: the app can still offer it.
+    static func canAsk() async -> Bool {
+        guard !Launch.isMock else { return false }
+        return await UNUserNotificationCenter.current().notificationSettings()
+            .authorizationStatus == .notDetermined
+    }
+
+    /// Asks now, because the person tapped "Tell me when it is ready".
+    static func askNow() async {
+        guard !Launch.isMock else { return }
+        UserDefaults.standard.set(true, forKey: askedKey)
+        let granted = (try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        if granted { UIApplication.shared.registerForRemoteNotifications() }
+    }
+
     /// Called when a result is ready to play. Asks the first time only.
     static func askOnce() async {
         guard !Launch.isMock else { return }
@@ -82,6 +98,8 @@ enum Notifications {
 
     /// A tapped notification opens what it is about.
     static func route(from userInfo: [AnyHashable: Any]) -> Route? {
+        // "Your video was approved": open the page that shows it
+        if (userInfo["kind"] as? String) == "promo" { return .promo }
         guard let id = userInfo["job_id"] as? String, !id.isEmpty else { return nil }
         if (userInfo["kind"] as? String) == "video" {
             return .videoJob(id, landscape: false)

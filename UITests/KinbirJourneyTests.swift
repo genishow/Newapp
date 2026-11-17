@@ -190,6 +190,7 @@ final class KinbirJourneyTests: XCTestCase {
 
         // Sign out returns to Welcome.
         waitFor("signOutButton").tap()
+        waitFor("signOutConfirm").tap()
         waitFor("welcomeHeading")
     }
 

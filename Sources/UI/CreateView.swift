@@ -14,6 +14,7 @@ struct CreateView: View {
     }
 
     @State private var work: Work = .idle
+    @AppStorage("kinbir.sawFreeCredits") private var sawFreeCredits = false
     /// True while the microphone is being opened, so a second tap cannot start it twice.
     @State private var micStarting = false
     @State private var problem: String?
@@ -306,7 +307,7 @@ struct CreateView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("cloneVoiceButton")
-                NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice."))
+                NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice. Your first voice earns free credits."))
             }
         }
     }
@@ -335,8 +336,24 @@ struct CreateView: View {
         }
     }
 
+    /// A new account is told once that it has free credits and what they buy
+    /// (the server gives them silently, so nobody knew).
     @ViewBuilder private var topCard: some View {
-        EmptyView()
+        if !Launch.isMock, !sawFreeCredits, state.me?.hasPaid != true, state.balance > 0 {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(Tf("You have %@ free credits", Fmt.credits(state.balance)))
+                    .font(Theme.heading).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("freeCreditsTitle")
+                Text(T("A one-minute voiceover is about 2.5 credits. Write a few sentences below and tap Make voiceover to try it."))
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(T("Got it")) { sawFreeCredits = true }
+                    .buttonStyle(QuietButtonStyle())
+                    .accessibilityIdentifier("freeCreditsDismiss")
+            }
+            .card(fill: Theme.lime)
+            .accessibilityIdentifier("freeCreditsCard")
+        }
     }
 
     private var placeholder: String {

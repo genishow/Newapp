@@ -54,6 +54,17 @@ enum Amharic {
         "Kinbir work": "የቅንብር ሥራ",
         "Questions": "ጥያቄዎች", "Voice Policy": "የድምፅ ፖሊሲ", "Copyright and reports": "የቅጂ መብትና ሪፖርቶች",
         "Still have a question? Email us": "ሌላ ጥያቄ አለዎት? ኢሜይል ይላኩልን",
+        "You have %@ free credits": "%@ ነፃ ክሬዲት አለዎት", "Got it": "ገባኝ",
+        "A one-minute voiceover is about 2.5 credits. Write a few sentences below and tap Make voiceover to try it.":
+            "የአንድ ደቂቃ ትረካ 2.5 ክሬዲት ገደማ ነው። ከታች ጥቂት ዓረፍተ ነገሮችን ጽፈው ይሞክሩ።",
+        "Files are kept for 48 hours. Save what you want to keep.": "ፋይሎች ለ48 ሰዓት ይቆያሉ። ማቆየት የሚፈልጉትን ያስቀምጡ።",
+        "Tell me when it is ready": "ሲዘጋጅ አሳውቀኝ", "Usually 1 to 3 minutes.": "ብዙ ጊዜ ከ1 እስከ 3 ደቂቃ ይወስዳል።",
+        "Planning the shots of a video": "የቪዲዮውን ቀረጻዎች ማቀድ", "Making the video": "ቪዲዮውን መሥራት",
+        "A one-minute voiceover is about 2.5 credits. A video is priced by its length, and you see the price before you make it.":
+            "የአንድ ደቂቃ ትረካ 2.5 ክሬዲት ገደማ ነው። የቪዲዮ ዋጋ በርዝመቱ ይወሰናል፤ ከመሥራትዎ በፊት ዋጋውን ያያሉ።",
+        "No email after a minute? Check your spam folder.": "ከአንድ ደቂቃ በኋላ ኢሜይል ካልደረሰዎት የአይፈለጌ (spam) ማህደርዎን ይመልከቱ።",
+        "Sign out?": "ይውጡ?", "Yes, sign out": "አዎ፣ ውጣ", "Your work stays in your account. Sign in again with the same email.": "ሥራዎ በመለያዎ ይቆያል። በተመሳሳይ ኢሜይል እንደገና ይግቡ።",
+        "Rules": "ደንቦች", "Earned so far: %@ credits": "እስካሁን ያገኙት፦ %@ ክሬዲት",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AccountView: View {
+    @State private var confirmSignOut = false
     @EnvironmentObject private var state: AppState
     @AppStorage("kinbir.appearance") private var appearance = "light"
 
@@ -85,9 +86,27 @@ struct AccountView: View {
                 }
                 .card(fill: Theme.grey, padding: 14)
 
-                Button(T("Sign out")) { state.signOut() }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("signOutButton")
+                // One tap used to sign out at once. It asks first now, in the page
+                // itself, so it reads the same in light and dark and in the tests.
+                if confirmSignOut {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(T("Sign out?")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        Text(T("Your work stays in your account. Sign in again with the same email."))
+                            .font(Theme.small).foregroundStyle(Theme.black)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(T("Yes, sign out")) { state.signOut() }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier("signOutConfirm")
+                        Button(T("Cancel")) { confirmSignOut = false }
+                            .buttonStyle(QuietButtonStyle())
+                            .accessibilityIdentifier("signOutCancel")
+                    }
+                    .card(fill: Theme.grey, padding: 14)
+                } else {
+                    Button(T("Sign out")) { confirmSignOut = true }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("signOutButton")
+                }
 
                 NavigationLink(value: Route.deleteAccount) { Text(T("Delete my account")) }
                     .buttonStyle(QuietButtonStyle())

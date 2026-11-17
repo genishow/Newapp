@@ -22,6 +22,11 @@ struct PromoView: View {
     @State private var stage = ""
     @State private var problem: String?
     @State private var sentNote: String?
+    @State private var showRules = false
+    /// Credits received so far for approved videos.
+    private var earned: Double {
+        (list?.promos ?? []).filter { $0.status == "approved" }.reduce(0) { $0 + ($1.credits ?? 0) }
+    }
 
     private var reward: String { Fmt.credits(list?.reward ?? 40) }
     private var perPlatform: String { Fmt.credits(list?.perPlatform ?? 10) }
@@ -68,6 +73,11 @@ struct PromoView: View {
 
                 if let promos = list?.promos, !promos.isEmpty {
                     Text(T("Your videos")).font(Theme.heading).foregroundStyle(Theme.black)
+                    if earned > 0 {
+                        Text(Tf("Earned so far: %@ credits", Fmt.credits(earned)))
+                            .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                            .accessibilityIdentifier("promoEarned")
+                    }
                     ForEach(promos) { promo in
                         row(promo)
                     }
@@ -91,21 +101,38 @@ struct PromoView: View {
     private var tips: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(T("How it works")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            // Three steps first; the fine print opens on a tap (it was seven
+            // bullets and a legal paragraph before any button).
             ForEach([
                 T("1. Film a video about Kinbir, at least 1 minute and at most 3, upright (vertical)."),
                 T("2. Post it on your own TikTok, Instagram, YouTube and Facebook, and keep it up."),
                 T("3. Paste the link to each post and send them here with the same video."),
-                T("Posted somewhere new later? Add the link to your video below and earn the rest."),
-                T("Up to 10 videos per account. A video that is not approved does not count."),
-                T("Show Kinbir on your screen and say what you made with it. Amharic or English."),
-                T("No music or clips you do not own. Use music from the app you post on, or none."),
             ], id: \.self) { line in
-                HStack(alignment: .top, spacing: 8) {
-                    Text("•").font(Theme.body).foregroundStyle(Theme.black)
-                    Text(line).font(Theme.small).foregroundStyle(Theme.black)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(line).font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            DisclosureGroup(isExpanded: $showRules) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach([
+                        T("Posted somewhere new later? Add the link to your video below and earn the rest."),
+                        T("Up to 10 videos per account. A video that is not approved does not count."),
+                        T("Show Kinbir on your screen and say what you made with it. Amharic or English."),
+                        T("No music or clips you do not own. Use music from the app you post on, or none."),
+                    ], id: \.self) { line in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("•").font(Theme.body).foregroundStyle(Theme.black)
+                            Text(line).font(Theme.small).foregroundStyle(Theme.black)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            } label: {
+                Text(T("Rules")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+            .tint(Theme.black)
+            .accessibilityIdentifier("promoRules")
         }
         .card(fill: Theme.white, padding: 14)
     }
