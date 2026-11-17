@@ -1244,7 +1244,8 @@ struct VideoFlowView: View {
                     if stage == .shots { Task { await quietTools() } }
                     return
                 }
-                if latest.status == "failed" {
+                // "done" with no shot list is a failure too; asking again would never end.
+                if latest.status == "failed" || latest.status == "done" {
                     UserDefaults.standard.removeObject(forKey: planJobKey)
                     problem = latest.error.map(APIError.sentenceCase)
                         ?? "The plan could not be made. Your credits were returned."

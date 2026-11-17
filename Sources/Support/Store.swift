@@ -40,10 +40,16 @@ final class Store: ObservableObject {
                 await self?.handle(result, quiet: true)
             }
         }
-        Task { [weak self] in
-            for await result in Transaction.unfinished {
-                await self?.handle(result, quiet: true)
-            }
+        Task { [weak self] in await self?.resendUnfinished() }
+    }
+
+    /// Sends again anything paid for that the server has not confirmed yet. Run at
+    /// launch and again right after sign-in: at launch a signed-out phone cannot
+    /// report a purchase, so without the second run it would wait for the next launch.
+    func resendUnfinished() async {
+        guard !Launch.isMock, state?.accessCode != nil else { return }
+        for await result in Transaction.unfinished {
+            await handle(result, quiet: true)
         }
     }
 
@@ -109,23 +115,31 @@ final class Store: ObservableObject {
             return
         }
         try? await AppStore.sync()
-        var sent = 0
+        // The plan in force, plus anything paid for but not confirmed yet. A top-up
+        // is only ever in the second list: Apple does not keep one-time purchases
+        // in the first.
+        var seen: Set<UInt64> = []
+        var outcomes: [PurchaseOutcome] = []
         for await result in Transaction.currentEntitlements {
-            if case .verified = result {
-                await handle(result, quiet: true)
-                sent += 1
+            if case .verified(let t) = result, seen.insert(t.id).inserted {
+                outcomes.append(await handle(result, quiet: true))
+            }
+        }
+        for await result in Transaction.unfinished {
+            if case .verified(let t) = result, seen.insert(t.id).inserted {
+                outcomes.append(await handle(result, quiet: true))
             }
         }
         await state.refresh()
-        message = sent == 0 ? T("No purchases found for this Apple ID.")
-                            : T("Your purchases are up to date.")
+        message = PurchaseOutcome.restoreMessage(outcomes)
     }
 
-    private func handle(_ result: VerificationResult<Transaction>, quiet: Bool) async {
-        guard let state else { return }
+    @discardableResult
+    private func handle(_ result: VerificationResult<Transaction>, quiet: Bool) async -> PurchaseOutcome {
+        guard let state else { return .later }
         guard case .verified(let transaction) = result else {
             if !quiet { message = T("Apple could not confirm this purchase.") }
-            return
+            return .unverified
         }
         do {
             let answer = try await state.api.reportApplePurchase(signedTransaction: result.jwsRepresentation)
@@ -137,11 +151,22 @@ final class Store: ObservableObject {
                                                       : Tf("Thank you. %@ credits were added.", added)
                 Haptics.success()
             }
+            return .confirmed
         } catch {
+            let e = APIError.wrap(error)
+            if PurchaseOutcome.isFinal(status: e.status) {
+                // The server will never take this one (it belongs to another Kinbir
+                // account, or Apple refunded it). Sending it again on every launch
+                // would only repeat the refusal, so it is closed and the reason shown.
+                await transaction.finish()
+                if !quiet { message = e.message }
+                return .refused(e.message)
+            }
             // Not finished on purpose: StoreKit hands it back and it is sent again later.
             if !quiet {
                 message = T("Paid, but the credits are not added yet. They will be added automatically, or tap Restore purchases.")
             }
+            return .later
         }
     }
 

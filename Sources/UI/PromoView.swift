@@ -394,7 +394,7 @@ enum PromoVideo {
     private static func export(_ source: URL, preset: String) async -> URL? {
         let asset = AVURLAsset(url: source)
         guard let session = AVAssetExportSession(asset: asset, presetName: preset) else { return nil }
-        let target = FileManager.default.temporaryDirectory
+        let target = TempFiles.folder
             .appendingPathComponent("kinbir-promo-" + UUID().uuidString)
             .appendingPathExtension("mp4")
         session.outputURL = target

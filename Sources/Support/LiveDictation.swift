@@ -56,6 +56,9 @@ final class LiveDictation {
                 endTold = false
             }
             openSocket(base: base, accessCode: accessCode)
+            // A tap left from a start that failed (a phone call in progress, say)
+            // would make the next installTap crash the app, so it is cleared first.
+            input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { [weak self] buffer, _ in
                 self?.heard(buffer)
             }
@@ -64,6 +67,9 @@ final class LiveDictation {
             running = true
             return true
         } catch {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+            socket?.cancel(with: .goingAway, reason: nil)
             return false
         }
     }
@@ -107,9 +113,9 @@ final class LiveDictation {
 
     /// Everything that was heard, as a wav file, for the one-request way of transcribing.
     func takeFile() -> URL? {
-        let target = FileManager.default.temporaryDirectory
-            .appendingPathComponent("kinbir-speech-" + UUID().uuidString)
-            .appendingPathExtension("wav")
+        // One file, written over each time: a take is read every couple of seconds
+        // while talking, and a new file per read filled the phone's temporary space.
+        let target = TempFiles.url(name: "kinbir-speech-live", ext: "wav")
         if Launch.isMock {
             try? Data("speech".utf8).write(to: target)
             return target
@@ -117,7 +123,7 @@ final class LiveDictation {
         let samples = queue.sync { pcm }
         guard samples.count > 16_000 else { return nil }   // under half a second: nothing to send
         do {
-            try LiveDictation.wav(samples).write(to: target)
+            try LiveDictation.wav(samples).write(to: target, options: .atomic)
             return target
         } catch {
             return nil

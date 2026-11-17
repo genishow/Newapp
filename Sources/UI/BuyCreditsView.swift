@@ -33,7 +33,7 @@ struct BuyCreditsView: View {
                 }
 
                 if planVia == "web" {
-                    Text(T("Your plan is paid on the Kinbir website, so it is changed or cancelled there. Credits you buy there show here too."))
+                    Text(T("Your plan is paid on the Kinbir website, so it is changed or cancelled there."))
                         .font(Theme.body).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
                         .card(fill: Theme.grey, padding: 14)

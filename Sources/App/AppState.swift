@@ -66,6 +66,15 @@ final class AppState: ObservableObject {
             phase = .signedOut
             return
         }
+        // A slow connection must not hold the opening screen: after 8 seconds the
+        // app opens as it does when offline, and the account loads when it answers.
+        let opener = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard !Task.isCancelled, let self, self.phase == .loading else { return }
+            self.phase = .signedIn
+            self.applyPendingRoute()
+        }
+        defer { opener.cancel() }
         do {
             me = try await api.whoami()
             phase = .signedIn
@@ -78,6 +87,16 @@ final class AppState: ObservableObject {
                 phase = .signedIn
             }
         }
+        applyPendingRoute()
+    }
+
+    /// A notification tapped while the app was still opening.
+    private var waitingRoute: Route?
+
+    private func applyPendingRoute() {
+        guard phase == .signedIn, let route = waitingRoute else { return }
+        waitingRoute = nil
+        open(route)
     }
 
     func signIn(with result: AuthResult) async {
@@ -120,6 +139,7 @@ final class AppState: ObservableObject {
 
     /// Opens a voiceover or video in the Library, from a notification.
     func open(_ route: Route) {
+        if phase == .loading { waitingRoute = route; return }
         guard phase == .signedIn else { return }
         selectedTab = 1
         pendingRoute = route

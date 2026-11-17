@@ -93,8 +93,8 @@ struct WelcomeView: View {
                 DemoCard(lang: lang)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(W(lang, "Your first voiceovers are free. No card needed.",
-                           "የመጀመሪያዎቹ የድምፅ ቅጂዎች ነፃ ናቸው። ካርድ አያስፈልግም።"))
+                    Text(W(lang, "Your first voiceovers are free. Nothing to pay.",
+                           "የመጀመሪያዎቹ የድምፅ ቅጂዎች ነፃ ናቸው። ምንም ክፍያ የለም።"))
                         .font(Theme.small).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 20) {

@@ -657,9 +657,39 @@ struct ReportLink: View {
     }
 
     var body: some View {
-        Link(T("Report a problem with this result"), destination: url)
-            .font(Theme.small).foregroundStyle(Theme.muted)
-            .accessibilityIdentifier("reportLink")
+        MailButton(url: url) {
+            Text(T("Report a problem with this result"))
+                .font(Theme.small).foregroundStyle(Theme.muted)
+        }
+        .accessibilityIdentifier("reportLink")
+    }
+}
+
+/// Opens a new email to Kinbir. On a phone with no mail app set up, a tap on a
+/// plain mail link does nothing at all, so this shows the address to copy instead.
+struct MailButton<Label: View>: View {
+    let url: URL
+    @ViewBuilder var label: () -> Label
+    @Environment(\.openURL) private var openURL
+    @State private var showAddress = false
+
+    static var address: String { "support@kinbir.com" }
+
+    var body: some View {
+        Button {
+            openURL(url) { opened in
+                if !opened { showAddress = true }
+            }
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .alert(T("Email us"), isPresented: $showAddress) {
+            Button(T("Copy address")) { UIPasteboard.general.string = MailButton.address }
+            Button(T("Close"), role: .cancel) {}
+        } message: {
+            Text(MailButton.address)
+        }
     }
 }
 

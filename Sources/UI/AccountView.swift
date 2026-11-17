@@ -58,7 +58,7 @@ struct AccountView: View {
                     divider
                     Link(destination: URL(string: "https://kinbir.com/terms")!) { rowLabel(T("Terms")) }
                     divider
-                    Link(destination: URL(string: "mailto:support@kinbir.com")!) { rowLabel(T("Support")) }
+                    MailButton(url: URL(string: "mailto:support@kinbir.com")!) { rowLabel(T("Support")) }
                 }
                 .card(fill: Theme.white, padding: 4)
 

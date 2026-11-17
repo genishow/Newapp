@@ -95,6 +95,9 @@ Account, Delete account. It deletes the account, the voice, and the files.
 AGE
 The app is for adults 18 and older; the sign-in screen says so and the age rating is set to match.
 
+EARN CREDITS
+Account, Earn credits: a user may send us a video they made about Kinbir and posted on their own social media. Each one is reviewed by a person; if approved, the user gets credits as a thank-you. It is optional, nothing in the app is locked behind it, and no rating or review of the app is asked for.
+
 AVAILABILITY
 The app is not offered in the European Union for now.
 

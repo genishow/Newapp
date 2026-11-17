@@ -115,7 +115,7 @@ struct VideoLibraryPicker: UIViewControllerRepresentable {
 enum VideoFiles {
     static func copyToTemp(_ source: URL) -> URL? {
         let ext = source.pathExtension.isEmpty ? "mov" : source.pathExtension.lowercased()
-        let target = FileManager.default.temporaryDirectory
+        let target = TempFiles.folder
             .appendingPathComponent("kinbir-enroll-" + UUID().uuidString)
             .appendingPathExtension(ext)
         do {

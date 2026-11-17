@@ -42,6 +42,9 @@ enum Amharic {
         // Tabs and common words
         "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Buy credits": "ክሬዲት ይግዙ", "Earn credits": "ክሬዲት ያግኙ", "Kinbir": "ቅንብር",
         "Done": "ጨርስ", "Cancel": "ሰርዝ", "Continue": "ቀጥል", "Close": "ዝጋ", "Save": "አስቀምጥ",
+        "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
+        "Could not reach Kinbir to check your purchases. Try again in a moment.":
+            "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
         "Delete": "አጥፋ", "Rename": "ስም ቀይር", "Remove": "አስወግድ", "Change": "ቀይር",
         "Undo": "መልስ", "Clear": "አጽዳ", "Copy": "ቅዳ", "Copied": "ተቀድቷል", "Listen": "አድምጥ",
         "Use": "ተጠቀም", "Play": "አጫውት", "Pause": "ለአፍታ አቁም", "Stop": "አቁም", "Speak": "ተናገር",
@@ -62,7 +65,7 @@ enum Amharic {
         "Play again": "እንደገና አጫውት", "Preparing": "በመዘጋጀት ላይ",
         "Preparing the voice. The first time can take a minute.": "ድምፁ እየተዘጋጀ ነው። ለመጀመሪያ ጊዜ አንድ ደቂቃ ሊወስድ ይችላል።",
         "Start free": "በነፃ ጀምር",
-        "Your first voiceovers are free. No card needed.": "የመጀመሪያ ትረካዎችዎ ነፃ ናቸው። ካርድ አያስፈልግም።",
+        "Your first voiceovers are free. Nothing to pay.": "የመጀመሪያ ትረካዎችዎ ነፃ ናቸው። ምንም ክፍያ የለም።",
         "Privacy": "ግላዊነት", "Terms": "ውሎች", "Support": "ድጋፍ",
         "Start with your email": "በኢሜይልዎ ይጀምሩ", "Enter your code": "ኮድዎን ያስገቡ",
         "No password. We email you a code. If you are new, this also creates your account.":

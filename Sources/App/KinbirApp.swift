@@ -27,6 +27,10 @@ struct KinbirApp: App {
                     store.start(state: state)
                     await Notifications.refreshRegistration()
                 }
+                .onChange(of: state.phase) { _, phase in
+                    // a purchase made before signing in is reported now, not next launch
+                    if phase == .signedIn { Task { await store.resendUnfinished() } }
+                }
         }
     }
 }

@@ -9,7 +9,7 @@ final class SpeechRecorder: ObservableObject {
 
     /// Asks for the microphone if needed and starts recording. False when not allowed.
     func start() async -> Bool {
-        let target = FileManager.default.temporaryDirectory
+        let target = TempFiles.folder
             .appendingPathComponent("kinbir-speech-" + UUID().uuidString)
             .appendingPathExtension("m4a")
         file = target

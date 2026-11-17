@@ -91,7 +91,16 @@ final class LiveAPI: KinbirAPI {
     }
 
     func submitPromo(videoURL: URL, links: [String], note: String) async throws -> PromoSubmission {
-        guard let data = try? Data(contentsOf: videoURL) else {
+        // The server takes up to 150 MB. A larger file is refused here, before it is
+        // read: a long 4K video that could not be made smaller is over a gigabyte,
+        // and reading that into memory closes the app.
+        let size = (try? videoURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if size > 150 * 1024 * 1024 {
+            throw APIError(kind: .other, status: 0,
+                           message: "That video is too large to send. Pick a shorter one, up to 3 minutes.")
+        }
+        // mapped: the file is read from disk as it is sent, not copied into memory first
+        guard let data = try? Data(contentsOf: videoURL, options: .mappedIfSafe) else {
             throw APIError(kind: .other, status: 0, message: "That video could not be read. Try another.")
         }
         let ext = videoURL.pathExtension.lowercased().isEmpty ? "mp4" : videoURL.pathExtension.lowercased()

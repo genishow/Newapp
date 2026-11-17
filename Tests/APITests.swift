@@ -585,6 +585,21 @@ final class AvatarTests: XCTestCase {
         XCTAssertEqual(body["price_v"] as? Int, 2)
     }
 
+    func testRestoreSaysWhatReallyHappened() {
+        XCTAssertEqual(PurchaseOutcome.restoreMessage([]), "No purchases found for this Apple ID.")
+        XCTAssertEqual(PurchaseOutcome.restoreMessage([.confirmed]), "Your purchases are up to date.")
+        // the server could not be reached: never "up to date"
+        XCTAssertTrue(PurchaseOutcome.restoreMessage([.confirmed, .later]).hasPrefix("Could not reach"))
+        // a refusal is shown in the server's own words
+        XCTAssertEqual(PurchaseOutcome.restoreMessage([.later, .refused("This purchase belongs to another Kinbir account.")]),
+                       "This purchase belongs to another Kinbir account.")
+        XCTAssertTrue(PurchaseOutcome.isFinal(status: 409))
+        XCTAssertTrue(PurchaseOutcome.isFinal(status: 403))
+        XCTAssertFalse(PurchaseOutcome.isFinal(status: 0))
+        XCTAssertFalse(PurchaseOutcome.isFinal(status: 503))
+        XCTAssertFalse(PurchaseOutcome.isFinal(status: 401))
+    }
+
     /// The same numbers as the server's tests/test_pricing.py.
     func testRenderCreditsMatchTheServer() {
         var plain = RenderOptions()

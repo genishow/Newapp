@@ -102,3 +102,26 @@ enum SaveName {
         }
     }
 }
+
+/// What one App Store purchase came to once the server had seen it.
+enum PurchaseOutcome: Equatable {
+    case confirmed            // the server has it; credits are on the account
+    case later                // could not reach the server; it is sent again
+    case refused(String)      // the server will never accept it, and says why
+    case unverified           // Apple's own check failed
+
+    /// The sentence after Restore. A refusal is said in the server's words, and
+    /// "up to date" is only said when the server really confirmed something.
+    static func restoreMessage(_ outcomes: [PurchaseOutcome]) -> String {
+        for case .refused(let why) in outcomes { return why }
+        if outcomes.contains(.later) {
+            return T("Could not reach Kinbir to check your purchases. Try again in a moment.")
+        }
+        if outcomes.contains(.confirmed) { return T("Your purchases are up to date.") }
+        return T("No purchases found for this Apple ID.")
+    }
+
+    /// Answers that will not change on a retry: not a Kinbir product (400), a test
+    /// purchase (403), or one that belongs to another account or was refunded (409).
+    static func isFinal(status: Int) -> Bool { [400, 403, 409].contains(status) }
+}

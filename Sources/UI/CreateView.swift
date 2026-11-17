@@ -14,6 +14,8 @@ struct CreateView: View {
     }
 
     @State private var work: Work = .idle
+    /// True while the microphone is being opened, so a second tap cannot start it twice.
+    @State private var micStarting = false
     @State private var problem: String?
     /// The script from before Kinbir wrote or changed it, for Undo.
     @State private var beforeRewrite: String?
@@ -686,6 +688,9 @@ struct CreateView: View {
             }
             return
         }
+        guard work == .idle, !micStarting else { return }
+        micStarting = true
+        defer { micStarting = false }
         editing = false
         spokenBase = text
         spokenLive = ""
@@ -726,10 +731,17 @@ struct CreateView: View {
             if Date().timeIntervalSince(lastSocketWords) < 3 { continue }
             if Date().timeIntervalSince(speechStarted) > 120 { continue }
             guard let file = dictation.takeFile() else { continue }
-            if let heard = try? await state.api.transcribe(audioURL: file),
-               work == .listening, Date().timeIntervalSince(lastSocketWords) >= 3,
-               !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                showSpoken(heard)
+            do {
+                let heard = try await state.api.transcribe(audioURL: file)
+                if work == .listening, Date().timeIntervalSince(lastSocketWords) >= 3,
+                   !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    showSpoken(heard)
+                }
+            } catch {
+                // The server said no (today's limit, or no credits): asking again
+                // every second and a half would only repeat it. The final pass on
+                // Stop still runs and shows the reason.
+                if APIError.wrap(error).status >= 400 { return }
             }
         }
     }
