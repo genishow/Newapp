@@ -28,7 +28,7 @@ struct CreditHistoryView: View {
                             ForEach(history.items) { item in
                                 row(item)
                                 if item.id != history.items.last?.id {
-                                    Rectangle().fill(Theme.line).frame(height: 1)
+                                    Rectangle().fill(Theme.grey).frame(height: 1).padding(.horizontal, 14)
                                 }
                             }
                         }
