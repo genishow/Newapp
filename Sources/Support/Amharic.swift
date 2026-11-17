@@ -303,6 +303,8 @@ enum Amharic {
         "Fix how a word sounds": "የቃል አነባበብ አስተካክል",
         "For example: the history of Ethiopian coffee": "ለምሳሌ፦ የኢትዮጵያ ቡና ታሪክ",
         "Generate my %@ changes · 1.5 credits": "%@ ለውጦቼን ሥራ · 1.5 ክሬዲት",
+        "Generate my %@ changes · %@ credits": "%@ ለውጦቼን ሥራ · %@ ክሬዲት",
+        "Generate my change · %@ credits": "ለውጤን ሥራ · %@ ክሬዲት",
         "How should this word sound?": "ይህ ቃል እንዴት መነበብ አለበት?",
         "It appears %@ times. Fixing it here changes all of them.": "%@ ጊዜ ይገኛል። እዚህ ማስተካከል ሁሉንም ይቀይራል።",
         "Keeps the original order and wording as much as possible.": "የዋናውን ቅደም ተከተል እና አገላለጽ በተቻለ መጠን ይጠብቃል።",

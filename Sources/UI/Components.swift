@@ -556,7 +556,7 @@ struct CreditsSheet: View {
     private static let prices: [(icon: String, what: String, cost: String)] = [
         ("waveform", "A one-minute voiceover", "≈ 2.5"),
         ("sparkles", "Kinbir writes or changes a script", "≈ 1"),
-        ("wand.and.stars", "Fixing words, all together", "1.5"),
+        ("wand.and.stars", "Fixing words, all together", "≤ 1.5"),
         ("list.bullet.rectangle", "Planning the shots of a video", "by length"),
         ("film", "Making the video", "from 2"),
     ]

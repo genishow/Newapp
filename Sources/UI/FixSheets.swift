@@ -182,7 +182,7 @@ struct WordFixSheet: View {
                     }
 
                     // The website's price line, before anything is spent.
-                    NoteText(text: T("Hearing a reading is free once anyone has heard that spelling. A brand-new spelling costs up to 1 credit. Applying your changes costs 1.5 credits, however many."))
+                    NoteText(text: T("Hearing a reading is free once anyone has heard that spelling. A brand-new spelling costs up to 1 credit. Applying your changes costs up to 1.5 credits, however many, and never more than making the voiceover again."))
                         .accessibilityIdentifier("fixPriceNote")
 
                     if marked {

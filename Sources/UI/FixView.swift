@@ -457,7 +457,7 @@ struct FixView: View {
         Haptics.tap()
     }
 
-    /// "Generate my 2 changes · 1.5 credits", or with a new speed, one price for both.
+    /// "Generate my 2 changes · 1 credits", or with a new speed, one price for both.
     private var generateTitle: String {
         if let pace = withPace {
             let name = T(SpeedControl.levels.first { $0.id == pace }?.title ?? pace).lowercased()
@@ -466,8 +466,13 @@ struct FixView: View {
                 : Tf("Generate my %@ changes, read %@ · %@ credits", "\(pending.count)", name,
                      SpeedControl.priceText(job?.pacePrice))
         }
-        return pending.count == 1 ? T("Generate my change · 1.5 credits")
-            : Tf("Generate my %@ changes · 1.5 credits", "\(pending.count)")
+        return pending.count == 1 ? Tf("Generate my change · %@ credits", fixPrice)
+            : Tf("Generate my %@ changes · %@ credits", "\(pending.count)", fixPrice)
+    }
+
+    /// A round of fixes costs 1.5 credits, and never more than voicing the script again.
+    private var fixPrice: String {
+        SpeedControl.priceText(min(1.5, job?.pacePrice ?? 1.5))
     }
 
     private func applyFixes(whole: Bool) async {
