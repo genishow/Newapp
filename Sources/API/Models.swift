@@ -293,6 +293,28 @@ struct PromoSubmission: Codable, Equatable, Identifiable {
     var allLinks: [String] { links ?? (link.map { [$0] } ?? []) }
 }
 
+/// What the account was given, bought and used (GET /credits/history).
+struct CreditHistory: Codable, Equatable {
+    struct Item: Codable, Equatable, Identifiable {
+        var at: String
+        /// "gift", "bought", "used" or "other".
+        var kind: String
+        var label: String
+        /// Positive when credits came in, negative when they were used.
+        var credits: Double
+        var id: String { at + label + String(credits) }
+    }
+    var gifts: Double
+    var bought: Double
+    var used: Double
+    var items: [Item]
+
+    /// "+13" or "-2.5": the sign is always shown.
+    static func signed(_ credits: Double) -> String {
+        (credits > 0 ? "+" : "-") + Fmt.credits(abs(credits))
+    }
+}
+
 struct PromoList: Codable, Equatable {
     var promos: [PromoSubmission]
     /// The full reward in credits (all four platforms), to show before sending.

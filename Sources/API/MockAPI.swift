@@ -104,6 +104,16 @@ final class MockAPI: KinbirAPI {
     /// Free Kinbir-voice voiceovers left, as the server counts them.
     private var stockFreeLeft = 3
 
+    func creditHistory() async throws -> CreditHistory {
+        await pause()
+        return CreditHistory(gifts: 53, bought: 110, used: 3.5, items: [
+            .init(at: MockAPI.recent(-3600), kind: "used", label: "Video", credits: -2),
+            .init(at: MockAPI.recent(-7200), kind: "bought", label: "Monthly plan", credits: 110),
+            .init(at: MockAPI.recent(-90000), kind: "gift", label: "Promo video reward", credits: 40),
+            .init(at: MockAPI.recent(-180000), kind: "gift", label: "Welcome credits", credits: 13),
+        ])
+    }
+
     func myPromos() async throws -> PromoList {
         await pause()
         return locked { PromoList(promos: promos, reward: 40, perPlatform: 10, maxVideos: 10,

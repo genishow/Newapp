@@ -81,6 +81,10 @@ final class LiveAPI: KinbirAPI {
         try await decode(WhoAmI.self, builder.get("/whoami"))
     }
 
+    func creditHistory() async throws -> CreditHistory {
+        try await decode(CreditHistory.self, builder.get("/credits/history"))
+    }
+
     func myPromos() async throws -> PromoList {
         try await decode(PromoList.self, builder.get("/promo/mine"))
     }

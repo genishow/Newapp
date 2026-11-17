@@ -115,6 +115,17 @@ struct WelcomeView: View {
                 Button(W(lang, "Start free", "በነፃ ይጀምሩ")) { showSignIn = true }
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("startButton")
+                // Someone who already has an account looks for the words "Sign in"
+                // (Geni: "I don't see how to sign in"). Same page: one email, one code.
+                Button { showSignIn = true } label: {
+                    Text(W(lang, "Already have an account? Sign in", "መለያ አለዎት? ይግቡ"))
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        .underline()
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("signInButton")
             }
         }
     }
@@ -435,15 +446,15 @@ struct DemoCard: View {
         defer { busy = false }
         do {
             var ref = try await state.api.demoGenerate(text: words)
-            var tries = 0
+            var polls = 0
             while !ref.isDone {
                 if ref.isFailed {
                     problem = ref.error.map(APIError.sentenceCase) ?? T("Could not read it this time. Try again.")
                     return
                 }
                 if ref.status == "running" { reading = true }
-                tries += 1
-                if tries > 120 {
+                polls += 1
+                if polls > 120 {
                     problem = T("The voice is taking too long right now. Try again in a minute.")
                     return
                 }

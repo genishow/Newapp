@@ -21,6 +21,8 @@ protocol KinbirAPI: AnyObject {
     /// This phone's notification token, so "your voiceover is ready" can reach it.
     func registerDevice(token: String) async throws
     // Promo videos (D-450)
+    /// The account's own credit history (D-477).
+    func creditHistory() async throws -> CreditHistory
     func myPromos() async throws -> PromoList
     func submitPromo(videoURL: URL, links: [String], note: String) async throws -> PromoSubmission
     /// More post links for a video already sent, as it goes up on more platforms.

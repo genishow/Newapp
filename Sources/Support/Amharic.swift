@@ -42,6 +42,16 @@ enum Amharic {
         // Tabs and common words
         "Create": "ፍጠር", "Library": "ማህደር", "Account": "መለያ", "Buy credits": "ክሬዲት ይግዙ", "Earn credits": "ክሬዲት ያግኙ", "Kinbir": "ቅንብር",
         "Done": "ጨርስ", "Cancel": "ሰርዝ", "Continue": "ቀጥል", "Close": "ዝጋ", "Save": "አስቀምጥ",
+        "Credit history": "የክሬዲት ታሪክ", "Free credits": "ነፃ ክሬዲቶች", "Bought": "የተገዙ", "Used": "ያገለገሉ",
+        "Nothing here yet. Credits you get and use will show here.": "እስካሁን ምንም የለም። የሚያገኙትና የሚጠቀሙት ክሬዲት እዚህ ይታያል።",
+        "Shows your latest 60.": "የቅርብ ጊዜ 60ዎቹን ያሳያል።",
+        "Welcome credits": "የእንኳን ደህና መጡ ክሬዲቶች", "Voice cloning bonus": "የድምፅ ቅጂ ጉርሻ",
+        "Promo video reward": "የማስተዋወቂያ ቪዲዮ ሽልማት", "Added by Kinbir": "በቅንብር የተጨመረ",
+        "Monthly plan": "ወርሃዊ ዕቅድ", "Credits bought": "የተገዙ ክሬዲቶች",
+        "Refund taken back": "የተመለሰ ክፍያ", "Unused plan credits ended": "ያልተጠቀሙባቸው የዕቅድ ክሬዲቶች አብቅተዋል",
+        "Script writing": "ስክሪፕት መጻፍ", "Word fix": "የቃል ማስተካከያ", "Voice preview": "የድምፅ ቅምሻ",
+        "AI shot": "የኤአይ ቀረጻ", "Top-up": "ተጨማሪ ክሬዲት", "Short video": "አጭር ቪዲዮ", "Returned": "የተመለሰ",
+        "Kinbir work": "የቅንብር ሥራ",
         "Email us": "ኢሜይል ይላኩልን", "Copy address": "አድራሻውን ቅዳ",
         "Could not reach Kinbir to check your purchases. Try again in a moment.":
             "ግዢዎችዎን ለማረጋገጥ ቅንብርን ማግኘት አልተቻለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",

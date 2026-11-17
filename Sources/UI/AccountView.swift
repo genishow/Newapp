@@ -48,6 +48,9 @@ struct AccountView: View {
                 .card(fill: Theme.lime)
 
                 VStack(spacing: 0) {
+                    NavigationLink(value: Route.creditHistory) { rowLabel(T("Credit history")) }
+                        .accessibilityIdentifier("creditHistoryRow")
+                    divider
                     NavigationLink(value: Route.voices) { rowLabel(T("My voices")) }
                         .accessibilityIdentifier("myVoicesRow")
                     divider
