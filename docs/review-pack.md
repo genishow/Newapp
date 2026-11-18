@@ -59,11 +59,11 @@ For adults 18 and older.
 Terms of Use: https://kinbir.com/terms
 Privacy Policy: https://kinbir.com/privacy
 Support: support@kinbir.com
-
-ቅንብር የአማርኛና የእንግሊዝኛ ቪዲዮዎችን ያዘጋጃል። ሐሳብዎን ወይም ጽሑፍዎን ያስገቡ፤ ቅንብር ስክሪፕቱን ይጽፋል፣ በተፈጥሯዊ ድምፅ ያነባል፣ ከተስማሚ ቪዲዮዎች፣ ጽሑፎችና ሙዚቃ ጋር አቀናጅቶ ያዘጋጅልዎታል። የራስዎን ድምፅ አንድ ጊዜ በመቅረጽ ሁሉንም በራስዎ ድምፅ ማዘጋጀት ይችላሉ።
 ```
 
-**What's New (first version):** `First release.`
+Apple refuses Amharic letters in the English description (tried 2026-11-18, with and without Amharic punctuation), so the description is English only. Amharic goes in the screenshots.
+
+**What's New:** not shown on a first version.
 
 ## 3. Review notes (paste into App Review Information, Notes)
 
