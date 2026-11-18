@@ -21,10 +21,7 @@ Steps marked **(Claude)** are things to hand to Claude; the rest happen on Apple
 
 1. https://developer.apple.com/account/resources/identifiers, open **com.geni.kinbir**, tick **Push Notifications**, Save.
 2. **Keys**, **+**, name it `Kinbir push`, tick **Apple Push Notifications service (APNs)**, Continue, Register, **Download** the `.p8` file (only downloadable once). Note the **Key ID** and your **Team ID** (top right of the page).
-3. On your PC, in the kinbir folder, store it in Modal (the key never goes into chat or code):
-   ```
-   python -m modal secret create apns --force APNS_KEY_ID=YOURKEYID APNS_TEAM_ID=YOURTEAMID APNS_KEY_P8="$(Get-Content -Raw C:\path\to\AuthKey_YOURKEYID.p8)"
-   ```
+3. Give the `.p8` file, the Key ID and the Team ID to the laptop session, which stores them in the server's secrets (the key never goes into chat or code).
    Then redeploy the API (`.\scripts\deploy-api.ps1`). Until this is done, pushes are simply off.
 
 ## 4. Create the products

@@ -1116,7 +1116,7 @@ struct VideoFlowView: View {
             Toggle(T("Captions on the video"), isOn: $captions)
                 .font(Theme.body).foregroundStyle(Theme.black)
                 .tint(Theme.black)
-            // D-448: Claude plans the cut - camera moves, soft entries and
+            // D-448: the planner works out the cut - camera moves, soft entries and
             // the caption words to stress - and the server carries it out.
             Toggle(isOn: $render.smartEdit) {
                 VStack(alignment: .leading, spacing: 2) {

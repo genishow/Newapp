@@ -424,10 +424,10 @@ final class VideoDecodingTests: XCTestCase {
         let r = try decode(SearchResult.self, """
         {"plan_id":"bp-1","orientation":"portrait","searched":1,"gaps":[],"remaining":0,"note":"",
          "beats":[{"beat":1,"start":0,"end":3,"dur":3,"status":"ok","must_show":"x","query":"x",
-           "candidates":[{"clip_id":123,"url":"https://www.pexels.com/video/123","duration":7,
+           "candidates":[{"clip_id":123,"url":"https://stock.example/video/123","duration":7,
              "width":1080,"height":1920,"link":"https://cdn/x.mp4","preview_link":"https://cdn/p.mp4",
-             "poster":"https://images.pexels.com/1.jpg?w=420","matched":["wave"],"score":0.4,
-             "desc":"People waving","author":"A","author_url":"u","licence":"pexels","source":"pexels",
+             "poster":"https://img.example/1.jpg?w=420","matched":["wave"],"score":0.4,
+             "desc":"People waving","author":"A","author_url":"u","licence":"stock","source":"stock",
              "via_query":"people waving"},
             {"clip_id":9,"link":"/models/uploads/up-abc.mov","preview_link":"/models/uploads/up-abc.mov",
              "poster":null,"own_upload":true,"clip_start":1.5,"kind":"video"}]}]}

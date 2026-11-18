@@ -43,7 +43,7 @@ struct RenderOptions: Equatable {
     var logo = LogoChoice()
     /// False leaves the planned music breaks out of the video.
     var includeBreaks = true
-    /// Claude plans camera moves, shot entries and caption highlights (D-448).
+    /// The planner picks camera moves, shot entries and caption highlights (D-448).
     var smartEdit = true
 
     /// What making the video costs, the same sum the server does (api/pricing.py):
