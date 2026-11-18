@@ -27,6 +27,8 @@ struct WhoAmI: Codable, Equatable {
     /// False when making a video is locked: it opens with a plan, or with credits
     /// earned by a promo video. Nil (an older server) means open.
     var videoOpen: Bool?
+    /// Free credits waiting for the first cloned voice. 0 or nil once claimed.
+    var cloneBonus: Double?
     /// Standing instructions applied to every script Kinbir writes.
     var scriptRules: String?
     var scriptRulesDefault: String?

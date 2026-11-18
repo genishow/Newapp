@@ -97,6 +97,7 @@ final class MockAPI: KinbirAPI {
                             enPace: "normal", enEmphasis: "none")
             me.stockFreeLeft = stockFreeLeft
             me.videoOpen = !Launch.mockVideoLocked
+            me.cloneBonus = voices.isEmpty ? 15 : 0
             return me
         }
     }

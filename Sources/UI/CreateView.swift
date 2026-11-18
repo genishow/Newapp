@@ -336,7 +336,16 @@ struct CreateView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("cloneVoiceButton")
-                NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice. Your first voice earns free credits."))
+                if cloneBonus > 0 {
+                    // Said with the number (Geni, 2026-11-18): people did not know
+                    // cloning their voice gives free credits.
+                    Text(Tf("Clone your voice and get %@ free credits. Read a short paragraph on camera, then hear your script in your own voice.", Fmt.credits(cloneBonus)))
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("cloneBonusNote")
+                } else {
+                    NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice."))
+                }
             }
         }
     }
@@ -367,6 +376,9 @@ struct CreateView: View {
 
     /// A new account is told once that it has free credits and what they buy
     /// (the server gives them silently, so nobody knew).
+    /// Free credits still waiting for the first cloned voice (0 once claimed).
+    private var cloneBonus: Double { state.me?.cloneBonus ?? 0 }
+
     @ViewBuilder private var topCard: some View {
         if !Launch.isMock, !sawFreeCredits, state.me?.hasPaid != true, state.balance > 0 {
             VStack(alignment: .leading, spacing: 8) {
@@ -376,6 +388,11 @@ struct CreateView: View {
                 Text(T("A one-minute voiceover is about 2.5 credits. Write a few sentences below and tap Make voiceover to try it."))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
+                if cloneBonus > 0 {
+                    Text(Tf("Clone your voice to get %@ more free credits.", Fmt.credits(cloneBonus)))
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button(T("Got it")) { sawFreeCredits = true }
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("freeCreditsDismiss")

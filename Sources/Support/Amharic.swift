@@ -547,6 +547,13 @@ enum Amharic {
             "በቅንብር ድምፅ 1 ነፃ የድምፅ ንባብ ቀርቷል።",
         "Optional. Read a short paragraph on camera and every voiceover can be in your own voice. Your first voice earns free credits.":
             "አማራጭ ነው። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፤ ከዚያ እያንዳንዱ የድምፅ ንባብ በራስዎ ድምፅ ሊሆን ይችላል። የመጀመሪያ ድምፅዎ ነፃ ክሬዲት ያስገኝልዎታል።",
+        // The cloning credits, said with the number (D-515)
+        "Optional. Read a short paragraph on camera and every voiceover can be in your own voice.":
+            "አማራጭ ነው። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፤ ከዚያ እያንዳንዱ የድምፅ ንባብ በራስዎ ድምፅ ሊሆን ይችላል።",
+        "Clone your voice and get %@ free credits. Read a short paragraph on camera, then hear your script in your own voice.":
+            "ድምፅዎን ያስቀዱ እና %@ ነፃ ክሬዲት ያግኙ። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ።",
+        "Clone your voice to get %@ more free credits.":
+            "ተጨማሪ %@ ነፃ ክሬዲት ለማግኘት ድምፅዎን ያስቀዱ።",
         "Not quite right? Tell Kinbir what to change":
             "ልክ አልሆነም? ምን መቀየር እንዳለበት ለቅንብር ይንገሩ",
         "e.g. make the ending warmer, shorten the second part":
