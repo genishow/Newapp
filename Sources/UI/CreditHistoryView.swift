@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// What the account was given, bought and used (Geni: "show the history, how many
-/// credits they got so far"). One line per thing; newest first.
+/// The free credits the account received, and where each came from (Geni: "how
+/// many credits they received from the app for free, not every credit tracking").
 struct CreditHistoryView: View {
     @EnvironmentObject private var state: AppState
 
@@ -11,29 +11,25 @@ struct CreditHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.gap) {
-                Text(T("Credit history")).screenTitle(amharic: A("Credit history"))
+                Text(T("Free credits")).screenTitle(amharic: A("Free credits"))
                     .accessibilityIdentifier("creditHistoryHeading")
 
                 if let history {
-                    HStack(alignment: .top, spacing: 10) {
-                        total(T("Free credits"), history.gifts, id: "historyGifts")
-                        total(T("Bought"), history.bought, id: "historyBought")
-                        total(T("Used"), history.used, id: "historyUsed")
-                    }
+                    total(T("Free credits you received"), history.gifts, id: "historyGifts")
 
-                    if history.items.isEmpty {
-                        NoteText(text: T("Nothing here yet. Credits you get and use will show here."))
+                    if history.freeItems.isEmpty {
+                        NoteText(text: T("Nothing yet. Free credits you receive will show here."))
                     } else {
                         LazyVStack(spacing: 0) {
-                            ForEach(history.items) { item in
+                            ForEach(history.freeItems) { item in
                                 row(item)
-                                if item.id != history.items.last?.id {
+                                if item.id != history.freeItems.last?.id {
                                     Rectangle().fill(Theme.grey).frame(height: 1).padding(.horizontal, 14)
                                 }
                             }
                         }
                         .card(fill: Theme.white, padding: 4)
-                        NoteText(text: T("Shows your latest 60."))
+                        NoteText(text: T("Only credits you got for free are shown here."))
                     }
                 } else if let problem {
                     ProblemCard(message: problem)

@@ -310,6 +310,12 @@ struct CreditHistory: Codable, Equatable {
     var bought: Double
     var used: Double
     var items: [Item]
+    /// Every free credit the account received, newest first. From newer servers.
+    var giftItems: [Item]?
+
+    /// What the screen lists: free credits only (Geni: "how many credits they
+    /// received from the app for free, not every credit tracking").
+    var freeItems: [Item] { giftItems ?? items.filter { $0.kind == "gift" } }
 
     /// "+13" or "-2.5": the sign is always shown.
     static func signed(_ credits: Double) -> String {

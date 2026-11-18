@@ -416,5 +416,80 @@ enum Amharic {
         "A finished video": "የተጠናቀቀ ቪዲዮ",
         "Free: listening, finding footage, changing shots, and speaking your script. You always see the price on the button before you spend. If something fails, the credits come back.":
             "ነፃ፦ ማዳመጥ፣ ቪዲዮ መፈለግ፣ ትዕይንት መቀየር እና ስክሪፕትዎን በድምፅ መናገር። ከመክፈልዎ በፊት ዋጋውን ሁልጊዜ በቁልፉ ላይ ያያሉ። የሆነ ነገር ካልሰራ ክሬዲቶቹ ይመለሳሉ።",
+        // Earn credits, and free credits received (D-507)
+        "%@ of 4 platforms · up to %@ credits":
+            "ከ4 መድረኮች %@ · እስከ %@ ክሬዲት",
+        "1. Film a video about Kinbir, at least 1 minute and at most 3, upright (vertical).":
+            "1. ስለ ቅንብር ቪዲዮ ይቅረጹ፤ ቢያንስ 1 ደቂቃ፣ ቢበዛ 3 ደቂቃ፣ በቁመት (ቨርቲካል)።",
+        "2. Post it on your own TikTok, Instagram, YouTube and Facebook, and keep it up.":
+            "2. በራስዎ ቲክቶክ፣ ኢንስታግራም፣ ዩቲዩብ እና ፌስቡክ ላይ ይለጥፉት፤ አያጥፉትም።",
+        "3. Paste the link to each post and send them here with the same video.":
+            "3. የእያንዳንዱን ልጥፍ ሊንክ ይለጥፉና ከዚያው ቪዲዮ ጋር እዚህ ይላኩ።",
+        "Add another link":
+            "ሌላ ሊንክ ጨምር",
+        "Add link":
+            "ሊንክ ጨምር",
+        "Anything we should know (optional)":
+            "ማወቅ ያለብን ነገር ካለ (አማራጭ)",
+        "Approved · +%@ credits":
+            "ጸድቋል · +%@ ክሬዲት",
+        "Choose another video":
+            "ሌላ ቪዲዮ ይምረጡ",
+        "Choose my video":
+            "ቪዲዮዬን ምረጥ",
+        "Getting it ready":
+            "በመዘጋጀት ላይ",
+        "How it works":
+            "እንዴት ይሰራል",
+        "Link added. We check it within a few hours, at most 2 days, and add the credits for the new platform.":
+            "ሊንኩ ተጨምሯል። በጥቂት ሰዓታት፣ ቢበዛ በ2 ቀናት ውስጥ እናየዋለን፤ ለአዲሱ መድረክ ክሬዲቱን እንጨምራለን።",
+        "Link to your new post":
+            "የአዲሱ ልጥፍዎ ሊንክ",
+        "Links to your posts":
+            "የልጥፎችዎ ሊንኮች",
+        "Make a video about Kinbir and post it on your social media. Earn %@ credits for each of TikTok, Instagram, YouTube and Facebook, %@ for all four. Credits arrive within a few hours, at most 2 days.":
+            "ስለ ቅንብር ቪዲዮ ሠርተው በማህበራዊ ሚዲያዎ ላይ ይለጥፉ። ለእያንዳንዱ ቲክቶክ፣ ኢንስታግራም፣ ዩቲዩብ እና ፌስቡክ %@ ክሬዲት፣ ለአራቱም %@ ክሬዲት ያገኛሉ። ክሬዲቱ በጥቂት ሰዓታት፣ ቢበዛ በ2 ቀናት ውስጥ ይደርስዎታል።",
+        "No music or clips you do not own. Use music from the app you post on, or none.":
+            "የእርስዎ ያልሆነ ሙዚቃ ወይም ክሊፕ አይጠቀሙ። ከሚለጥፉበት መተግበሪያ ሙዚቃ ይጠቀሙ፣ ወይም ያለ ሙዚቃ ይሁን።",
+        "Not approved":
+            "አልጸደቀም",
+        "Paste links to your posts on TikTok, Instagram, YouTube or Facebook.":
+            "በቲክቶክ፣ ኢንስታግራም፣ ዩቲዩብ ወይም ፌስቡክ ላይ ያሉ ልጥፎችዎን ሊንክ ይለጥፉ።",
+        "Posted somewhere else? Add a link":
+            "ሌላ ቦታ ለጥፈዋል? ሊንክ ይጨምሩ",
+        "Posted somewhere new later? Add the link to your video below and earn the rest.":
+            "በኋላ አዲስ ቦታ ከለጠፉ፣ ሊንኩን ከታች ባለው ቪዲዮዎ ላይ ይጨምሩና ቀሪውን ያግኙ።",
+        "Read the terms":
+            "ውሎቹን ያንብቡ",
+        "Remove link":
+            "ሊንኩን አስወግድ",
+        "Send my video":
+            "ቪዲዮዬን ላክ",
+        "Sending":
+            "በመላክ ላይ",
+        "Sent. We review every video within a few hours, at most 2 days. You get a notification and an email as soon as your credits are added.":
+            "ተልኳል። እያንዳንዱን ቪዲዮ በጥቂት ሰዓታት፣ ቢበዛ በ2 ቀናት ውስጥ እንመለከታለን። ክሬዲትዎ እንደተጨመረ ማሳወቂያና ኢሜይል ይደርስዎታል።",
+        "Show Kinbir on your screen and say what you made with it. Amharic or English.":
+            "ቅንብርን በስክሪንዎ ላይ ያሳዩና በእሱ ምን እንደሠሩ ይናገሩ። በአማርኛ ወይም በእንግሊዝኛ።",
+        "This video is %@ long. It needs to be between 1 and 3 minutes.":
+            "ይህ ቪዲዮ %@ ርዝመት አለው። ከ1 እስከ 3 ደቂቃ መሆን አለበት።",
+        "Up to 10 videos per account. A video that is not approved does not count.":
+            "ለአንድ መለያ እስከ 10 ቪዲዮ። ያልጸደቀ ቪዲዮ አይቆጠርም።",
+        "Video chosen, %@ long.":
+            "ቪዲዮ ተመርጧል፣ ርዝመቱ %@።",
+        "Waiting for review · within 2 days":
+            "ግምገማ በመጠበቅ ላይ · በ2 ቀናት ውስጥ",
+        "You can send %@ more of %@ videos.":
+            "%@ ተጨማሪ ቪዲዮ መላክ ይችላሉ (ከ%@ ውስጥ)።",
+        "You have sent %@ videos for free credits, the most one account can send. Thank you for sharing Kinbir!":
+            "ለነፃ ክሬዲት %@ ቪዲዮ ልከዋል፤ አንድ መለያ ሊልክ የሚችለው ከፍተኛው ነው። ቅንብርን ስላጋሩ እናመሰግናለን!",
+        "Your videos":
+            "ቪዲዮዎችዎ",
+        "Free credits you received":
+            "የተቀበሏቸው ነፃ ክሬዲቶች",
+        "Nothing yet. Free credits you receive will show here.":
+            "እስካሁን ምንም የለም። የሚቀበሏቸው ነፃ ክሬዲቶች እዚህ ይታያሉ።",
+        "Only credits you got for free are shown here.":
+            "እዚህ የሚታዩት በነፃ ያገኟቸው ክሬዲቶች ብቻ ናቸው።",
     ]
 }
