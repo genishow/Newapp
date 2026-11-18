@@ -429,6 +429,8 @@ final class MockVideoState {
     var assemblePolls: [String: Int] = [:]
     var videos: [VideoSummary] = []
     var planPolls = 0
+    /// Where the footage comes from, as the last plan or source change set it.
+    var source = "stock"
     /// Set by the `-mockStockLimit` launch argument: stock search answers "not now".
     var stockLimited = Launch.mockStockLimit
     var hasAvatarPhoto = false
@@ -583,6 +585,7 @@ extension MockAPI {
 
     func changeSource(planId: String, source: FootageSource) async throws {
         await pause()
+        video.source = source.rawValue
     }
 
     func rescanFootage(planId: String) async throws -> PlanSubmit {
@@ -624,6 +627,7 @@ extension MockAPI {
         video.planPolls = 0
         video.orientation = shape.rawValue
         video.searches = 0
+        video.source = source.rawValue
         video.beats = [
             Beat(beat: 1, start: 0, end: 3, dur: 3, says: "ሰላም ለሁላችሁ።", mustShow: "people waving",
                  query: "people waving", type: "talk", status: nil, candidates: nil, exhausted: nil),
@@ -644,7 +648,7 @@ extension MockAPI {
 
     func plan(id: String) async throws -> StoredPlan {
         await pause()
-        return StoredPlan(planId: id, jobId: nil, orientation: video.orientation, source: "stock",
+        return StoredPlan(planId: id, jobId: nil, orientation: video.orientation, source: video.source,
                           beats: video.beats)
     }
 

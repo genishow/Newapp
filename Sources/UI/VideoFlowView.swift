@@ -964,6 +964,8 @@ struct VideoFlowView: View {
                         .disabled(working != nil)
                 }
                 .card(fill: Theme.lime)
+                // Contained, so the buttons inside keep their own names for the tests.
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("stockLimitCard")
             } else if source == .own && !emptyShots.isEmpty && working == nil {
                 // Only their own footage: nothing to search, so say what to do instead.
@@ -979,6 +981,8 @@ struct VideoFlowView: View {
                         .accessibilityIdentifier("useStockButton")
                 }
                 .card(fill: Theme.grey, padding: 14)
+                // Contained, so the buttons inside keep their own names for the tests.
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("ownEmptyCard")
             } else if !emptyShots.isEmpty && working == nil {
                 VStack(alignment: .leading, spacing: 6) {
