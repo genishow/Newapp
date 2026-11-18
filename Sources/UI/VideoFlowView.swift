@@ -495,6 +495,8 @@ struct VideoFlowView: View {
     }
 
     private var emptyShots: [Beat] { beats.filter { $0.isEmpty } }
+    /// The stock-limit card and the own-footage card each hold the Add my clips button.
+    private var addClipsInCard: Bool { !emptyShots.isEmpty && (stockLimited || source == .own) }
 
     /// The shot before or after this one, skipping music breaks.
     private func neighbour(of beat: Beat, step: Int) -> Int? {
@@ -677,7 +679,9 @@ struct VideoFlowView: View {
                 BusyLabel(title: T("See the shots first"), busy: starting && !auto)
             }
             .buttonStyle(QuietButtonStyle())
-            .disabled(starting || working != nil || (source == .own && uploads.isEmpty))
+            // "Only mine" with no clips yet is allowed here: the shot list is made
+            // empty and each shot takes a clip on the next page (Geni, 2026-11-18).
+            .disabled(starting || working != nil)
             .accessibilityIdentifier("planButton")
         }
     }
@@ -763,7 +767,7 @@ struct VideoFlowView: View {
         .disabled(starting || working != nil || (source == .own && uploads.isEmpty) || presenterBlocked)
         .accessibilityIdentifier("autoVideoButton")
         if source == .own && uploads.isEmpty {
-            NoteText(text: T("Add your clips above first, or set Footage to Stock."))
+            NoteText(text: T("Add your clips above, or tap See the shots first and add a clip to each shot."))
         }
         if let presenterNote {
             Text(presenterNote).font(Theme.small).foregroundStyle(Theme.black)
@@ -952,12 +956,30 @@ struct VideoFlowView: View {
                     Text(T("The free stock library has reached its limit. Upload your own footage for the empty shots, or try stock again in a few minutes."))
                         .font(Theme.body).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
+                    if working == nil {
+                        addClipsButton
+                    }
                     Button(T("Try stock again")) { Task { await fillShots(stock: true, own: false) } }
                         .buttonStyle(QuietButtonStyle())
                         .disabled(working != nil)
                 }
                 .card(fill: Theme.lime)
                 .accessibilityIdentifier("stockLimitCard")
+            } else if source == .own && !emptyShots.isEmpty && working == nil {
+                // Only their own footage: nothing to search, so say what to do instead.
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(Tf("%@ shots need footage", "\(emptyShots.count)"))
+                        .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    Text(T("Tap a shot to add your own clip, or add several clips at once."))
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                    addClipsButton
+                    Button(T("Use stock for the empty shots")) { Task { await useStockForEmpty() } }
+                        .buttonStyle(QuietButtonStyle())
+                        .accessibilityIdentifier("useStockButton")
+                }
+                .card(fill: Theme.grey, padding: 14)
+                .accessibilityIdentifier("ownEmptyCard")
             } else if !emptyShots.isEmpty && working == nil {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(Tf("%@ shots need footage", "\(emptyShots.count)"))
@@ -1009,7 +1031,8 @@ struct VideoFlowView: View {
             }
             }
 
-            if working == nil {
+            // Not twice: the cards above already carry this button when shots are empty.
+            if working == nil && !addClipsInCard {
                 addClipsButton
             }
 
@@ -1388,6 +1411,21 @@ struct VideoFlowView: View {
         } catch {
             problem = state.report(error)
         }
+    }
+
+    /// An "Only mine" list lets stock in for the shots that are still empty. Clips
+    /// already placed stay where they are.
+    private func useStockForEmpty() async {
+        guard let planId else { return }
+        problem = nil
+        do {
+            try await state.api.changeSource(planId: planId, source: .mix)
+            source = .mix
+        } catch {
+            problem = state.report(error)
+            return
+        }
+        await fillShots(stock: true, own: false)
     }
 
     private func reloadPlan() async {

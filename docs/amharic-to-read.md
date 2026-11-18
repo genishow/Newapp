@@ -88,3 +88,6 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 80 | The article is ready: %@. | ጽሑፉ ዝግጁ ነው፦ %@። |
 | 81 | Writing the script costs about %@ credits. | ስክሪፕቱን መጻፍ ወደ %@ ክሬዲት ገደማ ያስከፍላል። |
 | 82 | Your recent work, on every device you sign in on | የቅርብ ጊዜ ሥራዎችዎ፣ በሚገቡበት በማንኛውም መሣሪያ ላይ |
+| 83 | Add your clips above, or tap See the shots first and add a clip to each shot. | ክሊፖችዎን ከላይ ይጨምሩ፣ ወይም «See the shots first» የሚለውን ነክተው ለእያንዳንዱ ትዕይንት ክሊፕ ይጨምሩ። |
+| 84 | Tap a shot to add your own clip, or add several clips at once. | የራስዎን ክሊፕ ለመጨመር ትዕይንቱን ይንኩ፣ ወይም ብዙ ክሊፖችን በአንድ ጊዜ ይጨምሩ። |
+| 85 | Use stock for the empty shots | ለባዶ ትዕይንቶች የክምችት ምስል ይጠቀሙ |

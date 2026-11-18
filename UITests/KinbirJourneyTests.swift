@@ -455,6 +455,28 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("shotsHeading", timeout: 30)
     }
 
+    /// "Only mine" with no clips yet still makes the shot list; clips are added on it.
+    func testOwnFootageShotListWithoutClips() {
+        launch([])
+        signIn()
+        makeVoiceover()
+
+        waitFor("makeVideoLink").tap()
+        waitFor("videoSetupHeading")
+        waitFor("source-own").tap()
+        app.swipeUp()
+        XCTAssertTrue(waitFor("planButton").isEnabled, "the shot list must not wait for clips")
+        el("planButton").tap()
+        waitFor("ownEmptyCard", timeout: 30)
+        XCTAssertFalse(el("makeVideoButton").isEnabled, "empty shots must block the video")
+
+        waitFor("addSampleClipButton").tap()
+        let predicate = NSPredicate(format: "isEnabled == true")
+        let ready = XCTNSPredicateExpectation(predicate: predicate, object: el("makeVideoButton"))
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 20), .completed,
+                       "own clips must fill the empty shots")
+    }
+
     /// When stock footage is unavailable the app says so and own clips fill the shots.
     func testStockLimitAsksForOwnFootage() {
         launch(["-mockStockLimit"])
