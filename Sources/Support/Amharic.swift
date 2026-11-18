@@ -491,5 +491,96 @@ enum Amharic {
             "እስካሁን ምንም የለም። የሚቀበሏቸው ነፃ ክሬዲቶች እዚህ ይታያሉ።",
         "Only credits you got for free are shown here.":
             "እዚህ የሚታዩት በነፃ ያገኟቸው ክሬዲቶች ብቻ ናቸው።",
+        // Website and Create lines that had no Amharic (D-508)
+        "Sent. We review every video within a few hours, at most 2 days. You get an email as soon as your credits are added.":
+            "ተልኳል። እያንዳንዱን ቪዲዮ በጥቂት ሰዓታት፣ ቢበዛ በ2 ቀናት ውስጥ እንመለከታለን። ክሬዲትዎ እንደተጨመረ ኢሜይል ይደርስዎታል።",
+        "Video chosen.":
+            "ቪዲዮ ተመርጧል።",
+        "Adding…":
+            "በመጨመር ላይ…",
+        "Link to your post":
+            "የልጥፍዎ ሊንክ",
+        "Another post link":
+            "ሌላ የልጥፍ ሊንክ",
+        "I made this video and posted it on my own social media. Everyone in it agreed. I give Kinbir a free, permanent, worldwide right to use, edit, repost and share it on Kinbir's social media, website and ads, with or without my name.":
+            "ይህን ቪዲዮ እኔ ራሴ ሠርቼ በራሴ ማህበራዊ ሚዲያ ላይ ለጥፌዋለሁ። በቪዲዮው ውስጥ ያሉ ሁሉ ተስማምተዋል። ቅንብር ቪዲዮውን በማህበራዊ ሚዲያው፣ በድረ-ገጹና በማስታወቂያዎቹ ላይ፣ ስሜን በመጥቀስም ሆነ ሳይጠቅስ፣ እንዲጠቀምበት፣ እንዲያስተካክለው፣ እንደገና እንዲለጥፈውና እንዲያጋራው ነፃ፣ ቋሚና ዓለም አቀፍ መብት እሰጣለሁ።",
+        "just now":
+            "አሁን",
+        "%@ min ago":
+            "ከ%@ ደቂቃ በፊት",
+        "%@ h ago":
+            "ከ%@ ሰዓት በፊት",
+        "%@ d ago":
+            "ከ%@ ቀን በፊት",
+        "Loading…":
+            "በመጫን ላይ…",
+        "That video is too large to send. Pick a shorter one, up to 3 minutes.":
+            "ይህ ቪዲዮ ለመላክ በጣም ትልቅ ነው። እስከ 3 ደቂቃ የሆነ አጠር ያለ ይምረጡ።",
+        "Could not load this page.":
+            "ይህን ገጽ መጫን አልተቻለም።",
+        "Could not send the video. Try again.":
+            "ቪዲዮውን መላክ አልተቻለም። እንደገና ይሞክሩ።",
+        "Could not add the link. Try again.":
+            "ሊንኩን መጨመር አልተቻለም። እንደገና ይሞክሩ።",
+        "Copyright":
+            "የቅጂ መብት",
+        "Slower":
+            "ዝግ ያለ",
+        "Faster":
+            "ፈጣን",
+        "Speak to type":
+            "በመናገር ይጻፉ",
+        "Kinbir voice":
+            "የቅንብር ድምፅ",
+        "%@ free voiceovers left in the Kinbir voice.":
+            "በቅንብር ድምፅ %@ ነፃ የድምፅ ንባቦች ቀርተዋል።",
+        "1 free voiceover left in the Kinbir voice.":
+            "በቅንብር ድምፅ 1 ነፃ የድምፅ ንባብ ቀርቷል።",
+        "Optional. Read a short paragraph on camera and every voiceover can be in your own voice. Your first voice earns free credits.":
+            "አማራጭ ነው። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፤ ከዚያ እያንዳንዱ የድምፅ ንባብ በራስዎ ድምፅ ሊሆን ይችላል። የመጀመሪያ ድምፅዎ ነፃ ክሬዲት ያስገኝልዎታል።",
+        "Not quite right? Tell Kinbir what to change":
+            "ልክ አልሆነም? ምን መቀየር እንዳለበት ለቅንብር ይንገሩ",
+        "e.g. make the ending warmer, shorten the second part":
+            "ለምሳሌ፦ መጨረሻውን ሞቅ ያለ አድርገው፣ ሁለተኛውን ክፍል አሳጥረው",
+        "Apply change":
+            "ለውጡን ተግብር",
+        "Free":
+            "ነፃ",
+        "Free in the Kinbir voice · %@ free left · ≈ %@s of audio":
+            "በቅንብር ድምፅ ነፃ · %@ ነፃ ቀርቷል · ≈ %@ ሰከንድ ድምፅ",
+        "Leaves you %@ of %@ credits · ≈ %@s of audio":
+            "%@ ክሬዲት ይቀርዎታል (ከ%@ ውስጥ) · ≈ %@ ሰከንድ ድምፅ",
+        "Voiceover language set to Amharic.":
+            "የድምፅ ንባብ ቋንቋ ወደ አማርኛ ተቀይሯል።",
+        "Charged %@ credit, leaves you %@ credits":
+            "%@ ክሬዲት ተከፍሏል፤ %@ ክሬዲት ይቀርዎታል",
+        "Charged %@ credits, leaves you %@ credits":
+            "%@ ክሬዲት ተከፍሏል፤ %@ ክሬዲት ይቀርዎታል",
+        "Nothing was changed.":
+            "ምንም አልተቀየረም።",
+        "Paste text in any language and get a natural Amharic script.":
+            "በማንኛውም ቋንቋ ጽሑፍ ይለጥፉና ተፈጥሯዊ የአማርኛ ስክሪፕት ያግኙ።",
+        "This script is in English. Tap Write it for me to turn it into Amharic, or set Voiceover language to English.":
+            "ይህ ስክሪፕት በእንግሊዝኛ ነው። ወደ አማርኛ ለመቀየር «ጻፍልኝ» የሚለውን ይንኩ፣ ወይም የድምፅ ንባብ ቋንቋውን ወደ እንግሊዝኛ ይቀይሩ።",
+        "This script is in Amharic. Set Voiceover language to Amharic.":
+            "ይህ ስክሪፕት በአማርኛ ነው። የድምፅ ንባብ ቋንቋውን ወደ አማርኛ ይቀይሩ።",
+        "Add your niche, tone, or words to avoid. Kinbir follows them every time.":
+            "የሚሠሩበትን ዘርፍ፣ የአነጋገር ዘይቤ ወይም መወገድ ያለባቸውን ቃላት ይጨምሩ። ቅንብር ሁልጊዜ ይከተላቸዋል።",
+        "Add":
+            "ጨምር",
+        "Edit":
+            "አስተካክል",
+        "Paste the link to the news story. Kinbir reads it and writes your script from it.":
+            "የዜናውን ሊንክ ይለጥፉ። ቅንብር አንብቦ ስክሪፕትዎን ከእሱ ይጽፋል።",
+        "Getting the article is free. You see the price before the script is written.":
+            "ጽሑፉን ማምጣት ነፃ ነው። ስክሪፕቱ ከመጻፉ በፊት ዋጋውን ያያሉ።",
+        "The article is ready.":
+            "ጽሑፉ ዝግጁ ነው።",
+        "The article is ready: %@.":
+            "ጽሑፉ ዝግጁ ነው፦ %@።",
+        "Writing the script costs about %@ credits.":
+            "ስክሪፕቱን መጻፍ ወደ %@ ክሬዲት ገደማ ያስከፍላል።",
+        "Your recent work, on every device you sign in on":
+            "የቅርብ ጊዜ ሥራዎችዎ፣ በሚገቡበት በማንኛውም መሣሪያ ላይ",
     ]
 }
