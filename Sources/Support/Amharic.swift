@@ -223,7 +223,6 @@ enum Amharic {
         "Tap a shot to add your own clip, or add several clips at once.": "የራስዎን ክሊፕ ለመጨመር ትዕይንቱን ይንኩ፣ ወይም ብዙ ክሊፖችን በአንድ ጊዜ ይጨምሩ።",
         "Use stock for the empty shots": "ለባዶ ትዕይንቶች የክምችት ምስል ይጠቀሙ",
         // Video making is not part of the free credits (D-512)
-        "Video making opens with a plan": "ቪዲዮ መሥራት በዕቅድ ይከፈታል",
         "Your free credits are for voiceovers in your own voice. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned.": "ነፃ ክሬዲቶችዎ በራስዎ ድምፅ ለሚነበቡ ድምፆች ናቸው። ዕቅድ ሲኖርዎት ወይም ነፃ ክሬዲት ሲያገኙ ቅንብር ይህን ድምፅ ምስል፣ መግለጫ ጽሑፍ እና ሙዚቃ ያለው የተጠናቀቀ ቪዲዮ ያደርገዋል።",
         "See plans": "ዕቅዶችን ይመልከቱ",
         "Earn free credits with a video about Kinbir": "ስለ ቅንብር ቪዲዮ በመሥራት ነፃ ክሬዲት ያግኙ",
