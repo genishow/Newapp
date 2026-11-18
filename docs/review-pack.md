@@ -83,6 +83,9 @@ The account has credits, so nothing needs to be bought to test.
 VOICE CLONING AND CONSENT
 A voice is cloned only from a video of the person themself, on camera, reading a consent statement aloud. The app asks for two explicit consents, and the server checks that the statement was really spoken before any voice is made. Recordings where the statement was only partly heard are listed for a person to review, and we remove any cloned voice that is not the account holder's own, at any time; the user agrees to this before recording. Cloning is optional: the built-in Kinbir voice works without it. The AI presenter uses a photo of the account holder with the same self-declaration.
 
+SENSITIVE INFO IN APP PRIVACY
+We declare "Sensitive Info" because of voice cloning and the presenter. The only such data is the user's own voice recording and voice model, the consent video of their face, and an optional photo of their face. All of it is given by the user on the voice and presenter screens, after the two consents described above, and is used only to make that user's own voiceovers and videos. It is never used for tracking or advertising, and the user can delete it in the app at any time.
+
 AI CONTENT (5.1.2, 1.2)
 Scripts are written by an AI writing service and the presenter video by an AI video service. The app says so and asks for agreement right after sign-in ("How Kinbir uses AI"). Under every result there is a "Report a problem with this result" link, and support@kinbir.com answers reports. Scripts, voices and videos are private to the account; there is no public feed, chat or sharing between users inside the app.
 
