@@ -455,6 +455,21 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("shotsHeading", timeout: 30)
     }
 
+    /// Free credits do not open video making: the screen offers a plan or earning credits.
+    func testVideoIsLockedUntilPlanOrEarnedCredits() {
+        launch(["-mockVideoLocked"])
+        signIn()
+        makeVoiceover()
+
+        waitFor("makeVideoLink").tap()
+        waitFor("videoLockedHeading")
+        XCTAssertFalse(el("planButton").exists, "the setup must not show while video is locked")
+        XCTAssertFalse(el("autoVideoButton").exists, "the main button must not show while video is locked")
+        XCTAssertTrue(el("lockedPlansButton").exists)
+        waitFor("lockedEarnButton").tap()
+        waitFor("promoHeading")
+    }
+
     /// "Only mine" with no clips yet still makes the shot list; clips are added on it.
     func testOwnFootageShotListWithoutClips() {
         launch([])

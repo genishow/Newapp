@@ -537,7 +537,7 @@ struct VideoFlowView: View {
                 case .loading:
                     ProgressView().tint(Theme.black)
                 case .setup:
-                    setup
+                    if videoLocked { lockedCard } else { setup }
                 case .planning:
                     planning
                 case .shots:
@@ -572,7 +572,7 @@ struct VideoFlowView: View {
             musicPlayer.stop()
         }
         .safeAreaInset(edge: .bottom) {
-            if stage == .setup {
+            if stage == .setup && !videoLocked {
                 BottomBar(problem: problem) { setupBar }
             }
         }
@@ -621,6 +621,38 @@ struct VideoFlowView: View {
     }
 
     // MARK: setup
+
+    /// Making a video is not part of the free credits (Geni, 2026-11-18). A video
+    /// already started stays open: only starting a new one is locked.
+    private var videoLocked: Bool { state.me?.videoOpen == false }
+
+    private var lockedCard: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text(T("Make a video")).screenTitle(amharic: A("Make a video"))
+                .accessibilityIdentifier("videoLockedHeading")
+            VStack(alignment: .leading, spacing: 12) {
+                Text(T("Video making opens with a plan"))
+                    .font(Theme.heading).foregroundStyle(Theme.black)
+                Text(T("Your free credits are for voiceovers in your own voice. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned."))
+                    .font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .card(fill: Theme.lime)
+            Button(T("See plans")) {
+                state.selectedTab = 2
+                state.pendingAccountRoute = .buyCredits
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("lockedPlansButton")
+            Button(T("Earn free credits with a video about Kinbir")) {
+                state.selectedTab = 2
+                state.pendingAccountRoute = .promo
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("lockedEarnButton")
+            NoteText(text: T("Post a short video about Kinbir. When it is approved you get free credits, and video making opens."))
+        }
+    }
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 20) {

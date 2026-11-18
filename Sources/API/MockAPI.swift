@@ -96,6 +96,7 @@ final class MockAPI: KinbirAPI {
                             scriptRules: video.scriptRules, scriptRulesDefault: "Keep sentences short.",
                             enPace: "normal", enEmphasis: "none")
             me.stockFreeLeft = stockFreeLeft
+            me.videoOpen = !Launch.mockVideoLocked
             return me
         }
     }

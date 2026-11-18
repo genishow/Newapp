@@ -24,6 +24,9 @@ struct WhoAmI: Codable, Equatable {
     var tier: String?
     var hasPaid: Bool?
     var trialMaxChars: Int?
+    /// False when making a video is locked: it opens with a plan, or with credits
+    /// earned by a promo video. Nil (an older server) means open.
+    var videoOpen: Bool?
     /// Standing instructions applied to every script Kinbir writes.
     var scriptRules: String?
     var scriptRulesDefault: String?

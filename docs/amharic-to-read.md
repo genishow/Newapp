@@ -91,3 +91,8 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 83 | Add your clips above, or tap See the shots first and add a clip to each shot. | ክሊፖችዎን ከላይ ይጨምሩ፣ ወይም «See the shots first» የሚለውን ነክተው ለእያንዳንዱ ትዕይንት ክሊፕ ይጨምሩ። |
 | 84 | Tap a shot to add your own clip, or add several clips at once. | የራስዎን ክሊፕ ለመጨመር ትዕይንቱን ይንኩ፣ ወይም ብዙ ክሊፖችን በአንድ ጊዜ ይጨምሩ። |
 | 85 | Use stock for the empty shots | ለባዶ ትዕይንቶች የክምችት ምስል ይጠቀሙ |
+| 86 | Video making opens with a plan | ቪዲዮ መሥራት በዕቅድ ይከፈታል |
+| 87 | Your free credits are for voiceovers in your own voice. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned. | ነፃ ክሬዲቶችዎ በራስዎ ድምፅ ለሚነበቡ ድምፆች ናቸው። ዕቅድ ሲኖርዎት ወይም ነፃ ክሬዲት ሲያገኙ ቅንብር ይህን ድምፅ ምስል፣ መግለጫ ጽሑፍ እና ሙዚቃ ያለው የተጠናቀቀ ቪዲዮ ያደርገዋል። |
+| 88 | See plans | ዕቅዶችን ይመልከቱ |
+| 89 | Earn free credits with a video about Kinbir | ስለ ቅንብር ቪዲዮ በመሥራት ነፃ ክሬዲት ያግኙ |
+| 90 | Post a short video about Kinbir. When it is approved you get free credits, and video making opens. | ስለ ቅንብር አጭር ቪዲዮ ይለጥፉ። ሲጸድቅ ነፃ ክሬዲት ያገኛሉ፣ ቪዲዮ መሥራትም ይከፈታል። |
