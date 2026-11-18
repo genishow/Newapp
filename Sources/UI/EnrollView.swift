@@ -264,7 +264,7 @@ struct EnrollView: View {
         VStack(alignment: .leading, spacing: 12) {
             tick(isOn: $agreedVoice,
                  title: T("I agree: this is my voice"),
-                 detail: T("Kinbir may create a synthetic copy of my voice for my account only. It stays private to me and I can delete it at any time."))
+                 detail: T("Kinbir may create a synthetic copy of my voice, from this recording, to read my scripts for my account only. It stays private to me. Kinbir keeps it until I delete it, which I can do at any time, and destroys it three years after I last use Kinbir."))
                 .accessibilityIdentifier("consentVoiceTick")
             tick(isOn: $agreedPolicy,
                  title: T("I have read and agree to the Voice Policy"),
