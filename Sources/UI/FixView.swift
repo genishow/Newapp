@@ -472,7 +472,7 @@ struct FixView: View {
 
     /// A round of fixes costs 1.5 credits, and never more than voicing the script again.
     private var fixPrice: String {
-        SpeedControl.priceText(min(1.5, job?.pacePrice ?? 1.5))
+        SpeedControl.priceText(job?.fixPrice ?? min(1.5, job?.pacePrice ?? 1.5))
     }
 
     private func applyFixes(whole: Bool) async {

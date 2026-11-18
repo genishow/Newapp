@@ -225,6 +225,8 @@ struct JobStatus: Codable, Equatable {
     var pacesReady: [PaceTake]?
     /// Credits to record the script at a speed not yet made.
     var pacePrice: Double?
+    /// Credits for one round of word fixes on this voiceover, from the server.
+    var fixPrice: Double?
     /// When it finished, from the server. The audio is deleted 48 hours later.
     var finishedAt: String?
 
