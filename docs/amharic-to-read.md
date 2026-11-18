@@ -98,3 +98,5 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 90 | Post a short video about Kinbir. When it is approved you get free credits, and video making opens. | ስለ ቅንብር አጭር ቪዲዮ ይለጥፉ። ሲጸድቅ ነፃ ክሬዲት ያገኛሉ፣ ቪዲዮ መሥራትም ይከፈታል። |
 | 91 | Clone your voice and get %@ free credits. Read a short paragraph on camera, then hear your script in your own voice. | ድምፅዎን ያስቀዱ እና %@ ነፃ ክሬዲት ያግኙ። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ። |
 | 92 | Clone your voice to get %@ more free credits. | ተጨማሪ %@ ነፃ ክሬዲት ለማግኘት ድምፅዎን ያስቀዱ። |
+| 93 | Get %@ free credits | %@ ነፃ ክሬዲት ያግኙ |
+| 95 | Clone your voice: read a short paragraph on camera, then hear your script in your own voice. | ድምፅዎን ያስቀዱ፦ አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ። |

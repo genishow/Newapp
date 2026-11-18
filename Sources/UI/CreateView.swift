@@ -15,6 +15,8 @@ struct CreateView: View {
 
     @State private var work: Work = .idle
     @AppStorage("kinbir.sawFreeCredits") private var sawFreeCredits = false
+    @AppStorage("kinbir.sawCloneOffer") private var sawCloneOffer = false
+    @State private var showCloneOffer = false
     /// True while the microphone is being opened, so a second tap cannot start it twice.
     @State private var micStarting = false
     @State private var problem: String?
@@ -343,6 +345,20 @@ struct CreateView: View {
                         .font(Theme.bodyMedium).foregroundStyle(Theme.black)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("cloneBonusNote")
+                        // Shown once, when the clone button comes into view (Geni,
+                        // 2026-11-18: "when they scroll through clone button it could popup").
+                        .onAppear {
+                            if !Launch.isMock, !sawCloneOffer {
+                                sawCloneOffer = true
+                                showCloneOffer = true
+                            }
+                        }
+                        .alert(Tf("Get %@ free credits", Fmt.credits(cloneBonus)), isPresented: $showCloneOffer) {
+                            Button(T("Clone my voice")) { path.append(Route.enroll) }
+                            Button(T("Not now"), role: .cancel) {}
+                        } message: {
+                            Text(T("Clone your voice: read a short paragraph on camera, then hear your script in your own voice."))
+                        }
                 } else {
                     NoteText(text: T("Optional. Read a short paragraph on camera and every voiceover can be in your own voice."))
                 }

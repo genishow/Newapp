@@ -552,6 +552,9 @@ enum Amharic {
             "አማራጭ ነው። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፤ ከዚያ እያንዳንዱ የድምፅ ንባብ በራስዎ ድምፅ ሊሆን ይችላል።",
         "Clone your voice and get %@ free credits. Read a short paragraph on camera, then hear your script in your own voice.":
             "ድምፅዎን ያስቀዱ እና %@ ነፃ ክሬዲት ያግኙ። አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ።",
+        "Get %@ free credits": "%@ ነፃ ክሬዲት ያግኙ",
+        "Clone your voice: read a short paragraph on camera, then hear your script in your own voice.":
+            "ድምፅዎን ያስቀዱ፦ አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ።",
         "Clone your voice to get %@ more free credits.":
             "ተጨማሪ %@ ነፃ ክሬዲት ለማግኘት ድምፅዎን ያስቀዱ።",
         "Not quite right? Tell Kinbir what to change":
