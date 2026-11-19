@@ -358,7 +358,13 @@ struct CreateView: View {
                         // And once the first-run screen has been closed, so a new
                         // user sees the offer straight away, not on a later visit.
                         .onChange(of: state.needsAIConsent) { _, waiting in
-                            if !waiting, !Launch.isMock, !sawCloneOffer {
+                            guard !waiting, !Launch.isMock, !sawCloneOffer else { return }
+                            // After the first-run screen has finished closing: a
+                            // popup asked for while another screen is still going
+                            // away is dropped, and the offer would be spent unseen.
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 900_000_000)
+                                guard !sawCloneOffer, !state.needsAIConsent else { return }
                                 sawCloneOffer = true
                                 showCloneOffer = true
                             }
