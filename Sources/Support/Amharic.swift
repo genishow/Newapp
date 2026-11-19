@@ -187,6 +187,10 @@ enum Amharic {
         "Reading language": "የንባብ ቋንቋ",
         "Read in English to get a voice with a native English sound.": "ተፈጥሯዊ የእንግሊዝኛ ድምፅ ለማግኘት በእንግሊዝኛ ያንብቡ።",
         "Read this aloud": "ይህን ጮክ ብለው ያንብቡ",
+        // Voice cloning: the right language, and reading the exact words (D-518)
+        "Read this aloud, word for word": "ይህን ቃል በቃል ጮክ ብለው ያንብቡ",
+        "Which language will you read in?": "በየትኛው ቋንቋ ያነባሉ?",
+        "This device has no camera to record with. Open Kinbir on your phone to clone your voice.": "ይህ መሣሪያ ለመቅረጽ ካሜራ የለውም። ድምፅዎን ለማስቀዳት ቅንብርን በስልክዎ ይክፈቱ።",
         "A quiet room, no music or TV.": "ጸጥ ያለ ክፍል፣ ሙዚቃ ወይም ቲቪ የሌለበት።",
         "Hold the phone close, about an arm's length.": "ስልኩን በክንድ ርቀት ያህል ቀረብ አድርገው ይያዙ።",
         "Read naturally, the way you normally speak.": "እንደተለመደው አነጋገርዎ በተፈጥሯዊ መንገድ ያንብቡ።",

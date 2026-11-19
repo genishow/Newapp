@@ -9,7 +9,6 @@ struct EnrollView: View {
     @State private var script = ""
     @State private var scriptProblem: String?
     @State private var showRecorder = false
-    @State private var showLibrary = false
     @State private var uploading = false
     @State private var problem: String?
     @State private var result: EnrollResult?
@@ -62,12 +61,6 @@ struct EnrollView: View {
             }
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $showLibrary) {
-            VideoLibraryPicker { url in
-                showLibrary = false
-                if let url { Task { await picked(url) } }
-            }
-        }
     }
 
     // MARK: before recording
@@ -77,15 +70,20 @@ struct EnrollView: View {
             Text(T("Clone your voice")).screenTitle(amharic: A("Clone your voice"))
                 .accessibilityIdentifier("enrollHeading")
 
-            Picker(T("Reading language"), selection: $language) {
-                ForEach(Lang.allCases) { Text(T($0.title)).tag($0) }
+            // Two big choices, each in its own language, so nobody reads the wrong
+            // statement by leaving a small switch where it was (Geni, 2026-11-19).
+            Text(T("Which language will you read in?"))
+                .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            HStack(spacing: 12) {
+                languageTile(.am, title: "አማርኛ", detail: "Amharic")
+                languageTile(.en, title: "English", detail: "እንግሊዝኛ")
             }
-            .pickerStyle(.segmented)
             .accessibilityIdentifier("enrollLanguagePicker")
             if language == .en {
                 NoteText(text: T("Read in English to get a voice with a native English sound."))
             }
 
+            mustRead
             scriptCard
             tips
 
@@ -96,9 +94,47 @@ struct EnrollView: View {
         }
     }
 
+    private func languageTile(_ value: Lang, title: String, detail: String) -> some View {
+        let selected = language == value
+        return Button {
+            Haptics.tap()
+            language = value
+        } label: {
+            VStack(spacing: 4) {
+                Text(title).font(Theme.heading).foregroundStyle(Theme.black)
+                Text(detail).font(Theme.small).foregroundStyle(Theme.muted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(selected ? Theme.lime : Theme.grey))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Theme.black, lineWidth: selected ? 2 : 0))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("enrollLanguage-" + value.rawValue)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// The one rule, said before anything else, in the language being read. People
+    /// were talking about other things, or singing, and no voice could be made.
+    private var mustRead: some View {
+        let am = language == .am
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(am ? "እነዚህን ቃላት በትክክል ማንበብ አለብዎት" : "You must read these exact words")
+                .font(Theme.heading).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(am ? "ሌላ ምንም አይናገሩ። ሌላ ንግግር ወይም ዘፈን ተቀባይነት የለውም፤ ድምፅም አይሰራም።"
+                    : "Do not say anything else. Other talking or singing is refused, and no voice is made.")
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("enrollMustRead")
+    }
+
     private var scriptCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(T("Read this aloud")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+            Text(T("Read this aloud, word for word")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             if script.isEmpty && scriptProblem == nil {
                 ProgressView().tint(Theme.black)
             } else if let scriptProblem {
@@ -164,10 +200,12 @@ struct EnrollView: View {
                 .disabled(script.isEmpty)
                 .accessibilityIdentifier("recordButton")
         }
-        Button(T("Choose a video")) { showLibrary = true }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(script.isEmpty)
-            .accessibilityIdentifier("chooseVideoButton")
+        else {
+            // No old video can be chosen any more (Geni, 2026-11-19): people sent
+            // songs and random clips. The reading is recorded here, with the words
+            // on the screen.
+            NoteText(text: T("This device has no camera to record with. Open Kinbir on your phone to clone your voice."))
+        }
     }
 
     private func tip(_ text: String) -> some View {

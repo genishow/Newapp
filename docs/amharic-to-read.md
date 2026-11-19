@@ -100,3 +100,8 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 92 | Clone your voice to get %@ more free credits. | ተጨማሪ %@ ነፃ ክሬዲት ለማግኘት ድምፅዎን ያስቀዱ። |
 | 93 | Get %@ free credits | %@ ነፃ ክሬዲት ያግኙ |
 | 95 | Clone your voice: read a short paragraph on camera, then hear your script in your own voice. | ድምፅዎን ያስቀዱ፦ አጭር አንቀጽ በካሜራ ፊት ያንብቡ፣ ከዚያ ጽሑፍዎን በራስዎ ድምፅ ይስሙ። |
+| 96 | Read this aloud, word for word | ይህን ቃል በቃል ጮክ ብለው ያንብቡ |
+| 97 | Which language will you read in? | በየትኛው ቋንቋ ያነባሉ? |
+| 98 | You must read these exact words | እነዚህን ቃላት በትክክል ማንበብ አለብዎት |
+| 99 | Do not say anything else. Other talking or singing is refused, and no voice is made. | ሌላ ምንም አይናገሩ። ሌላ ንግግር ወይም ዘፈን ተቀባይነት የለውም፤ ድምፅም አይሰራም። |
+| 100 | This device has no camera to record with. Open Kinbir on your phone to clone your voice. | ይህ መሣሪያ ለመቅረጽ ካሜራ የለውም። ድምፅዎን ለማስቀዳት ቅንብርን በስልክዎ ይክፈቱ። |
