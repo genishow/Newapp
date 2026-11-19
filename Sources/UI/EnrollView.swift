@@ -19,6 +19,7 @@ struct EnrollView: View {
     @State private var take: URL?
     @State private var takePlayer: AVPlayer?
     @State private var checking = false
+    @State private var checkRound = 0
     @State private var check: EnrollCheck?
 
     // The two consent ticks. Both are needed before the take can be sent.
@@ -280,7 +281,8 @@ struct EnrollView: View {
                 Spacer()
                 Button("↺ " + T("Redo")) { redo() }
                     .buttonStyle(QuietButtonStyle())
-                    .disabled(uploading || checking)
+                    // Not held back by the check: on a slow connection it can take a while.
+                    .disabled(uploading)
                     .accessibilityIdentifier("redoButton")
             }
         }
@@ -620,18 +622,28 @@ struct EnrollView: View {
         take = nil
         check = nil
         problem = nil
+        // Any check still on its way belongs to the take just thrown away.
+        checkRound += 1
+        checking = false
     }
 
+    /// Each check carries a number. A slow one whose take has since been redone is
+    /// ignored when it finally answers, so Redo never has to wait for it.
     private func runCheck() async {
-        guard let take, !checking else { return }
+        guard let mine = take else { return }
+        checkRound += 1
+        let round = checkRound
         checking = true
         problem = nil
-        defer { checking = false }
         do {
-            check = try await state.api.enrollCheck(videoURL: take, language: language)
+            let answer = try await state.api.enrollCheck(videoURL: mine, language: language)
+            guard round == checkRound, take == mine else { return }
+            check = answer
         } catch {
+            guard round == checkRound, take == mine else { return }
             problem = state.report(error)
         }
+        checking = false
     }
 
     private func send() async {
