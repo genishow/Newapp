@@ -561,11 +561,18 @@ struct EnrollView: View {
 
     private func loadScript() async {
         scriptProblem = nil
+        // The language can be changed while the words are still loading. Only the
+        // load for the language now chosen may write anything, or the card showed
+        // an error over words that had in fact arrived.
+        let asked = language
         do {
             script = ""
-            script = try await state.api.enrollScript(language: language)
-            if script.isEmpty { scriptProblem = T("The script could not be loaded.") }
+            let words = try await state.api.enrollScript(language: asked)
+            guard asked == language, !Task.isCancelled else { return }
+            script = words
+            scriptProblem = words.isEmpty ? T("The script could not be loaded.") : nil
         } catch {
+            guard asked == language, !Task.isCancelled else { return }
             scriptProblem = APIError.wrap(error).message
         }
     }
