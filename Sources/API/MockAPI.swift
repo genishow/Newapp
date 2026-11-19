@@ -220,7 +220,8 @@ final class MockAPI: KinbirAPI {
     func enrollCheck(videoURL: URL, language: Lang) async throws -> EnrollCheck {
         await pause()
         return EnrollCheck(badge: "green", advice: ["looks good - this recording should clone well"],
-                           videoDurationSec: 12, durationOk: true)
+                           videoDurationSec: 12, durationOk: true,
+                           consent: ConsentHeard(verdict: "pass", language: language.rawValue, heard: nil))
     }
 
     // MARK: script

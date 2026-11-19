@@ -106,11 +106,21 @@ struct EnrollResult: Codable, Equatable {
 }
 
 /// The free quality check on a recording, before it is sent (`POST /enroll/check`).
+/// What the server heard in a take: "pass", "fail" or "unchecked". `heard` is the
+/// words it made out, sent only when the statement was not heard.
+struct ConsentHeard: Codable, Equatable {
+    var verdict: String?
+    var language: String?
+    var heard: String?
+}
+
 struct EnrollCheck: Codable, Equatable {
     var badge: String?
     var advice: [String]?
     var videoDurationSec: Double?
     var durationOk: Bool?
+    /// Whether the consent statement was heard in this take. Nil on an older server.
+    var consent: ConsentHeard?
 
     /// The website's three labels.
     var title: String {

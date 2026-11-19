@@ -127,8 +127,9 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("enrollReviewHeading")
         waitFor("redoButton")
         XCTAssertFalse(waitFor("sendVoiceButton").isEnabled, "sending waits for both consent ticks")
-        waitFor("checkQualityButton").tap()
+        // The take is listened to by itself now: no button to press.
         waitFor("qualityBadge")
+        waitFor("consentHeard")
         waitFor("consentVoiceTick").tap()
         waitFor("consentPolicyTick").tap()
         waitFor("sendVoiceButton").tap()

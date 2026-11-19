@@ -111,3 +111,10 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 104 | Read now | አሁን ያንብቡ |
 | 105 | Done reading | አንብቤ ጨርሻለሁ |
 | 106 | The camera is not ready yet. Tap Start again. | ካሜራው ገና ዝግጁ አይደለም። «ጀምር»ን እንደገና ይንኩ። |
+| 107 | We heard you read the statement. You can send it. | መግለጫውን ሲያነቡ ሰምተናል። መላክ ይችላሉ። |
+| 108 | We did not hear the statement | መግለጫውን አልሰማንም |
+| 109 | Record again and read the words on the screen, word for word. Do not say anything else. | እንደገና ይቅረጹ እና በስክሪኑ ላይ ያሉትን ቃላት ቃል በቃል ያንብቡ። ሌላ ምንም አይናገሩ። |
+| 110 | What we heard: | የሰማነው፦ |
+| 111 | Record again | እንደገና ይቅረጹ |
+| 112 | Listening to your recording | ቅጂዎን እያዳመጥን ነው |
+| 113 | Check my recording | ቅጂዬን ፈትሽ |

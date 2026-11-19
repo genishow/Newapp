@@ -232,7 +232,9 @@ struct EnrollView: View {
 
     // MARK: the take, before it is sent
 
-    private var canSend: Bool { agreedVoice && agreedPolicy && !uploading }
+    private var canSend: Bool { agreedVoice && agreedPolicy && !uploading && !notHeard }
+    /// The check listened to this take and did not hear the statement.
+    private var notHeard: Bool { check?.consent?.verdict == "fail" }
 
     private var review: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
@@ -282,11 +284,41 @@ struct EnrollView: View {
     }
 
     /// The optional, free check: a badge and what to fix, in the server's own words.
+    @ViewBuilder private var heardPart: some View {
+        if let consent = check?.consent, !checking {
+            if consent.verdict == "pass" {
+                Label(T("We heard you read the statement. You can send it."), systemImage: "checkmark.circle.fill")
+                    .font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(fill: Theme.lime, padding: 14)
+                    .accessibilityIdentifier("consentHeard")
+            } else if consent.verdict == "fail" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(T("We did not hear the statement"))
+                        .font(Theme.heading).foregroundStyle(Theme.black)
+                    Text(T("Record again and read the words on the screen, word for word. Do not say anything else."))
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let heard = consent.heard, !heard.isEmpty {
+                        Text(T("What we heard:")).font(Theme.smallMedium).foregroundStyle(Theme.muted)
+                        AmharicText(text: heard, font: .system(size: 15))
+                    }
+                    Button("↺ " + T("Record again")) { redo() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("recordAgainButton")
+                }
+                .card(fill: Theme.grey, padding: 14)
+                .accessibilityIdentifier("consentNotHeard")
+            }
+        }
+    }
+
     @ViewBuilder private var qualityPart: some View {
+        heardPart
         if checking {
             HStack(spacing: 10) {
                 ProgressView().tint(Theme.black)
-                Text(T("Checking audio quality")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+                Text(T("Listening to your recording")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
             }
             .card(fill: Theme.grey, padding: 14)
         } else if let check {
@@ -373,7 +405,7 @@ struct EnrollView: View {
         }
 
         if check == nil && !checking {
-            Button(T("Check quality (optional)")) { Task { await runCheck() } }
+            Button(T("Check my recording")) { Task { await runCheck() } }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(uploading)
                 .accessibilityIdentifier("checkQualityButton")
@@ -555,6 +587,9 @@ struct EnrollView: View {
         check = nil
         take = url
         takePlayer = AVPlayer(url: url)
+        // Every take is listened to at once, so the person knows before sending
+        // whether the statement was heard (Geni, 2026-11-19).
+        Task { await runCheck() }
     }
 
     private func redo() {
