@@ -332,7 +332,7 @@ struct CreateView: View {
             if usingStock, let left = state.me?.stockFreeLeft, left > 0 {
                 NoteText(text: Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
             }
-            if needsVoice {
+            if needsVoice && state.me?.cloneOpen != false {
                 NavigationLink(value: Route.enroll) {
                     Label(T("Clone your voice"), systemImage: "person.wave.2")
                 }

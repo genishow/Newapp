@@ -29,6 +29,8 @@ struct WhoAmI: Codable, Equatable {
     var videoOpen: Bool?
     /// Free credits waiting for the first cloned voice. 0 or nil once claimed.
     var cloneBonus: Double?
+    /// False where voice cloning is closed for this account. Nil (older server) means open.
+    var cloneOpen: Bool?
     /// Standing instructions applied to every script Kinbir writes.
     var scriptRules: String?
     var scriptRulesDefault: String?

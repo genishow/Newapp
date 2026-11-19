@@ -44,7 +44,7 @@ struct EnrollView: View {
                 } else if take != nil {
                     review
                 } else {
-                    form
+                    if state.me?.cloneOpen == false { cloneClosed } else { form }
                 }
             }
             .page()
@@ -64,6 +64,20 @@ struct EnrollView: View {
     }
 
     // MARK: before recording
+
+    /// Voice cloning is closed for this account (the server decides).
+    private var cloneClosed: some View {
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            Text(T("Clone your voice")).screenTitle(amharic: A("Clone your voice"))
+                .accessibilityIdentifier("enrollClosedHeading")
+            Text(T("Voice cloning is not available in your country yet. You can still make voiceovers in the Kinbir voice."))
+                .font(Theme.body).foregroundStyle(Theme.black)
+                .fixedSize(horizontal: false, vertical: true)
+                .card(fill: Theme.grey)
+            Button(T("Continue")) { dismiss() }
+                .buttonStyle(PrimaryButtonStyle())
+        }
+    }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
