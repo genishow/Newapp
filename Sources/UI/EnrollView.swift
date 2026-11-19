@@ -20,6 +20,7 @@ struct EnrollView: View {
     @State private var takePlayer: AVPlayer?
     @State private var checking = false
     @State private var checkRound = 0
+    @State private var scriptRound = 0
     @State private var check: EnrollCheck?
 
     // The two consent ticks. Both are needed before the take can be sent.
@@ -564,15 +565,19 @@ struct EnrollView: View {
         // The language can be changed while the words are still loading. Only the
         // load for the language now chosen may write anything, or the card showed
         // an error over words that had in fact arrived.
+        // Each load carries a number, and only the newest may write, whichever
+        // way it was started (the language tiles or Try again).
         let asked = language
+        scriptRound += 1
+        let round = scriptRound
         do {
             script = ""
             let words = try await state.api.enrollScript(language: asked)
-            guard asked == language, !Task.isCancelled else { return }
+            guard round == scriptRound, asked == language else { return }
             script = words
             scriptProblem = words.isEmpty ? T("The script could not be loaded.") : nil
         } catch {
-            guard asked == language, !Task.isCancelled else { return }
+            guard round == scriptRound, asked == language else { return }
             scriptProblem = APIError.wrap(error).message
         }
     }
