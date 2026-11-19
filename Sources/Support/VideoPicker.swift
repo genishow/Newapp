@@ -63,14 +63,12 @@ struct VideoRecorder: UIViewControllerRepresentable {
         // The reading is checked word for word, so every word must be on screen:
         // the type steps down until the whole statement fits the panel.
         label.font = .systemFont(ofSize: 20, weight: .medium)
-        for size in [20, 18, 17, 16, 15, 14, 13] as [CGFloat] {
-            let font = UIFont.systemFont(ofSize: size, weight: .medium)
-            let box = (script as NSString).boundingRect(
-                with: CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: [.font: font], context: nil)
-            label.font = font
-            if box.height <= label.bounds.height { break }
+        // Measured by the label itself, so Amharic letters are sized as drawn.
+        let room = label.bounds.size
+        for size in [20, 18, 17, 16, 15, 14, 13, 12] as [CGFloat] {
+            label.font = UIFont.systemFont(ofSize: size, weight: .medium)
+            let need = label.sizeThatFits(CGSize(width: room.width, height: .greatestFiniteMagnitude))
+            if need.height <= room.height { break }
         }
         label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         panel.addSubview(label)
@@ -91,10 +89,16 @@ struct VideoRecorder: UIViewControllerRepresentable {
         private var recording = false
         private var finished = false
         private var remaining = 0
-        private var observer: NSObjectProtocol?
 
         deinit {
-            if let observer { NotificationCenter.default.removeObserver(observer) }
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        /// A phone call or leaving the app ends the camera's recording without
+        /// telling us. The take is dropped and the screen closes, never stuck.
+        @objc private func resigned() {
+            guard recording else { return }
+            finish(nil)
         }
 
         /// Every way out goes through here, once.
@@ -158,14 +162,9 @@ struct VideoRecorder: UIViewControllerRepresentable {
             cancelButton.frame = CGRect(x: 12, y: 56, width: 96, height: 44)
             cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
             root.addSubview(cancelButton)
-            // A phone call or leaving the app ends the camera's recording without
-            // telling us. The take is dropped and the screen closes, never stuck.
-            observer = NotificationCenter.default.addObserver(
-                forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
-            ) { [weak self] _ in
-                guard let self, self.recording else { return }
-                self.finish(nil)
-            }
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(resigned),
+                name: UIApplication.willResignActiveNotification, object: nil)
             return root
         }
 
@@ -214,7 +213,8 @@ struct VideoRecorder: UIViewControllerRepresentable {
                 self?.picker?.stopVideoCapture()
             }
             // If the camera never answers (it was interrupted), do not hang here.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            // Long enough for a slow phone to finish writing a full-length take.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
                 self?.finish(nil)
             }
         }
@@ -234,6 +234,8 @@ struct VideoRecorder: UIViewControllerRepresentable {
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
+            // A take that was cancelled or timed out is not copied anywhere.
+            guard !finished else { return }
             let url = info[.mediaURL] as? URL
             finish(url.flatMap { VideoFiles.copyToTemp($0) })
         }
