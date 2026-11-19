@@ -169,10 +169,10 @@ struct VoicesView: View {
                     newName = voice.name ?? ""
                     renaming = voice
                 }
-                // The only voice cannot be deleted, as on the website.
-                if voices.count > 1 {
-                    Button(T("Delete"), role: .destructive) { deleting = voice }
-                }
+                // Any voice can be deleted, the last one too: the Voice
+                // Policy says "at any time". With none left the account
+                // uses the Kinbir voice.
+                Button(T("Delete"), role: .destructive) { deleting = voice }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .medium))
