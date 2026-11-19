@@ -106,3 +106,8 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 99 | Do not say anything else. Other talking or singing is refused, and no voice is made. | ሌላ ምንም አይናገሩ። ሌላ ንግግር ወይም ዘፈን ተቀባይነት የለውም፤ ድምፅም አይሰራም። |
 | 100 | This device has no camera to record with. Open Kinbir on your phone to clone your voice. | ይህ መሣሪያ ለመቅረጽ ካሜራ የለውም። ድምፅዎን ለማስቀዳት ቅንብርን በስልክዎ ይክፈቱ። |
 | 101 | Voice cloning is not available in your country yet. You can still make voiceovers in the Kinbir voice. | ድምፅ ማስቀዳት በአገርዎ ገና አይገኝም። በቅንብር ድምፅ የድምፅ ንባብ መሥራት ይችላሉ። |
+| 102 | Tap Start, wait for 3, 2, 1, then read | «ጀምር»ን ይንኩ፣ 3፣ 2፣ 1 ይጠብቁ፣ ከዚያ ያንብቡ |
+| 103 | Start | ጀምር |
+| 104 | Read now | አሁን ያንብቡ |
+| 105 | Done reading | አንብቤ ጨርሻለሁ |
+| 106 | The camera is not ready yet. Tap Start again. | ካሜራው ገና ዝግጁ አይደለም። «ጀምር»ን እንደገና ይንኩ። |

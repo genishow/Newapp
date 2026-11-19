@@ -190,6 +190,12 @@ enum Amharic {
         // Voice cloning: the right language, and reading the exact words (D-518)
         "Read this aloud, word for word": "ይህን ቃል በቃል ጮክ ብለው ያንብቡ",
         "Which language will you read in?": "በየትኛው ቋንቋ ያነባሉ?",
+        // The recorder counts down so the first words are not cut (D-520)
+        "Tap Start, wait for 3, 2, 1, then read": "«ጀምር»ን ይንኩ፣ 3፣ 2፣ 1 ይጠብቁ፣ ከዚያ ያንብቡ",
+        "Start": "ጀምር",
+        "Read now": "አሁን ያንብቡ",
+        "Done reading": "አንብቤ ጨርሻለሁ",
+        "The camera is not ready yet. Tap Start again.": "ካሜራው ገና ዝግጁ አይደለም። «ጀምር»ን እንደገና ይንኩ።",
         "Voice cloning is not available in your country yet. You can still make voiceovers in the Kinbir voice.": "ድምፅ ማስቀዳት በአገርዎ ገና አይገኝም። በቅንብር ድምፅ የድምፅ ንባብ መሥራት ይችላሉ።",
         "This device has no camera to record with. Open Kinbir on your phone to clone your voice.": "ይህ መሣሪያ ለመቅረጽ ካሜራ የለውም። ድምፅዎን ለማስቀዳት ቅንብርን በስልክዎ ይክፈቱ።",
         "A quiet room, no music or TV.": "ጸጥ ያለ ክፍል፣ ሙዚቃ ወይም ቲቪ የሌለበት።",

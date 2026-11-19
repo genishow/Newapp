@@ -27,9 +27,20 @@ struct VideoRecorder: UIViewControllerRepresentable {
         picker.videoMaximumDuration = EnrollRules.maxSeconds
         picker.videoQuality = .typeMedium
         picker.delegate = context.coordinator
-        if !script.isEmpty {
-            picker.cameraOverlayView = VideoRecorder.prompter(for: script, in: picker.view.bounds)
+        // Kinbir's own Start and Done buttons, so recording can begin BEFORE the
+        // reading does. People pressed record and spoke at once, and the camera
+        // missed their first words (Geni, 2026-11-19: "the first 3 words are cut
+        // off"). Now: Start begins recording, 3-2-1 counts on screen, then "Read now".
+        picker.showsCameraControls = false
+        let screen = UIScreen.main.bounds
+        // Without its own controls the camera picture sits at the top; fill the screen.
+        let pictureHeight = screen.width * 4 / 3
+        if pictureHeight > 0, screen.height > pictureHeight {
+            let scale = screen.height / pictureHeight
+            picker.cameraViewTransform = CGAffineTransform(translationX: 0, y: (screen.height - pictureHeight) / 2)
+                .scaledBy(x: scale, y: scale)
         }
+        picker.cameraOverlayView = context.coordinator.controls(for: picker, script: script, in: screen)
         return picker
     }
 
@@ -61,10 +72,112 @@ struct VideoRecorder: UIViewControllerRepresentable {
         let onFinish: (URL?) -> Void
         init(onFinish: @escaping (URL?) -> Void) { self.onFinish = onFinish }
 
+        private weak var picker: UIImagePickerController?
+        private let status = UILabel()
+        private let startButton = UIButton(type: .system)
+        private let doneButton = UIButton(type: .system)
+        private let cancelButton = UIButton(type: .system)
+        private var recording = false
+
+        /// The words, a status line and Kinbir's own buttons, laid over the camera.
+        func controls(for picker: UIImagePickerController, script: String, in bounds: CGRect) -> UIView {
+            self.picker = picker
+            let root = UIView(frame: bounds)
+            root.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            if !script.isEmpty {
+                root.addSubview(VideoRecorder.prompter(for: script, in: bounds))
+            }
+            let ink = UIColor(red: 0x19 / 255, green: 0x1A / 255, blue: 0x23 / 255, alpha: 1)
+            let lime = UIColor(red: 0xB9 / 255, green: 0xFF / 255, blue: 0x66 / 255, alpha: 1)
+
+            status.frame = CGRect(x: 12, y: 372, width: bounds.width - 24, height: 64)
+            status.autoresizingMask = [.flexibleWidth]
+            status.textAlignment = .center
+            status.numberOfLines = 2
+            status.font = .systemFont(ofSize: 22, weight: .bold)
+            status.textColor = ink
+            status.backgroundColor = lime
+            status.layer.cornerRadius = 14
+            status.layer.masksToBounds = true
+            status.adjustsFontSizeToFitWidth = true
+            status.minimumScaleFactor = 0.6
+            status.text = T("Tap Start, wait for 3, 2, 1, then read")
+            root.addSubview(status)
+
+            func style(_ button: UIButton, _ title: String, fill: UIColor, text: UIColor) {
+                button.setTitle(title, for: .normal)
+                button.setTitleColor(text, for: .normal)
+                button.titleLabel?.font = .systemFont(ofSize: 20, weight: .bold)
+                button.backgroundColor = fill
+                button.layer.cornerRadius = 14
+            }
+            let bottom = bounds.height - 120
+            style(startButton, T("Start"), fill: lime, text: ink)
+            startButton.frame = CGRect(x: 24, y: bottom, width: bounds.width - 48, height: 60)
+            startButton.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
+            startButton.accessibilityIdentifier = "recorderStart"
+            startButton.addTarget(self, action: #selector(start), for: .touchUpInside)
+            root.addSubview(startButton)
+
+            style(doneButton, T("Done reading"), fill: .white, text: ink)
+            doneButton.frame = startButton.frame
+            doneButton.autoresizingMask = startButton.autoresizingMask
+            doneButton.isHidden = true
+            doneButton.accessibilityIdentifier = "recorderDone"
+            doneButton.addTarget(self, action: #selector(done), for: .touchUpInside)
+            root.addSubview(doneButton)
+
+            style(cancelButton, T("Cancel"), fill: UIColor(white: 0, alpha: 0.5), text: .white)
+            cancelButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+            cancelButton.frame = CGRect(x: 12, y: 56, width: 96, height: 44)
+            cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
+            root.addSubview(cancelButton)
+            return root
+        }
+
+        @objc private func start() {
+            guard !recording, let picker else { return }
+            // Recording starts now; the count gives the camera time before any word.
+            guard picker.startVideoCapture() else {
+                status.text = T("The camera is not ready yet. Tap Start again.")
+                return
+            }
+            recording = true
+            startButton.isHidden = true
+            cancelButton.isHidden = true
+            count(3)
+        }
+
+        private func count(_ n: Int) {
+            guard recording else { return }
+            if n == 0 {
+                status.text = T("Read now")
+                doneButton.isHidden = false
+                return
+            }
+            status.text = "\(n)"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.count(n - 1) }
+        }
+
+        @objc private func done() {
+            guard recording else { return }
+            doneButton.isEnabled = false
+            // A short tail, so the last word is not cut either.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.picker?.stopVideoCapture()
+            }
+        }
+
+        @objc private func cancel() {
+            guard !recording else { return }
+            onFinish(nil)
+        }
+
         func imagePickerController(
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
+            recording = false
             let url = info[.mediaURL] as? URL
             onFinish(url.flatMap { VideoFiles.copyToTemp($0) })
         }
