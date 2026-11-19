@@ -1,3 +1,4 @@
+import AVFoundation
 import AVKit
 import SwiftUI
 
@@ -209,7 +210,7 @@ struct EnrollView: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("sampleVideoButton")
         } else if VideoRecorder.isAvailable {
-            Button(T("Record now")) { showRecorder = true }
+            Button(T("Record now")) { Task { await openRecorder() } }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(script.isEmpty)
                 .accessibilityIdentifier("recordButton")
@@ -232,7 +233,9 @@ struct EnrollView: View {
 
     // MARK: the take, before it is sent
 
-    private var canSend: Bool { agreedVoice && agreedPolicy && !uploading && !notHeard }
+    // Not while the take is still being listened to: it could be sent before the
+    // answer, and a wrong take would go up.
+    private var canSend: Bool { agreedVoice && agreedPolicy && !uploading && !notHeard && !checking }
     /// The check listened to this take and did not hear the statement.
     private var notHeard: Bool { check?.consent?.verdict == "fail" }
 
@@ -576,6 +579,25 @@ struct EnrollView: View {
         keep(url)
     }
 
+    /// The camera and the microphone must both be allowed, or the take is a black
+    /// picture or a silent one that is refused again and again with no reason shown.
+    private func openRecorder() async {
+        problem = nil
+        for kind in [AVMediaType.video, AVMediaType.audio] {
+            var status = AVCaptureDevice.authorizationStatus(for: kind)
+            if status == .notDetermined {
+                status = await AVCaptureDevice.requestAccess(for: kind) ? .authorized : .denied
+            }
+            if status != .authorized {
+                problem = kind == .video
+                    ? T("Kinbir needs the camera to record you reading. Open Settings, tap Kinbir, and turn on Camera.")
+                    : T("Kinbir needs the microphone to hear you reading. Open Settings, tap Kinbir, and turn on Microphone.")
+                return
+            }
+        }
+        showRecorder = true
+    }
+
     private func useSample() {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("sample.mov")
         try? Data("sample".utf8).write(to: url)
@@ -624,6 +646,7 @@ struct EnrollView: View {
             let answer = try await state.api.enroll(videoURL: take, language: language)
             await state.refresh()
             result = answer
+            problem = nil
             if UIApplication.shared.applicationState != .active {
                 await Notifications.tellNow(title: T("Your voice is ready"),
                                             body: T("Open Kinbir to use it."), id: "kinbir.voice")

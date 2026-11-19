@@ -24,7 +24,9 @@ struct VideoRecorder: UIViewControllerRepresentable {
         if UIImagePickerController.isCameraDeviceAvailable(.front) {
             picker.cameraDevice = .front
         }
-        picker.videoMaximumDuration = EnrollRules.maxSeconds
+        // One second under the limit: a take the camera stops by itself measured a
+        // hair over the rule and was refused as too long.
+        picker.videoMaximumDuration = max(5, EnrollRules.maxSeconds - 1)
         picker.videoQuality = .typeMedium
         picker.delegate = context.coordinator
         // Kinbir's own Start and Done buttons, so recording can begin BEFORE the
@@ -58,9 +60,18 @@ struct VideoRecorder: UIViewControllerRepresentable {
         label.text = script
         label.numberOfLines = 0
         label.textColor = .white
+        // The reading is checked word for word, so every word must be on screen:
+        // the type steps down until the whole statement fits the panel.
         label.font = .systemFont(ofSize: 20, weight: .medium)
-        label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.6
+        for size in [20, 18, 17, 16, 15, 14, 13] as [CGFloat] {
+            let font = UIFont.systemFont(ofSize: size, weight: .medium)
+            let box = (script as NSString).boundingRect(
+                with: CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font], context: nil)
+            label.font = font
+            if box.height <= label.bounds.height { break }
+        }
         label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         panel.addSubview(label)
         return panel
@@ -78,6 +89,21 @@ struct VideoRecorder: UIViewControllerRepresentable {
         private let doneButton = UIButton(type: .system)
         private let cancelButton = UIButton(type: .system)
         private var recording = false
+        private var finished = false
+        private var remaining = 0
+        private var observer: NSObjectProtocol?
+
+        deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+
+        /// Every way out goes through here, once.
+        private func finish(_ url: URL?) {
+            guard !finished else { return }
+            finished = true
+            recording = false
+            onFinish(url)
+        }
 
         /// The words, a status line and Kinbir's own buttons, laid over the camera.
         func controls(for picker: UIImagePickerController, script: String, in bounds: CGRect) -> UIView {
@@ -132,6 +158,14 @@ struct VideoRecorder: UIViewControllerRepresentable {
             cancelButton.frame = CGRect(x: 12, y: 56, width: 96, height: 44)
             cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
             root.addSubview(cancelButton)
+            // A phone call or leaving the app ends the camera's recording without
+            // telling us. The take is dropped and the screen closes, never stuck.
+            observer = NotificationCenter.default.addObserver(
+                forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                guard let self, self.recording else { return }
+                self.finish(nil)
+            }
             return root
         }
 
@@ -144,7 +178,7 @@ struct VideoRecorder: UIViewControllerRepresentable {
             }
             recording = true
             startButton.isHidden = true
-            cancelButton.isHidden = true
+            // Cancel stays: it is the way out if anything goes wrong mid-take.
             count(3)
         }
 
@@ -153,10 +187,23 @@ struct VideoRecorder: UIViewControllerRepresentable {
             if n == 0 {
                 status.text = T("Read now")
                 doneButton.isHidden = false
+                // The camera stops by itself at the limit; say how long is left.
+                remaining = max(0, Int(EnrollRules.maxSeconds) - 1 - 3)
+                tick()
                 return
             }
             status.text = "\(n)"
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.count(n - 1) }
+        }
+
+        private func tick() {
+            guard recording, !finished, doneButton.isEnabled else { return }
+            if remaining <= 10 {
+                status.text = T("Read now") + " · \(max(0, remaining))"
+            }
+            guard remaining > 0 else { return }
+            remaining -= 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.tick() }
         }
 
         @objc private func done() {
@@ -166,24 +213,33 @@ struct VideoRecorder: UIViewControllerRepresentable {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 self?.picker?.stopVideoCapture()
             }
+            // If the camera never answers (it was interrupted), do not hang here.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+                self?.finish(nil)
+            }
         }
 
         @objc private func cancel() {
-            guard !recording else { return }
-            onFinish(nil)
+            if recording {
+                // Drop the take: mark it finished first, so the file the camera
+                // hands back a moment later is ignored.
+                finish(nil)
+                picker?.stopVideoCapture()
+                return
+            }
+            finish(nil)
         }
 
         func imagePickerController(
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
-            recording = false
             let url = info[.mediaURL] as? URL
-            onFinish(url.flatMap { VideoFiles.copyToTemp($0) })
+            finish(url.flatMap { VideoFiles.copyToTemp($0) })
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            onFinish(nil)
+            finish(nil)
         }
     }
 }

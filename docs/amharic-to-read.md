@@ -118,3 +118,6 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 111 | Record again | እንደገና ይቅረጹ |
 | 112 | Listening to your recording | ቅጂዎን እያዳመጥን ነው |
 | 113 | Check my recording | ቅጂዬን ፈትሽ |
+| 114 | Not now | አሁን አይደለም |
+| 115 | Kinbir needs the camera to record you reading. Open Settings, tap Kinbir, and turn on Camera. | ቅንብር ሲያነቡ ለመቅረጽ ካሜራ ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Cameraን ያብሩ። |
+| 116 | Kinbir needs the microphone to hear you reading. Open Settings, tap Kinbir, and turn on Microphone. | ቅንብር ሲያነቡ ለመስማት ማይክሮፎን ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Microphoneን ያብሩ። |

@@ -190,6 +190,9 @@ enum Amharic {
         // Voice cloning: the right language, and reading the exact words (D-518)
         "Read this aloud, word for word": "ይህን ቃል በቃል ጮክ ብለው ያንብቡ",
         "Which language will you read in?": "በየትኛው ቋንቋ ያነባሉ?",
+        "Not now": "አሁን አይደለም",
+        "Kinbir needs the camera to record you reading. Open Settings, tap Kinbir, and turn on Camera.": "ቅንብር ሲያነቡ ለመቅረጽ ካሜራ ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Cameraን ያብሩ።",
+        "Kinbir needs the microphone to hear you reading. Open Settings, tap Kinbir, and turn on Microphone.": "ቅንብር ሲያነቡ ለመስማት ማይክሮፎን ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Microphoneን ያብሩ።",
         // The take is listened to before it is sent (D-521)
         "We heard you read the statement. You can send it.": "መግለጫውን ሲያነቡ ሰምተናል። መላክ ይችላሉ።",
         "We did not hear the statement": "መግለጫውን አልሰማንም",

@@ -348,7 +348,9 @@ struct CreateView: View {
                         // Shown once, when the clone button comes into view (Geni,
                         // 2026-11-18: "when they scroll through clone button it could popup").
                         .onAppear {
-                            if !Launch.isMock, !sawCloneOffer {
+                            // Not while the first-run consent screen covers this one:
+                            // the popup would be spent unseen. It comes next time.
+                            if !Launch.isMock, !sawCloneOffer, !state.needsAIConsent {
                                 sawCloneOffer = true
                                 showCloneOffer = true
                             }
@@ -393,7 +395,7 @@ struct CreateView: View {
     /// A new account is told once that it has free credits and what they buy
     /// (the server gives them silently, so nobody knew).
     /// Free credits still waiting for the first cloned voice (0 once claimed).
-    private var cloneBonus: Double { state.me?.cloneBonus ?? 0 }
+    private var cloneBonus: Double { state.me?.cloneOpen == false ? 0 : (state.me?.cloneBonus ?? 0) }
 
     @ViewBuilder private var topCard: some View {
         if !Launch.isMock, !sawFreeCredits, state.me?.hasPaid != true, state.balance > 0 {

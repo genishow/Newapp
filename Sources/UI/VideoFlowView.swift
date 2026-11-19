@@ -651,6 +651,10 @@ struct VideoFlowView: View {
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("lockedEarnButton")
             NoteText(text: T("Post a short video about Kinbir. When it is approved you get free credits, and video making opens."))
+            // A failed load must not hide behind the locked card.
+            if let problem {
+                ProblemCard(message: problem)
+            }
         }
     }
 
@@ -1112,6 +1116,8 @@ struct VideoFlowView: View {
                 NoteText(text: T("Every shot needs footage before the video can be made."))
             }
 
+            // Not offered while video making is locked: a new list could not be planned.
+            if !videoLocked {
             Button(T("Change footage · new shot list")) { confirmNewList = true }
             .confirmationDialog(T("Start a new shot list?"), isPresented: $confirmNewList,
                                 titleVisibility: .visible) {
@@ -1129,6 +1135,7 @@ struct VideoFlowView: View {
             .buttonStyle(QuietButtonStyle())
             .disabled(starting || working != nil)
             .accessibilityIdentifier("newShotListButton")
+            }
         }
     }
 
@@ -1378,7 +1385,8 @@ struct VideoFlowView: View {
         }
         await reloadPlan()
         await preferRightShape()
-        await settle()
+        // Own footage only: no stock is on its way, so there is nothing to wait for.
+        if stock { await settle() }
         working = nil
     }
 
@@ -1452,12 +1460,15 @@ struct VideoFlowView: View {
     /// An "Only mine" list lets stock in for the shots that are still empty. Clips
     /// already placed stay where they are.
     private func useStockForEmpty() async {
-        guard let planId else { return }
+        guard let planId, working == nil else { return }
         problem = nil
+        // Marked busy at once, so a second tap cannot start a second search.
+        working = T("Finding footage for your shots.")
         do {
             try await state.api.changeSource(planId: planId, source: .mix)
             source = .mix
         } catch {
+            working = nil
             problem = state.report(error)
             return
         }
