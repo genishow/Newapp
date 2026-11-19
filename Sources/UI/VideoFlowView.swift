@@ -633,7 +633,10 @@ struct VideoFlowView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(T("Video making opens with a plan"))
                     .font(Theme.heading).foregroundStyle(Theme.black)
-                Text(T("Your free credits are for voiceovers in your own voice. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned."))
+                // No "in your own voice" where cloning is closed for this account.
+                Text(state.me?.cloneOpen == false
+                     ? T("Your free credits are for voiceovers. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned.")
+                     : T("Your free credits are for voiceovers in your own voice. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned."))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -355,6 +355,14 @@ struct CreateView: View {
                                 showCloneOffer = true
                             }
                         }
+                        // And once the first-run screen has been closed, so a new
+                        // user sees the offer straight away, not on a later visit.
+                        .onChange(of: state.needsAIConsent) { _, waiting in
+                            if !waiting, !Launch.isMock, !sawCloneOffer {
+                                sawCloneOffer = true
+                                showCloneOffer = true
+                            }
+                        }
                         .alert(Tf("Get %@ free credits", Fmt.credits(cloneBonus)), isPresented: $showCloneOffer) {
                             Button(T("Clone my voice")) { path.append(Route.enroll) }
                             Button(T("Not now"), role: .cancel) {}

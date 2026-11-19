@@ -121,3 +121,4 @@ Geni: tell Claude the number of any line that sounds wrong and how you would say
 | 114 | Not now | አሁን አይደለም |
 | 115 | Kinbir needs the camera to record you reading. Open Settings, tap Kinbir, and turn on Camera. | ቅንብር ሲያነቡ ለመቅረጽ ካሜራ ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Cameraን ያብሩ። |
 | 116 | Kinbir needs the microphone to hear you reading. Open Settings, tap Kinbir, and turn on Microphone. | ቅንብር ሲያነቡ ለመስማት ማይክሮፎን ያስፈልገዋል። Settings ይክፈቱ፣ Kinbirን ይንኩ፣ ከዚያ Microphoneን ያብሩ። |
+| 117 | Your free credits are for voiceovers. Kinbir turns this voiceover into a finished video with footage, captions and music once you have a plan, or free credits you earned. | ነፃ ክሬዲቶችዎ ለድምፅ ንባብ ናቸው። ዕቅድ ሲኖርዎት ወይም ነፃ ክሬዲት ሲያገኙ ቅንብር ይህን ድምፅ ምስል፣ መግለጫ ጽሑፍ እና ሙዚቃ ያለው የተጠናቀቀ ቪዲዮ ያደርገዋል። |
