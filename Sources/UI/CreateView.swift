@@ -1004,7 +1004,7 @@ struct WriteSheet: View {
             return
         }
         let faithful = kind == .source && draft.faithful
-        onWrite(WriteRequest(kind: kind, input: clean, targetSec: faithful ? nil : draft.targetSec,
+        onWrite(WriteRequest(kind: kind, input: clean, targetSec: faithful ? nil : writerTarget,
                              faithful: faithful, fetchedText: article))
     }
 
@@ -1142,21 +1142,52 @@ struct WriteSheet: View {
         return (title.isEmpty ? T("The article is ready.") : Tf("The article is ready: %@.", title)) + price
     }
 
+    /// The free-credit limit (nil once the account has paid). The writer offers only
+    /// lengths the account can voice, and no "Automatic", as the website does.
+    private var trialMax: Int? { state.me?.trialMaxChars }
+    private var lengths: [Int] {
+        TrialRule.lengths(ScriptOptions.lengths, trialMaxChars: trialMax, language: language)
+    }
+    private var writerTarget: Int? {
+        TrialRule.writerTarget(draft.targetSec, trialMaxChars: trialMax, language: language)
+    }
+
+    private func clampLength() {
+        guard trialMax != nil, let longest = lengths.last else { return }
+        if let sec = draft.targetSec {
+            if sec > longest { draft.targetSec = longest }
+        } else {
+            draft.targetSec = Swift.min(60, longest)
+        }
+    }
+
     private var lengthRow: some View {
-        HStack {
-            Text(T("Video length")).font(Theme.body).foregroundStyle(Theme.black)
-            Spacer()
-            Picker(T("Video length"), selection: $draft.targetSec) {
-                Text(T("Automatic")).tag(Int?.none)
-                ForEach(ScriptOptions.lengths, id: \.self) { sec in
-                    Text(Fmt.length(Double(sec))).tag(Int?.some(sec))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(T("Video length")).font(Theme.body).foregroundStyle(Theme.black)
+                Spacer()
+                Picker(T("Video length"), selection: $draft.targetSec) {
+                    if trialMax == nil {
+                        Text(T("Automatic")).tag(Int?.none)
+                    }
+                    ForEach(lengths, id: \.self) { sec in
+                        Text(Fmt.length(Double(sec))).tag(Int?.some(sec))
+                    }
                 }
+                .pickerStyle(.menu)
+                .tint(Theme.black)
+                .accessibilityIdentifier("lengthPicker")
             }
-            .pickerStyle(.menu)
-            .tint(Theme.black)
-            .accessibilityIdentifier("lengthPicker")
+            if let about = TrialRule.aboutSeconds(trialMaxChars: trialMax, language: language) {
+                Text(Tf("Your free credits voice up to %@ at a time, about %@. Longer videos need a plan.",
+                        TrialRule.limitWords(trialMaxChars: trialMax, language: language),
+                        Fmt.length(Double(about))))
+                    .font(Theme.small).foregroundStyle(Theme.black)
+                    .accessibilityIdentifier("lengthNote")
+            }
         }
         .card(fill: Theme.grey, padding: 12)
+        .task(id: "\(trialMax ?? -1)|\(language.rawValue)") { clampLength() }
     }
 
     private var buttonTitle: String {
@@ -1189,7 +1220,7 @@ struct WriteSheet: View {
         let faithful = draft.kind == .source && draft.faithful
         estimate = try? await state.api.rewriteEstimate(
             text: article ?? clean,
-            options: ScriptOptions(language: language, targetSec: faithful ? nil : draft.targetSec))
+            options: ScriptOptions(language: language, targetSec: faithful ? nil : writerTarget))
     }
 
     private func fetchArticle() async {

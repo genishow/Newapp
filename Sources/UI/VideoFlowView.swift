@@ -320,7 +320,9 @@ struct VideoFlowView: View {
             Text(T("Footage tools")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
             // Placing own clips and the free match check run on their own (Geni,
             // 2026-11-15), so only the paid check is a button.
-            Button(Tf("Check the shots · ≈%@ credits", "\(VerifyResult.credits(shots: filledShots.count))")) {
+            // "AI check", the website's name for it too: "Check the shots" meant the paid
+            // check here and the free one on the website (Geni, 2026-11-21).
+            Button(Tf("AI check · ≈%@ credits", "\(VerifyResult.credits(shots: filledShots.count))")) {
                 Task { await paidCheck() }
             }
             .buttonStyle(SecondaryButtonStyle())

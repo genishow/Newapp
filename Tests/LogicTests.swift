@@ -349,3 +349,32 @@ final class SpeechCheckTests: XCTestCase {
         XCTAssertEqual(SaveName.base(script: "   "), "Kinbir")
     }
 }
+
+/// The writer on free credits offers only lengths the trial can voice, the same
+/// numbers the website works out (web/lib/create.ts).
+final class TrialLengthTests: XCTestCase {
+    private let all = [15, 30, 45, 60, 90, 120, 180, 240, 300, 420, 600]
+
+    func testPaidAccountKeepsEveryLength() {
+        XCTAssertEqual(TrialRule.lengths(all, trialMaxChars: nil, language: .am), all)
+        XCTAssertNil(TrialRule.aboutSeconds(trialMaxChars: nil, language: .en))
+        XCTAssertEqual(TrialRule.writerTarget(600, trialMaxChars: nil, language: .am), 600)
+        XCTAssertNil(TrialRule.writerTarget(nil, trialMaxChars: nil, language: .am))
+    }
+
+    func testAmharicTrialStopsAtAboutTwoMinutes() {
+        XCTAssertEqual(TrialRule.aboutSeconds(trialMaxChars: 900, language: .am), 120)
+        XCTAssertEqual(TrialRule.lengths(all, trialMaxChars: 900, language: .am), [15, 30, 45, 60, 90, 120])
+        // 900 / (7.17 * 0.97) = 129.4 s, asked for 93% of it
+        XCTAssertEqual(TrialRule.writerTarget(120, trialMaxChars: 900, language: .am), 120)
+        XCTAssertEqual(TrialRule.writerTarget(600, trialMaxChars: 900, language: .am), 120)
+    }
+
+    func testEnglishTrialUsesWords() {
+        // 260 words / 2.2 = 118.2 s
+        XCTAssertEqual(TrialRule.aboutSeconds(trialMaxChars: 900, language: .en), 120)
+        XCTAssertEqual(TrialRule.writerTarget(120, trialMaxChars: 900, language: .en), 109)
+        XCTAssertEqual(TrialRule.limitWords(trialMaxChars: 900, language: .en), "260 English words")
+        XCTAssertEqual(TrialRule.limitWords(trialMaxChars: 900, language: .am), "900 Amharic characters")
+    }
+}

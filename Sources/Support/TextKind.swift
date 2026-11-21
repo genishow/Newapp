@@ -179,6 +179,45 @@ enum TrialRule {
         return TextKind.ethiopicLetterCount(script) > limit
     }
 
+    /// Amharic letters per second of reading, and English words per second: the
+    /// website's AM_CHARS_PER_SEC and its 2.2 (web/lib/create.ts), so both say the same.
+    static let amharicLettersPerSecond = 7.17 * 0.97
+    static let englishWordsPerSecond = 2.2
+
+    /// The longest script, in seconds, that free credits can voice. Nil once paid.
+    static func maxSeconds(trialMaxChars: Int?, language: Lang) -> Double? {
+        guard let limit = trialMaxChars else { return nil }
+        return language == .en ? Double(maxWordsEnglish) / englishWordsPerSecond
+                               : Double(limit) / amharicLettersPerSecond
+    }
+
+    /// The same limit as it is said to the customer: a round length, at least 30 seconds.
+    static func aboutSeconds(trialMaxChars: Int?, language: Lang) -> Int? {
+        guard let max = maxSeconds(trialMaxChars: trialMaxChars, language: language) else { return nil }
+        return Swift.max(30, Int((max / 30).rounded()) * 30)
+    }
+
+    /// The lengths the writer offers. On free credits only those it can voice, so a
+    /// customer never pays to write a script the trial then refuses (as on the website).
+    static func lengths(_ all: [Int], trialMaxChars: Int?, language: Lang) -> [Int] {
+        guard let about = aboutSeconds(trialMaxChars: trialMaxChars, language: language) else { return all }
+        let fit = all.filter { $0 <= about }
+        return fit.isEmpty ? [all.first ?? 30] : fit
+    }
+
+    /// The length the writer is asked for. On free credits a little under the limit
+    /// (93%), because a writer asked for exactly 260 words hands back 270 as often as 250.
+    static func writerTarget(_ targetSec: Int?, trialMaxChars: Int?, language: Lang) -> Int? {
+        guard let target = targetSec,
+              let max = maxSeconds(trialMaxChars: trialMaxChars, language: language) else { return targetSec }
+        return Swift.min(target, Int((max * 0.93).rounded(.down)))
+    }
+
+    /// The limit in the server's own unit: "260 English words", "900 Amharic characters".
+    static func limitWords(trialMaxChars: Int?, language: Lang) -> String {
+        language == .en ? "\(maxWordsEnglish) English words" : "\(trialMaxChars ?? 0) Amharic characters"
+    }
+
     /// The website's sentence for a script over the trial limit. Nil when it fits.
     static func problem(_ script: String, language: Lang, trialMaxChars: Int?) -> String? {
         guard let limit = trialMaxChars,
