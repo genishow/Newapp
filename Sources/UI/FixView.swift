@@ -42,22 +42,28 @@ struct FixView: View {
     @State private var done = false
 
     private var segments: [String] { job?.segments ?? [] }
+    /// English has no pronunciation popup: a sentence is read again or its words changed,
+    /// as on the website.
+    private var english: Bool { job?.isEnglish == true }
+    private var shownMode: Mode { english ? .sentences : mode }
 
     /// A panel that sits under the player on the voiceover screen, as on the website.
     var body: some View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(T("Want to change something?")).font(Theme.heading).foregroundStyle(Theme.black)
                     .accessibilityIdentifier("fixScreenHeading")
-                Text(mode == .words ? T("Tap any word to fix how it sounds.")
-                                    : T("Tap any sentence to change its words or record it again."))
+                Text(shownMode == .words ? T("Tap any word to fix how it sounds.")
+                                         : T("Tap any sentence to change its words or record it again."))
                     .font(Theme.body).foregroundStyle(Theme.black)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 10) {
-                    modeTile(.words, icon: "character.bubble", title: T("Fix pronunciation"))
-                    modeTile(.sentences, icon: "pencil", title: T("Change the words"))
+                if !english {
+                    HStack(spacing: 10) {
+                        modeTile(.words, icon: "character.bubble", title: T("Fix pronunciation"))
+                        modeTile(.sentences, icon: "pencil", title: T("Change the words"))
+                    }
+                    .disabled(applying)
                 }
-                .disabled(applying)
 
                 if job == nil {
                     if loadFailed {
@@ -67,7 +73,7 @@ struct FixView: View {
                     } else {
                         ProgressView().tint(Theme.black)
                     }
-                } else if mode == .words {
+                } else if shownMode == .words {
                     TappableScript(segments: segments, fixedWords: pendingWords, openWord: fixingWord?.word) { fixingWord = $0 }
                         .disabled(applying)
                         .card(fill: Theme.grey, padding: 14)

@@ -761,6 +761,20 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(sentences.map(\.segment), [0, 0, 1])
     }
 
+    /// English is cut where the server cuts it: , . ! ? followed by a space or the end,
+    /// so "3.5" and "U.S." stay whole (the website's EN_PART_SPLIT).
+    func testEnglishSentencesLikeTheWebsite() {
+        let segments = ["Hello, friends. Coffee costs 3.5 birr in the U.S. today! Really?", "No mark here"]
+        XCTAssertEqual(Script.clauses(segments[0]).map { $0.trimmingCharacters(in: .whitespaces) },
+                       ["Hello,", "friends.", "Coffee costs 3.5 birr in the U.S.", "today!", "Really?"])
+        let sentences = Script.sentences(segments)
+        XCTAssertEqual(sentences.map(\.text),
+                       ["Hello, friends.", "Coffee costs 3.5 birr in the U.S.", "today!", "Really?", "No mark here"])
+        XCTAssertEqual(sentences.map(\.parts), [[0, 1], [2], [3], [4], [0]])
+        let reread = PendingFix.wire([.reread(sentences[0])], segments: segments)
+        XCTAssertEqual(reread, [.rereadPart(segment: 0, part: 0), .rereadPart(segment: 0, part: 1)])
+    }
+
     func testWhatIsSentForSentenceChanges() {
         let segments = ["ሰላም፣ እንዴት ናችሁ። ዛሬ ስለ ቡና እናወራለን።", "ቡና ከኢትዮጵያ ነው።"]
         let s = Script.sentences(segments)

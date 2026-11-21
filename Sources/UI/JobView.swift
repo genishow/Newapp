@@ -204,7 +204,10 @@ struct JobView: View {
 
             if job.isEnglish {
                 englishScript(job)
-            } else if !(job.segments ?? []).isEmpty {
+            }
+            // English voiceovers can be fixed too, sentence by sentence, as on the website
+            // (Geni, 2026-11-21). The pronunciation popup stays Amharic-only.
+            if !(job.segments ?? []).isEmpty {
                 FixView(jobId: jobId, onRegenerated: { Task { await reloadAfterChange() } },
                         withPace: $withPace, onPendingCount: { n in
                             pendingFixes = n
@@ -284,10 +287,7 @@ struct JobView: View {
                 }
                 .buttonStyle(QuietButtonStyle())
             }
-            Text(job.scriptText).font(Theme.body).foregroundStyle(Theme.black)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
+            // The script itself is shown below, sentence by sentence, where it can be fixed.
             Text(T("Emphasis on pauses")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             Picker(T("Emphasis"), selection: Binding(
                 get: { pendingEmphasis ?? job.emphasis ?? "none" },

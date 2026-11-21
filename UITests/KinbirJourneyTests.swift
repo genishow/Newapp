@@ -382,6 +382,10 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("scriptCounter")
         el("voiceButton").tap()
         waitFor("resultHeading", timeout: 30)
+        // English can be fixed too, sentence by sentence (2026-11-21).
+        app.swipeUp()
+        waitFor("fixScreenHeading")
+        XCTAssertTrue(waitFor("sentence-0:0").exists)
     }
 
     /// Speaking fills the script box, and script rules can be saved.

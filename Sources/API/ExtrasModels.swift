@@ -252,14 +252,31 @@ enum Script {
         var id: String { "\(segment):\(index)" }
     }
 
+    /// English text has no Ethiopic letters. An English script is cut the English way
+    /// (the website's EN_PART_SPLIT), so English voiceovers can be fixed too (2026-11-21).
+    static func isEnglish(_ text: String) -> Bool {
+        !text.unicodeScalars.contains { (0x1200...0x137F).contains($0.value) }
+    }
+
     /// Clauses of a segment, each keeping its closing mark. Joined with "" they give the
-    /// segment back, apart from blank pieces.
+    /// segment back, apart from blank pieces. Amharic ends a clause at ፣ or ።; English
+    /// at , . ! or ? when a space or the end follows, the cut points the server uses,
+    /// so "3.5" or "U.S." are not split.
     static func clauses(_ segment: String) -> [String] {
         var out: [String] = []
         var current = ""
-        for character in segment {
+        let english = isEnglish(segment)
+        let chars = Array(segment)
+        for (i, character) in chars.enumerated() {
             current.append(character)
-            if character == "።" || character == "፣" {
+            let ends: Bool
+            if english {
+                let nextIsGap = i + 1 >= chars.count || chars[i + 1].isWhitespace
+                ends = ".!?,".contains(character) && nextIsGap
+            } else {
+                ends = character == "።" || character == "፣"
+            }
+            if ends {
                 out.append(current)
                 current = ""
             }
@@ -268,10 +285,18 @@ enum Script {
         return out.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
+    /// Where a sentence ends: ። in Amharic, . ! or ? in English.
+    private static func endsSentence(_ piece: String, english: Bool) -> Bool {
+        let t = piece.trimmingCharacters(in: .whitespacesAndNewlines)
+        if english { return t.hasSuffix(".") || t.hasSuffix("!") || t.hasSuffix("?") }
+        return t.hasSuffix("።")
+    }
+
     static func sentences(_ segments: [String]) -> [Sentence] {
         var out: [Sentence] = []
         for (si, segment) in segments.enumerated() {
             let pieces = clauses(segment)
+            let english = isEnglish(segment)
             var parts: [Int] = []
             var index = 0
             func close() {
@@ -284,7 +309,7 @@ enum Script {
             }
             for (pi, piece) in pieces.enumerated() {
                 parts.append(pi)
-                if piece.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("።") { close() }
+                if endsSentence(piece, english: english) { close() }
             }
             close()
         }
