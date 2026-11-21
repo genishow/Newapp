@@ -195,8 +195,9 @@ struct VideoFlowView: View {
     @State private var picking: Beat?
     @State private var tracks: [MusicTrack] = []
     @State private var musicId: String?
-    /// On by default: captions are what make a short video look finished.
-    @State private var captions = true
+    /// Off by default, as on the website (Geni, 2026-08-25 and 2026-11-21): captions are
+    /// burned in and cannot be taken out after the render, so the customer ticks them.
+    @State private var captions = false
     @State private var showSetupOptions = false
     @State private var showPresenter = false
     @State private var avatar = AvatarChoice()
@@ -344,6 +345,12 @@ struct VideoFlowView: View {
     /// own clips go on the shots they match (the old "Place all my clips" button), then the
     /// free check marks shots whose footage may not match the words (the old "Check
     /// footage matches" button). Nothing here blocks the screen or shows an error.
+    /// Not enough credits: Buy credits opens on the Account tab, this screen stays as it is.
+    private func openBuyCredits() {
+        state.selectedTab = 2
+        state.pendingAccountRoute = .buyCredits
+    }
+
     private func quietTools(newClips: Bool = false) async {
         guard let planId, stage == .shots, !life.quietRunning, !starting, !rendering else { return }
         if !newClips && life.quietDone == planId { return }
@@ -658,7 +665,7 @@ struct VideoFlowView: View {
             NoteText(text: T("Post a short video about Kinbir. When it is approved you get free credits, and video making opens."))
             // A failed load must not hide behind the locked card.
             if let problem {
-                ProblemCard(message: problem)
+                ProblemCard(message: problem, buy: openBuyCredits)
             }
         }
     }
@@ -874,7 +881,7 @@ struct VideoFlowView: View {
             }
             NoteText(text: T("You can leave this screen and come back."))
             if let problem {
-                ProblemCard(message: problem)
+                ProblemCard(message: problem, buy: openBuyCredits)
                 Button(T("Check again")) {
                     self.problem = nil
                     Task { await resumePlanning() }
@@ -1054,7 +1061,7 @@ struct VideoFlowView: View {
 
             // Shown here too, so a message is seen next to where the tap was.
             if let problem {
-                ProblemCard(message: problem)
+                ProblemCard(message: problem, buy: openBuyCredits)
             }
 
             if !beats.isEmpty {
@@ -1098,7 +1105,7 @@ struct VideoFlowView: View {
             .accessibilityIdentifier("presenterRowShots")
 
             if let problem {
-                ProblemCard(message: problem)
+                ProblemCard(message: problem, buy: openBuyCredits)
             }
 
             Button {
@@ -1222,8 +1229,8 @@ struct VideoFlowView: View {
                 uploads = await clipList ?? uploads
                 uploadsLoaded = true
                 tracks = await musicList ?? []
-                // A video with music feels finished, so the first track is chosen to start with.
-                if musicId == nil { musicId = tracks.first?.trackId }
+                // No music is chosen for the customer: they pick a track if they want one,
+                // as on the website (Geni, 2026-11-21).
             }
             if let running = UserDefaults.standard.string(forKey: videoJobKey) {
                 // A video was started for this voiceover. If it is still being made, show
@@ -1737,7 +1744,7 @@ struct ShotSheet: View {
                     }
 
                     if let problem {
-                        ProblemCard(message: problem)
+                        ProblemCard(message: problem, buy: openBuyCredits)
                     }
 
                     if let shown {

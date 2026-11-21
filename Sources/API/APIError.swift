@@ -22,6 +22,9 @@ struct APIError: Error, Equatable, LocalizedError {
 
     static let buyingNote = "Buy more on the Account page."
 
+    /// The script stream ended before its last line. What arrived is kept, as on the website.
+    static let cutShort = "The script stopped before it was finished. Try again."
+
     /// Turns an HTTP failure into the sentence the user reads.
     /// `path` is the request path; `/auth/` answers keep their own 401 sentences
     /// ("that code is not right - 4 tries left"), which are the useful ones.

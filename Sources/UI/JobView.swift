@@ -69,6 +69,12 @@ struct JobView: View {
     /// not always the one in use now. Until the job has answered, the active voice stands in.
     private var voiceName: String {
         let voices = state.me?.allVoices ?? []
+        // A job made with a voice that is not one of the account's is the Kinbir voice,
+        // as the website says. It used to show the customer's own voice name.
+        if let id = job?.voiceId, !id.isEmpty, !voices.isEmpty,
+           !voices.contains(where: { $0.voiceId == id }) {
+            return T("Kinbir voice")
+        }
         let mine = voices.first { $0.voiceId == job?.voiceId } ?? state.activeVoice
         let name = (mine?.name ?? "").trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? T("My voice") : name

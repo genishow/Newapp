@@ -20,6 +20,8 @@ struct CreateView: View {
     /// True while the microphone is being opened, so a second tap cannot start it twice.
     @State private var micStarting = false
     @State private var problem: String?
+    /// The script being written, so Stop can end it.
+    @State private var writeTask: Task<Void, Never>?
     /// The script from before Kinbir wrote or changed it, for Undo.
     @State private var beforeRewrite: String?
     @State private var draftId: String?
@@ -211,7 +213,7 @@ struct CreateView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            BottomBar(problem: problem ?? trialLine) {
+            BottomBar(problem: problem ?? trialLine, buy: openBuyCredits) {
                 mainButton
                 if let line = leavesLine {
                     NoteText(text: line).accessibilityIdentifier("leavesLine")
@@ -221,7 +223,7 @@ struct CreateView: View {
         .sheet(isPresented: $showWriter) {
             WriteSheet(language: language, draft: $writerDraft) { request in
                 showWriter = false
-                Task { await write(request) }
+                writeTask = Task { await write(request) }
             }
             .environmentObject(state)
             .presentationDetents([.large])
@@ -397,7 +399,7 @@ struct CreateView: View {
                 Button(T("Apply change")) {
                     editing = false
                     let wanted = changeRequest
-                    Task { await write(WriteRequest(kind: .refine, input: wanted)) }
+                    writeTask = Task { await write(WriteRequest(kind: .refine, input: wanted)) }
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(busy)
@@ -466,6 +468,13 @@ struct CreateView: View {
                 if let status = statusLine {
                     ProgressView().controlSize(.small).tint(Theme.black)
                     Text(status).font(Theme.small).foregroundStyle(Theme.black)
+                    // Stop while writing, as on the website: the script from before comes back.
+                    if work == .writing || work == .fetching {
+                        Spacer()
+                        Button(T("Stop")) { writeTask?.cancel() }
+                            .buttonStyle(QuietButtonStyle())
+                            .accessibilityIdentifier("writeStopButton")
+                    }
                 } else if !script.isEmpty {
                     Text(Tf("About %@", Fmt.length(max(1, seconds))))
                         .font(Theme.small).foregroundStyle(Theme.muted)
@@ -711,10 +720,31 @@ struct CreateView: View {
             }
         } catch {
             work = .idle
+            // Stop was pressed: the script from before comes back, nothing to report.
+            if Task.isCancelled || error is CancellationError {
+                text = old
+                return
+            }
+            // The stream ended early: what arrived is kept, with Undo, as on the website.
+            // The customer may have paid for it, so it is not thrown away.
+            let e = APIError.wrap(error)
+            if e.message == APIError.cutShort,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                beforeRewrite = old.isEmpty ? nil : old
+                keepProblem = true
+                problem = T("The script may be cut short. Read it through, or press Undo.")
+                return
+            }
             keepProblem = text != old
             text = old
             problem = state.report(error)
         }
+    }
+
+    /// Not enough credits: Buy credits opens on the Account tab, the script stays here.
+    private func openBuyCredits() {
+        state.selectedTab = 2
+        state.pendingAccountRoute = .buyCredits
     }
 
     private func makeVoiceover() async {

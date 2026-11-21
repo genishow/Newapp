@@ -163,15 +163,24 @@ struct LogoMark: View {
 /// Something went wrong, said plainly. Black on grey: the palette has no red.
 struct ProblemCard: View {
     let message: String
+    /// Opens Buy credits. Given, a "not enough credits" problem carries a Buy credits
+    /// button, so the customer stays on the screen and loses nothing (Geni, 2026-11-21,
+    /// the same on the website).
+    var buy: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(T("Problem")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             Text(message).font(Theme.body).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
+            if let buy, message.hasSuffix(APIError.buyingNote) {
+                Button(T("Buy credits"), action: buy)
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("problemBuyCredits")
+            }
         }
         .card(fill: Theme.grey, padding: 14)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: buy == nil ? .combine : .contain)
         .accessibilityIdentifier("problemCard")
     }
 }
@@ -426,12 +435,13 @@ struct StepList: View {
 /// with any problem shown right above it where the tap happened.
 struct BottomBar<Content: View>: View {
     var problem: String?
+    var buy: (() -> Void)? = nil
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 10) {
             if let problem {
-                ProblemCard(message: problem)
+                ProblemCard(message: problem, buy: buy)
             }
             content
         }

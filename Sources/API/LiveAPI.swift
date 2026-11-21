@@ -258,8 +258,7 @@ final class LiveAPI: KinbirAPI {
                     throw APIError(kind: .other, status: 0, message: APIError.sentenceCase(message))
                 }
             }
-            throw APIError(kind: .server, status: 0,
-                           message: "The script stopped before it was finished. Try again.")
+            throw APIError(kind: .server, status: 0, message: APIError.cutShort)
         } catch {
             throw APIError.wrap(error)
         }
