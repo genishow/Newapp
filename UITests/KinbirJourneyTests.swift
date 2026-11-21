@@ -260,8 +260,10 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("findDifferentButton")
         app.swipeUp()
         waitFor("shotTools")
-        app.buttons["↓ Move later"].tap()
+        app.buttons["↓ Move down"].tap()   // the website's name since 2026-11-21
         waitFor("shotsHeading")
+        // A move can be undone from the shot list, as on the website (2026-11-21).
+        XCTAssertTrue(waitFor("shotUndoButton").exists, "the move has no Undo")
 
         // The same shots can be switched to horizontal and back, for free.
         // The shot sheet has to finish closing first, or the tap lands on it.
