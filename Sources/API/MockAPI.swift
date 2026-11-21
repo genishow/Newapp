@@ -701,6 +701,10 @@ extension MockAPI {
         return video.beats
     }
 
+    func shotLength(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
+        try await stretchShot(planId: planId, beat: beat, seconds: seconds)
+    }
+
     func stretchShot(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
         await pause()
         guard let i = video.beats.firstIndex(where: { $0.beat == beat }),

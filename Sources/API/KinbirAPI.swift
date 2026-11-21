@@ -127,6 +127,8 @@ protocol KinbirAPI: AnyObject {
     /// How many seconds one shot plays. The next few shots give or take the time, so the
     /// video keeps the voice's length.
     func stretchShot(planId: String, beat: Int, seconds: Double) async throws -> StretchResult
+    /// Any shot's length, traded with the other shots of its sentence (the website's "length").
+    func shotLength(planId: String, beat: Int, seconds: Double) async throws -> StretchResult
     /// Looks for footage for every empty shot. Free. Poll the job with `planJob(id:)`.
     func autofill(planId: String) async throws -> AutofillSubmit
     /// Places the user's own clips on the shots.

@@ -412,6 +412,13 @@ extension LiveAPI {
         ]))
     }
 
+    func shotLength(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
+        try await decode(StretchResult.self, builder.post("/broll/shot-length", body: [
+            "plan_id": planId, "beat": beat, "action": "length",
+            "dur_sec": (seconds * 10).rounded() / 10,
+        ]))
+    }
+
     func autofill(planId: String) async throws -> AutofillSubmit {
         try await decode(AutofillSubmit.self, builder.post("/broll/autofill", body: ["plan_id": planId]))
     }

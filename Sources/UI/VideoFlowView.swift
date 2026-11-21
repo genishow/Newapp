@@ -213,6 +213,9 @@ struct VideoFlowView: View {
     /// True while a render request is being sent, so it can never be sent twice.
     @State private var rendering = false
     @State private var render = RenderOptions()
+    /// The last shot change that can be undone, as on the website. One step only.
+    @State private var lastUndo: ShotUndo?
+    @State private var undoing = false
     /// An English voiceover: English captions have two more fonts.
     @State private var english = false
     @State private var shotLength = "auto"
@@ -626,7 +629,8 @@ struct VideoFlowView: View {
         // change the times of the shots after it.
         .sheet(item: $picking, onDismiss: { Task { await reloadPlan() } }) { beat in
             ShotSheet(planId: planId ?? "", jobId: jobId, beat: beat, uploads: uploads, shape: shape,
-                      previous: neighbour(of: beat, step: -1), next: neighbour(of: beat, step: 1)) {
+                      previous: neighbour(of: beat, step: -1), next: neighbour(of: beat, step: 1),
+                      onUndoable: { lastUndo = $0 }) {
                 picking = nil
             }
             .environmentObject(state)
@@ -982,6 +986,16 @@ struct VideoFlowView: View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             Text(T("Your shots")).screenTitle(amharic: A("Your shots"))
                 .accessibilityIdentifier("shotsHeading")
+            if let lastUndo {
+                Button {
+                    Task { await undo(lastUndo) }
+                } label: {
+                    BusyLabel(title: "↶ " + T(lastUndo.label), busy: undoing)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(undoing || working != nil)
+                .accessibilityIdentifier("shotUndoButton")
+            }
             shapeSwitch
 
             if source != .stock && !beats.isEmpty {
@@ -1483,6 +1497,28 @@ struct VideoFlowView: View {
         await fillShots(stock: true, own: false)
     }
 
+    /// Puts the last shot change back, then forgets it: the numbers it remembers may not
+    /// be true after another change.
+    private func undo(_ step: ShotUndo) async {
+        guard let planId, !undoing else { return }
+        undoing = true
+        problem = nil
+        defer { undoing = false }
+        do {
+            if step.action == "length", let seconds = step.seconds {
+                _ = try await state.api.shotLength(planId: planId, beat: step.beat, seconds: seconds)
+            } else {
+                _ = try await state.api.shotTool(planId: planId, beat: step.beat, action: step.action,
+                                                 withBeat: step.withBeat)
+            }
+            lastUndo = nil
+            Haptics.success()
+            await reloadPlan()
+        } catch {
+            problem = state.report(error)
+        }
+    }
+
     private func reloadPlan() async {
         guard let planId else { return }
         do {
@@ -1696,7 +1732,13 @@ struct ShotSheet: View {
     /// The shots before and after this one, for Move earlier / Move later.
     var previous: Int?
     var next: Int?
+    /// Tells the shot list what the last change was, so it can be undone there.
+    var onUndoable: (ShotUndo?) -> Void = { _ in }
     let onClose: () -> Void
+
+    /// The new length asked for this shot, any shot (the website's "length").
+    @State private var newLength: Double = 0
+    @State private var settingLength = false
 
     @State private var query = ""
     @State private var busy = false
@@ -2025,8 +2067,41 @@ struct ShotSheet: View {
                 }
             }
             .disabled(busy)
+            // Any shot's length, as on the website. Your own clip has its own control above.
+            if let length, beat.chosen?.isOwn != true, (beat.type ?? "talk") == "talk" {
+                Stepper(value: $newLength, in: 1...30, step: 0.5) {
+                    Text(Tf("Shot length: %@ seconds", String(format: "%.1f", newLength)))
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                }
+                .accessibilityIdentifier("shotLengthStepper")
+                .onAppear { if newLength == 0 { newLength = (length * 2).rounded() / 2 } }
+                Button {
+                    Task { await setLength(from: length) }
+                } label: {
+                    BusyLabel(title: T("Set this length"), busy: settingLength)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(busy || abs(newLength - length) < 0.05)
+                .accessibilityIdentifier("shotLengthButton")
+            }
         }
         .accessibilityIdentifier("shotTools")
+    }
+
+    private func setLength(from old: Double) async {
+        busy = true
+        settingLength = true
+        problem = nil
+        defer { busy = false; settingLength = false }
+        do {
+            _ = try await state.api.shotLength(planId: planId, beat: beat.beat, seconds: newLength)
+            Haptics.success()
+            onUndoable(ShotUndo(beat: beat.beat, action: "length", seconds: old, label: "Undo length"))
+            onClose()
+        } catch {
+            // The server says why, for example a shot that is the whole sentence.
+            problem = state.report(error)
+        }
     }
 
     private func choose(_ clip: Candidate) async {
@@ -2104,6 +2179,12 @@ struct ShotSheet: View {
         do {
             _ = try await state.api.shotTool(planId: planId, beat: beat.beat, action: action, withBeat: other)
             Haptics.tap()
+            // A move is undone by moving back, a split by merging. Anything else cannot be.
+            switch action {
+            case "swap": onUndoable(ShotUndo(beat: beat.beat, action: "swap", withBeat: other, label: "Undo move"))
+            case "split": onUndoable(ShotUndo(beat: beat.beat, action: "merge", label: "Undo split"))
+            default: onUndoable(nil)
+            }
             onClose()
         } catch {
             problem = state.report(error)

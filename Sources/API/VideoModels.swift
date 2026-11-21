@@ -234,6 +234,16 @@ struct BeatsResult: Codable, Equatable {
     var beats: [Beat]?
 }
 
+/// One step that can be undone on the shot list, as on the website: a move is
+/// undone by moving back, a new length by the old length, a split by merging.
+struct ShotUndo: Equatable {
+    let beat: Int
+    let action: String
+    var withBeat: Int?
+    var seconds: Double?
+    let label: String
+}
+
 /// The answer to setting how long one shot plays. The next shots change too.
 struct StretchResult: Codable, Equatable {
     var beats: [Beat]?
