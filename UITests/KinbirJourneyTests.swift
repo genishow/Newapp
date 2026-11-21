@@ -514,6 +514,8 @@ final class KinbirJourneyTests: XCTestCase {
         writeAmharicScript()
         waitForLabel("problemCard", contains: "credits")
         waitForLabel("problemCard", contains: "Account page")
+        // The credits problem carries its own Buy credits button (2026-11-21).
+        XCTAssertTrue(waitFor("problemBuyCredits").exists)
         // Making a voiceover with no credits goes to Buy credits.
         type("ሰላም ለሁላችሁ", into: "scriptEditor")
         waitFor("voiceButton").tap()

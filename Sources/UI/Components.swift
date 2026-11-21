@@ -169,10 +169,17 @@ struct ProblemCard: View {
     var buy: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(T("Problem")).font(Theme.smallMedium).foregroundStyle(Theme.black)
-            Text(message).font(Theme.body).foregroundStyle(Theme.black)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 10) {
+            // The words are read as one: "Problem, <message>", as before.
+            VStack(alignment: .leading, spacing: 6) {
+                Text(T("Problem")).font(Theme.smallMedium).foregroundStyle(Theme.black)
+                Text(message).font(Theme.body).foregroundStyle(Theme.black)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("problemCard")
+            // The button stands on its own, so it can be found and tapped by itself.
             if let buy, message.hasSuffix(APIError.buyingNote) {
                 Button(T("Buy credits"), action: buy)
                     .buttonStyle(SecondaryButtonStyle())
@@ -180,8 +187,6 @@ struct ProblemCard: View {
             }
         }
         .card(fill: Theme.grey, padding: 14)
-        .accessibilityElement(children: buy == nil ? .combine : .contain)
-        .accessibilityIdentifier("problemCard")
     }
 }
 
