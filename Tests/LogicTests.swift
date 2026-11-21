@@ -378,3 +378,17 @@ final class TrialLengthTests: XCTestCase {
         XCTAssertEqual(TrialRule.limitWords(trialMaxChars: 900, language: .am), "900 Amharic characters")
     }
 }
+
+/// The video style choices are the website's (2026-11-21).
+final class StyleChoiceTests: XCTestCase {
+    func testSameChoicesAsTheWebsite() {
+        XCTAssertEqual(RenderOptions.colors.count, 12)
+        XCTAssertEqual(RenderOptions.colors.map(\.id).prefix(6),
+                       ["gold", "blue", "red", "green", "purple", "white"])
+        XCTAssertEqual(RenderOptions.musicLevels.map(\.id),
+                       ["subtle", "balanced", "prominent", "strong", "front"])
+        XCTAssertEqual(RenderOptions.fonts(english: false).map(\.id), ["standard", "serif"])
+        XCTAssertEqual(RenderOptions.fonts(english: true).map(\.id),
+                       ["standard", "serif", "display", "typewriter"])
+    }
+}

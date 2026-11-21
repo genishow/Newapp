@@ -213,6 +213,8 @@ struct VideoFlowView: View {
     /// True while a render request is being sent, so it can never be sent twice.
     @State private var rendering = false
     @State private var render = RenderOptions()
+    /// An English voiceover: English captions have two more fonts.
+    @State private var english = false
     @State private var shotLength = "auto"
     @State private var breaks = MusicBreaks()
     @State private var showMusicImporter = false
@@ -462,8 +464,9 @@ struct VideoFlowView: View {
         }
         if captions {
             menuRow(T("Caption font"),
-                    value: T(RenderOptions.fonts.first { $0.id == render.captionFont }?.title ?? "Standard")) {
-                ForEach(RenderOptions.fonts, id: \.id) { font in
+                    value: T(RenderOptions.fonts(english: english).first { $0.id == render.captionFont }?.title
+                             ?? "Standard")) {
+                ForEach(RenderOptions.fonts(english: english), id: \.id) { font in
                     Button(T(font.title)) { render.captionFont = font.id }
                 }
             }
@@ -471,9 +474,10 @@ struct VideoFlowView: View {
         Toggle(T("On-screen graphics"), isOn: $render.graphics)
             .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
         if render.graphics {
-            menuRow(T("Graphics colour"), value: T(render.graphicsColor.capitalized)) {
-                ForEach(RenderOptions.colors, id: \.self) { color in
-                    Button(T(color.capitalized)) { render.graphicsColor = color }
+            menuRow(T("Graphics colour"),
+                    value: T(RenderOptions.colors.first { $0.id == render.graphicsColor }?.title ?? "Gold")) {
+                ForEach(RenderOptions.colors, id: \.id) { color in
+                    Button(T(color.title)) { render.graphicsColor = color.id }
                 }
             }
         }
@@ -1207,6 +1211,11 @@ struct VideoFlowView: View {
             let job = try await state.api.job(id: jobId)
             script = job.scriptText
             audioSec = job.audioSec ?? 0
+            english = job.language == "en"
+            // Display and Typewriter are English-only fonts.
+            if !english && !RenderOptions.fonts.contains(where: { $0.id == render.captionFont }) {
+                render.captionFont = "standard"
+            }
             // Clips and music are not needed to show the shots, so they load
             // alongside, not before (Geni, 2026-11-15: making the other shape
             // took long to open).

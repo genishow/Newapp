@@ -24,11 +24,27 @@ enum FootageSource: String, CaseIterable, Identifiable {
 /// The website's render choices beyond music and captions.
 struct RenderOptions: Equatable {
     static let qualities = ["1080p", "4k", "8k"]
+    /// Five steps, as on the website (Geni, 2026-11-20 there, 2026-11-21 here).
     static let musicLevels: [(id: String, title: String)] = [
         ("subtle", "Quiet"), ("balanced", "Normal"), ("prominent", "Loud"),
+        ("strong", "Louder"), ("front", "Loudest"),
     ]
     static let fonts: [(id: String, title: String)] = [("standard", "Standard"), ("serif", "Serif")]
-    static let colors = ["gold", "blue", "red", "green", "purple", "white"]
+    /// English captions also have these two, as on the website.
+    static let englishFonts: [(id: String, title: String)] = [
+        ("display", "Display"), ("typewriter", "Typewriter"),
+    ]
+    static func fonts(english: Bool) -> [(id: String, title: String)] {
+        english ? fonts + englishFonts : fonts
+    }
+    /// Twelve accents, as on the website. The first six are names the server knows;
+    /// the rest are sent as the six-letter colour itself, which the server takes too.
+    static let colors: [(id: String, title: String)] = [
+        ("gold", "Gold"), ("blue", "Blue"), ("red", "Red"), ("green", "Green"),
+        ("purple", "Purple"), ("white", "White"),
+        ("b9ff66", "Lime"), ("ffd23f", "Yellow"), ("ff8a3d", "Orange"),
+        ("ff5fa2", "Pink"), ("2ec4b6", "Teal"), ("8ed1fc", "Sky"),
+    ]
     static let shotLengths: [(id: String, title: String)] = [
         ("auto", "Same as before"), ("quick", "Quick 2s"), ("normal", "Normal 3s"),
         ("relaxed", "Relaxed 5s"), ("calm", "Calm 7s"), ("mixed", "Mixed"), ("smart", "Smart mix"),
