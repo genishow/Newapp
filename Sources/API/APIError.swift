@@ -34,7 +34,7 @@ struct APIError: Error, Equatable, LocalizedError {
         // Another account's voiceover or shot list: say so, and stay signed in.
         if status == 401, let detail, detail.lowercased().contains("does not match this") {
             return APIError(kind: .other, status: status,
-                            message: "This item belongs to a different sign-in.")
+                            message: "This was made on a different account, so it cannot be opened with the code you are signed in with. Switch accounts, or open it from the account that made it.")
         }
         if status == 401 && !path.hasPrefix("/auth/") {
             return APIError(kind: .sessionExpired, status: status,
@@ -50,7 +50,7 @@ struct APIError: Error, Equatable, LocalizedError {
                 return APIError(kind: .server, status: status, message: detail)
             }
             return APIError(kind: .server, status: status,
-                            message: "Something went wrong on our side. Try again in a moment.")
+                            message: "Something went wrong on our side. Try again in a moment - if it keeps happening, email support@kinbir.com.")
         }
         return APIError(kind: .other, status: status,
                         message: detail.map(sentenceCase) ?? "That did not work. Try again.")

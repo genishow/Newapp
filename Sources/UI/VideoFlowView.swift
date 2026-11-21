@@ -239,7 +239,7 @@ struct VideoFlowView: View {
 
     /// The website's logo choices: your logo, its corner and its size.
     @ViewBuilder private var logoRows: some View {
-        Toggle(T("My logo on the video"), isOn: $render.logo.enabled)
+        Toggle(T("Your logo on the video"), isOn: $render.logo.enabled)
             .font(Theme.body).foregroundStyle(Theme.black).tint(Theme.black)
             .accessibilityIdentifier("logoToggle")
         if render.logo.enabled {
@@ -452,7 +452,7 @@ struct VideoFlowView: View {
 
     /// The website's finishing choices: quality, music loudness, caption font, graphics.
     @ViewBuilder private var renderRows: some View {
-        menuRow(T("Quality"), value: render.quality.uppercased()) {
+        menuRow(T("Render quality"), value: render.quality.uppercased()) {
             ForEach(RenderOptions.qualities, id: \.self) { quality in
                 // The server makes 8K only for videos up to 7 minutes.
                 if quality != "8k" || audioSec <= 420 {
@@ -1247,14 +1247,23 @@ struct VideoFlowView: View {
                     .buttonStyle(QuietButtonStyle())
                     .accessibilityIdentifier("uploadMusicButton")
             }
-            Toggle(T("Captions on the video"), isOn: $captions)
-                .font(Theme.body).foregroundStyle(Theme.black)
-                .tint(Theme.black)
+            // The website's words (2026-11-21).
+            Toggle(isOn: $captions) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(english ? T("English captions") : T("Amharic captions"))
+                        .font(Theme.body).foregroundStyle(Theme.black)
+                    Text(T("Burned into the video, timed to your voiceover. Free. Turn off if you would rather add your own."))
+                        .font(Theme.small).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.black)
+            .accessibilityIdentifier("captionsToggle")
             // D-448: the planner works out the cut - camera moves, soft entries and
             // the caption words to stress - and the server carries it out.
             Toggle(isOn: $render.smartEdit) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(T("Smart edit")).font(Theme.body).foregroundStyle(Theme.black)
+                    Text(T("Smart edit") + " · +1 " + T("credit")).font(Theme.body).foregroundStyle(Theme.black)
                     Text(T("Kinbir's AI adds camera moves, smooth scene changes and highlights key words."))
                         .font(Theme.small).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1923,7 +1932,7 @@ struct ShotSheet: View {
                     .accessibilityIdentifier("findDifferentButton")
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(T("Say what this shot should show")).font(Theme.smallMedium)
+                        Text(T("None of these right? Say what this shot should show")).font(Theme.smallMedium)
                             .foregroundStyle(Theme.black)
                         HStack(spacing: 8) {
                             TextField(beat.query ?? T("For example: coffee cup"), text: $query)
@@ -2125,14 +2134,14 @@ struct ShotSheet: View {
             Text(T("Shot tools")).font(Theme.smallMedium).foregroundStyle(Theme.black)
             ChipRow {
                 if let previous {
-                    Chip(title: "↑ " + T("Move earlier")) { Task { await tool("swap", with: previous) } }
+                    Chip(title: "↑ " + T("Move up")) { Task { await tool("swap", with: previous) } }
                 }
                 if let next {
-                    Chip(title: "↓ " + T("Move later")) { Task { await tool("swap", with: next) } }
+                    Chip(title: "↓ " + T("Move down")) { Task { await tool("swap", with: next) } }
                 }
                 Chip(title: T("Split in two")) { Task { await tool("split", with: nil) } }
                 if next != nil {
-                    Chip(title: T("Merge with next")) { Task { await tool("merge", with: nil) } }
+                    Chip(title: T("Merge next")) { Task { await tool("merge", with: nil) } }
                 }
                 if beat.chosen != nil {
                     Chip(title: T("Remove clip")) { Task { await tool("clear", with: nil) } }
@@ -2290,7 +2299,7 @@ struct ShotSheet: View {
             if beat.candidates?.isEmpty != false {
                 note = T("Nothing found. Try simpler words, like one object or place.")
             } else if beat.exhausted == true {
-                note = T("No new clips. Try your own words.")
+                note = T("No new clips for those words. Try different words.")
             }
         } catch {
             problem = state.report(error)

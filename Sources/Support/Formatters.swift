@@ -8,6 +8,11 @@ enum Fmt {
         return String(format: "%.1f", rounded)
     }
 
+    /// "credit" for exactly one, "credits" otherwise, as the website says it.
+    static func creditsWord(_ value: Double) -> String {
+        credits(value) == "1" ? "credit" : "credits"
+    }
+
     /// 75 -> "1:15"
     static func clock(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds > 0 else { return "0:00" }

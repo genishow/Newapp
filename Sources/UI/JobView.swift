@@ -217,7 +217,7 @@ struct JobView: View {
             }
 
             if let onMakeAnother {
-                Button(T("Compose another") + " →") { onMakeAnother() }
+                Button(T("Make another") + " →") { onMakeAnother() }
                     .buttonStyle(QuietButtonStyle())
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("makeAnotherButton")

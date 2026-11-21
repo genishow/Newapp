@@ -41,7 +41,7 @@ struct AccountView: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("buyCreditsButton")
                     NavigationLink(value: Route.promo) {
-                        Text(T("Earn free credits with a video"))
+                        Text(T("Earn free credits with a video about Kinbir"))
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("earnCreditsButton")

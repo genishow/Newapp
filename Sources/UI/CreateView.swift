@@ -287,7 +287,7 @@ struct CreateView: View {
             Button {
                 showCredits = true
             } label: {
-                Pill(text: Fmt.credits(state.balance) + " " + T("credits"))
+                Pill(text: Fmt.credits(state.balance) + " " + T(Fmt.creditsWord(state.balance)))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("creditsPill")
@@ -332,7 +332,8 @@ struct CreateView: View {
                 .accessibilityIdentifier("wrongLanguageNote")
             }
             if usingStock, let left = state.me?.stockFreeLeft, left > 0 {
-                NoteText(text: Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
+                NoteText(text: left == 1 ? T("1 free voiceover left in the Kinbir voice.")
+                                         : Tf("%@ free voiceovers left in the Kinbir voice.", "\(left)"))
             }
             if needsVoice && state.me?.cloneOpen != false {
                 NavigationLink(value: Route.enroll) {
@@ -606,7 +607,7 @@ struct CreateView: View {
         if work == .starting { return T("Starting") }
         if script.isEmpty { return T("Make voiceover") }
         if freeStock { return T("Make voiceover") + " · " + T("Free") }
-        return T("Make voiceover") + " · ≈ " + Fmt.credits(voiceCost) + " " + T("credits")
+        return T("Make voiceover") + " · ≈ " + Fmt.credits(voiceCost) + " " + T(Fmt.creditsWord(voiceCost))
     }
 
     private var recentList: some View {
@@ -1224,7 +1225,7 @@ struct WriteSheet: View {
         if kind == .link && article == nil {
             return fetching ? T("Getting the article") : T("Get the article")
         }
-        let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T("credits") } ?? ""
+        let price = estimate.map { " · ≈ " + Fmt.credits($0) + " " + T(Fmt.creditsWord($0)) } ?? ""
         return T("Write the script") + price
     }
 

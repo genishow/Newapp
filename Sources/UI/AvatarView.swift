@@ -118,7 +118,7 @@ struct AvatarCard: View {
             Text(T("Your photo is saved")).font(Theme.body).foregroundStyle(Theme.black)
                 .accessibilityIdentifier("avatarReady")
             Spacer()
-            Button(T("Remove")) { Task { await remove() } }
+            Button(T("Remove my photo")) { Task { await remove() } }
                 .buttonStyle(QuietButtonStyle())
                 .disabled(busy)
         }

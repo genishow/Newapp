@@ -432,3 +432,14 @@ final class MusicArcTests: XCTestCase {
         XCTAssertEqual(MusicBreaks(choice: "3").payload["count"] as? Int, 3)
     }
 }
+
+/// "1 credit", "2 credits", as the website writes it (2026-11-21).
+final class CreditWordTests: XCTestCase {
+    func testOneCreditIsSingular() {
+        XCTAssertEqual(Fmt.creditsWord(1), "credit")
+        XCTAssertEqual(Fmt.creditsWord(1.02), "credit")
+        XCTAssertEqual(Fmt.creditsWord(1.5), "credits")
+        XCTAssertEqual(Fmt.creditsWord(0), "credits")
+        XCTAssertEqual(Fmt.creditsWord(2), "credits")
+    }
+}

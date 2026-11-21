@@ -23,7 +23,8 @@ struct LogoChoice: Equatable {
         ("tl", "Top left"), ("tr", "Top right"), ("bl", "Bottom left"), ("br", "Bottom right"),
     ]
     var enabled = false
-    var corner = "tr"
+    /// Bottom right, as on the website (2026-11-21).
+    var corner = "br"
     /// Width as a share of the video, 5 to 30 percent.
     var scale = 12
 
