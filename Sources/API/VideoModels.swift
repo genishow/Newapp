@@ -61,6 +61,21 @@ struct RenderOptions: Equatable {
     var includeBreaks = true
     /// The planner picks camera moves, shot entries and caption highlights (D-448).
     var smartEdit = true
+    /// One track per music part, in order, when the plan has two or more parts.
+    var musicIds: [String] = []
+    /// The short sound at every music break.
+    var sfxId: String?
+
+    /// The website's orderedArcIds: one id per part, a part with no pick of its own
+    /// keeps the track before it. Empty when there is no music at all.
+    static func musicArc(parts: Int, picks: [String?]) -> [String] {
+        guard parts >= 2, let first = picks.compactMap({ $0 }).first else { return [] }
+        var last = first
+        return (0..<parts).map { i in
+            if i < picks.count, let pick = picks[i] { last = pick }
+            return last
+        }
+    }
 
     /// What making the video costs, the same sum the server does (api/pricing.py):
     /// 2 credits for the first 3 minutes, 1 more for each further 3 minutes, that
@@ -77,6 +92,8 @@ struct RenderOptions: Equatable {
         // price_v tells the server this app shows the price above
         var body: [String: Any] = ["quality": quality, "smart_edit": smartEdit, "price_v": 2]
         if music { body["music_level"] = musicLevel }
+        if music && musicIds.count >= 2 { body["music_ids"] = musicIds }
+        if music, includeBreaks, let sfxId { body["sfx_id"] = sfxId }
         if captions { body["caption_font"] = captionFont }
         if graphics {
             body["graphics"] = true
@@ -183,9 +200,18 @@ struct Beat: Codable, Identifiable, Equatable {
     var isEmpty: Bool { needsFootage && chosen == nil }
 }
 
+/// One part of the video's soundtrack, planned with the shots. Two or more parts
+/// can each have their own track, as on the website (D-213).
+struct MusicSection: Codable, Equatable {
+    var startSec: Double?
+    var endSec: Double?
+    var prompt: String?
+}
+
 struct PlanResult: Codable, Equatable {
     var planId: String?
     var beats: [Beat]?
+    var musicSections: [MusicSection]?
     var creditsCharged: Double?
     var creditsBalance: Double?
 }
@@ -202,6 +228,7 @@ struct StoredPlan: Codable, Equatable {
     var orientation: String?
     var source: String?
     var beats: [Beat]?
+    var musicSections: [MusicSection]?
 }
 
 struct PlanSubmit: Codable, Equatable {

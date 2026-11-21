@@ -4,8 +4,10 @@ import Foundation
 
 /// Music breaks chosen at planning: none, let Kinbir decide, or a set number.
 struct MusicBreaks: Equatable {
+    /// The website's three ways: none, about one a minute, or a number from 1 to 8.
     static let choices: [(id: String, title: String)] =
-        [("none", "None"), ("auto", "Auto")] + (1...8).map { ("\($0)", "\($0)") }
+        [("none", "None"), ("auto", "Auto, about one a minute")]
+        + (1...8).map { ("\($0)", $0 == 1 ? "1 break" : "\($0) breaks") }
 
     var choice = "none"
 

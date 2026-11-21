@@ -196,6 +196,9 @@ struct VideoFlowView: View {
     @State private var picking: Beat?
     @State private var tracks: [MusicTrack] = []
     @State private var musicId: String?
+    /// The soundtrack parts the plan made, and the track picked for parts 2 and on.
+    @State private var musicSections: [MusicSection] = []
+    @State private var laterMusic: [Int: String] = [:]
     /// Off by default, as on the website (Geni, 2026-08-25 and 2026-11-21): captions are
     /// burned in and cannot be taken out after the render, so the customer ticks them.
     @State private var captions = false
@@ -729,6 +732,15 @@ struct VideoFlowView: View {
                 .tint(Theme.black)
                 .accessibilityIdentifier("setupMusicPicker")
             }
+            // Music breaks, as on the website: a few seconds of music with no voice.
+            menuRow(T("Music breaks"),
+                    value: T(MusicBreaks.choices.first { $0.id == breaks.choice }?.title ?? "None")) {
+                ForEach(MusicBreaks.choices, id: \.id) { item in
+                    Button(T(item.title)) { breaks.choice = item.id }
+                }
+            }
+            .accessibilityIdentifier("breaksMenu")
+            NoteText(text: T("A few seconds of music with no voice, spread through the video."))
         }
     }
 
@@ -1186,6 +1198,44 @@ struct VideoFlowView: View {
                 .tint(Theme.black)
                 .accessibilityIdentifier("musicPicker")
             }
+            // A plan with two or more music parts: each part can have its own track,
+            // as on the website. A part left alone keeps the track before it.
+            if musicId != nil && musicSections.count >= 2 {
+                ForEach(1..<musicSections.count, id: \.self) { part in
+                    HStack {
+                        Text(Tf("Part %@", "\(part + 1)") + partTime(part))
+                            .font(Theme.body).foregroundStyle(Theme.black)
+                        Spacer()
+                        Picker(T("Music"), selection: Binding(
+                            get: { laterMusic[part] },
+                            set: { laterMusic[part] = $0 })) {
+                            Text(T("Same as before")).tag(String?.none)
+                            ForEach(tracks) { track in
+                                Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(Theme.black)
+                    }
+                    .accessibilityIdentifier("partMusic-\(part + 1)")
+                }
+            }
+            if musicId != nil && hasBreaks && render.includeBreaks {
+                HStack {
+                    Text(T("Break sound")).font(Theme.body).foregroundStyle(Theme.black)
+                    Spacer()
+                    Picker(T("Break sound"), selection: $render.sfxId) {
+                        Text(T("No sound")).tag(String?.none)
+                        ForEach(tracks) { track in
+                            Text(track.title ?? T("Track")).tag(String?.some(track.trackId))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Theme.black)
+                    .accessibilityIdentifier("breakSoundPicker")
+                }
+                NoteText(text: T("A short sound at each music break."))
+            }
             HStack(spacing: 20) {
                 if musicId != nil {
                     Button(musicPlayer.isPlaying ? T("Stop preview") : T("Listen")) {
@@ -1311,6 +1361,7 @@ struct VideoFlowView: View {
                 if latest.status == "done", let id = latest.result?.planId {
                     planId = id
                     beats = latest.result?.beats ?? []
+                    musicSections = latest.result?.musicSections ?? []
                     UserDefaults.standard.removeObject(forKey: planJobKey)
                     await state.refresh()
                     await fillShots(stock: source != .own, own: source != .stock)
@@ -1520,11 +1571,22 @@ struct VideoFlowView: View {
         }
     }
 
+    /// The plan has music breaks (shots with no footage, only music).
+    private var hasBreaks: Bool { beats.contains { !$0.needsFootage } }
+
+    /// " (0:40 to 1:20)" for a music part, or nothing when the times are not known.
+    private func partTime(_ part: Int) -> String {
+        guard musicSections.indices.contains(part), let start = musicSections[part].startSec,
+              let end = musicSections[part].endSec else { return "" }
+        return " (" + Fmt.clock(start) + " " + T("to") + " " + Fmt.clock(end) + ")"
+    }
+
     private func reloadPlan() async {
         guard let planId else { return }
         do {
             let stored = try await state.api.plan(id: planId)
             beats = stored.beats ?? beats
+            musicSections = stored.musicSections ?? []
             if let raw = stored.orientation, let saved = Shape(rawValue: raw) { shape = saved }
             if let raw = stored.source, let saved = FootageSource(rawValue: raw) { source = saved }
         } catch {
@@ -1596,6 +1658,10 @@ struct VideoFlowView: View {
         musicPlayer.stop()
         defer { starting = false }
         do {
+            var picks: [String?] = [musicId]
+            for part in 1..<max(1, musicSections.count) { picks.append(laterMusic[part]) }
+            render.musicIds = musicId == nil ? [] : RenderOptions.musicArc(parts: musicSections.count, picks: picks)
+            if musicId == nil || !hasBreaks { render.sfxId = nil }
             let submit = try await state.api.assemble(planId: planId, shape: shape,
                                                       musicId: musicId, captions: captions,
                                                       avatar: avatar.enabled ? avatar : nil,

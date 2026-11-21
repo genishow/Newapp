@@ -409,3 +409,26 @@ final class AiShotPromptTests: XCTestCase {
                        "macro coffee beans. Detailed close-up shot, subject filling the frame, widescreen 16:9, about 8 seconds." + tail)
     }
 }
+
+/// The music for each part of the video, the website's orderedArcIds.
+final class MusicArcTests: XCTestCase {
+    func testOneTrackPerPartKeepingTheTrackBefore() {
+        XCTAssertEqual(RenderOptions.musicArc(parts: 1, picks: ["a"]), [])
+        XCTAssertEqual(RenderOptions.musicArc(parts: 3, picks: ["a", nil, "b"]), ["a", "a", "b"])
+        XCTAssertEqual(RenderOptions.musicArc(parts: 3, picks: ["a", "b"]), ["a", "b", "b"])
+        XCTAssertEqual(RenderOptions.musicArc(parts: 2, picks: [nil, nil]), [])
+    }
+
+    func testBreaksAndArcAreSent() {
+        var options = RenderOptions()
+        options.musicIds = ["a", "b"]
+        options.sfxId = "whoosh"
+        let body = options.payload(music: true, captions: false)
+        XCTAssertEqual(body["music_ids"] as? [String], ["a", "b"])
+        XCTAssertEqual(body["sfx_id"] as? String, "whoosh")
+        options.includeBreaks = false
+        XCTAssertNil(options.payload(music: true, captions: false)["sfx_id"])
+        XCTAssertNil(options.payload(music: false, captions: false)["music_ids"])
+        XCTAssertEqual(MusicBreaks(choice: "3").payload["count"] as? Int, 3)
+    }
+}
