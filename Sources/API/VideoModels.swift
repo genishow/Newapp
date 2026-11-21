@@ -168,6 +168,8 @@ struct Beat: Codable, Identifiable, Equatable {
     var says: String?
     var mustShow: String?
     var query: String?
+    /// The customer's own search words for this shot, when they reworded it.
+    var customQuery: String?
     var type: String?
     var status: String?
     var candidates: [Candidate]?
@@ -232,6 +234,47 @@ struct MatchResult: Codable, Equatable {
 
 struct BeatsResult: Codable, Equatable {
     var beats: [Beat]?
+}
+
+/// A shot being made with AI (the website's "Generate this shot").
+struct AiClipSubmit: Codable, Equatable {
+    var clipId: String
+    var status: String?
+    var creditsEstimated: Double?
+    var note: String?
+}
+
+/// Where a made or pinned shot is. "done" means it is on its shot already.
+struct ClipJobStatus: Codable, Equatable {
+    var status: String?
+    var error: String?
+}
+
+/// The prompt for making one shot with AI, word for word the website's veoPrompt
+/// (web/components/BrollBeat.tsx): wide framing that survives any crop, neutral
+/// sharp pictures, no text or faces speaking.
+enum AiShot {
+    static let creditsAbout = 8
+
+    static func prompt(for beat: Beat) -> String {
+        let secs = max(3, min(8, Int((beat.dur ?? 5).rounded())))
+        var what = (beat.customQuery ?? beat.mustShow ?? beat.query ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        while what.hasSuffix(".") || what.hasSuffix("!") { what.removeLast() }
+        let closeUp = what.range(of: "close.?up|macro|extreme close|detail shot|microscop",
+                                 options: [.regularExpression, .caseInsensitive]) != nil
+        let framing = closeUp
+            ? "Detailed close-up shot, subject filling the frame"
+            : "Extremely wide cinematic shot with generous space around the subject, so the frame survives cropping to any format"
+        return "\(what). "
+            + "\(framing), widescreen 16:9, about \(secs) seconds. "
+            + "Ultra high quality, photorealistic, shot on a high-end cinema camera. "
+            + "Neutral true-to-life color, no color grading, no filters, no tint, not oversaturated. "
+            + "Everything in crisp sharp focus, no blur, no soft focus, no shallow depth of field. "
+            + "Realistic textures and true-to-life motion, smooth stabilized slow camera movement. "
+            + "No glitching, no warping or morphing, no flickering, no distorted faces or hands, "
+            + "no on-screen text, no subtitles, no watermarks, no logos, nobody speaking to camera."
+    }
 }
 
 /// One step that can be undone on the shot list, as on the website: a move is

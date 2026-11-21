@@ -701,6 +701,16 @@ extension MockAPI {
         return video.beats
     }
 
+    func aiClip(planId: String, beat: Int, prompt: String) async throws -> AiClipSubmit {
+        await pause()
+        return AiClipSubmit(clipId: "ai-\(beat)", status: "queued", creditsEstimated: 8, note: nil)
+    }
+
+    func clipStatus(id: String) async throws -> ClipJobStatus {
+        await pause()
+        return ClipJobStatus(status: "done", error: nil)
+    }
+
     func shotLength(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
         try await stretchShot(planId: planId, beat: beat, seconds: seconds)
     }

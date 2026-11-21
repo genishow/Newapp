@@ -392,3 +392,20 @@ final class StyleChoiceTests: XCTestCase {
                        ["standard", "serif", "display", "typewriter"])
     }
 }
+
+/// The AI shot prompt is word for word the website's (veoPrompt in BrollBeat.tsx).
+final class AiShotPromptTests: XCTestCase {
+    private let tail = " Ultra high quality, photorealistic, shot on a high-end cinema camera. Neutral true-to-life color, no color grading, no filters, no tint, not oversaturated. Everything in crisp sharp focus, no blur, no soft focus, no shallow depth of field. Realistic textures and true-to-life motion, smooth stabilized slow camera movement. No glitching, no warping or morphing, no flickering, no distorted faces or hands, no on-screen text, no subtitles, no watermarks, no logos, nobody speaking to camera."
+
+    func testWideShot() {
+        let beat = Beat(beat: 1, dur: 4.6, mustShow: "coffee ceremony in a village.")
+        XCTAssertEqual(AiShot.prompt(for: beat),
+                       "coffee ceremony in a village. Extremely wide cinematic shot with generous space around the subject, so the frame survives cropping to any format, widescreen 16:9, about 5 seconds." + tail)
+    }
+
+    func testCloseUpAndLongShot() {
+        let beat = Beat(beat: 2, dur: 12, query: "macro coffee beans")
+        XCTAssertEqual(AiShot.prompt(for: beat),
+                       "macro coffee beans. Detailed close-up shot, subject filling the frame, widescreen 16:9, about 8 seconds." + tail)
+    }
+}

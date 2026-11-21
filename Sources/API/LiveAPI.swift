@@ -412,6 +412,17 @@ extension LiveAPI {
         ]))
     }
 
+    func aiClip(planId: String, beat: Int, prompt: String) async throws -> AiClipSubmit {
+        try await decode(AiClipSubmit.self, builder.post("/broll/ai-clip", body: [
+            "plan_id": planId, "beat": beat, "prompt": prompt,
+        ]))
+    }
+
+    func clipStatus(id: String) async throws -> ClipJobStatus {
+        let safe = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await decode(ClipJobStatus.self, builder.get("/broll/clip/" + safe))
+    }
+
     func shotLength(planId: String, beat: Int, seconds: Double) async throws -> StretchResult {
         try await decode(StretchResult.self, builder.post("/broll/shot-length", body: [
             "plan_id": planId, "beat": beat, "action": "length",

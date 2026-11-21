@@ -2,6 +2,7 @@ import AVKit
 import PhotosUI
 import SwiftUI
 import UIKit
+import UIKit
 import UniformTypeIdentifiers
 
 /// A stock clip playing silently on a loop, so a shot can be judged in motion. The box
@@ -1739,6 +1740,8 @@ struct ShotSheet: View {
     /// The new length asked for this shot, any shot (the website's "length").
     @State private var newLength: Double = 0
     @State private var settingLength = false
+    @State private var aiBusy = false
+    @State private var promptCopied = false
 
     @State private var query = ""
     @State private var busy = false
@@ -1897,6 +1900,9 @@ struct ShotSheet: View {
                     }
 
                     tools
+                    if beat.needsFootage {
+                        aiShotCard
+                    }
                 }
                 .page()
             }
@@ -2086,6 +2092,64 @@ struct ShotSheet: View {
             }
         }
         .accessibilityIdentifier("shotTools")
+    }
+
+    /// Make this shot with AI, as on the website. The prompt can also be copied and used
+    /// in any AI video tool, then added here as your own clip.
+    private var aiShotCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(T("Make this shot with AI")).font(Theme.bodyMedium).foregroundStyle(Theme.black)
+            NoteText(text: T("When no clip fits, Kinbir can make this shot for you. It takes about a minute and becomes the chosen clip. The other clips stay underneath."))
+            Button {
+                Task { await makeAiShot() }
+            } label: {
+                BusyLabel(title: aiBusy ? T("Making this shot, about a minute")
+                                        : Tf("Generate this shot · ≈%@ credits", "\(AiShot.creditsAbout)"),
+                          busy: aiBusy)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(busy || aiBusy)
+            .accessibilityIdentifier("aiShotButton")
+            Button(promptCopied ? T("Copied") : T("Copy the prompt")) {
+                UIPasteboard.general.string = AiShot.prompt(for: beat)
+                promptCopied = true
+            }
+            .buttonStyle(QuietButtonStyle())
+            .accessibilityIdentifier("aiPromptCopy")
+            NoteText(text: T("Or paste the prompt into any AI video tool yourself, then add the result as your own clip."))
+        }
+        .card(fill: Theme.grey, padding: 14)
+    }
+
+    private func makeAiShot() async {
+        guard !aiBusy else { return }
+        aiBusy = true
+        problem = nil
+        note = nil
+        defer { aiBusy = false }
+        do {
+            let submit = try await state.api.aiClip(planId: planId, beat: beat.beat, prompt: AiShot.prompt(for: beat))
+            for _ in 0..<90 {
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                let status = try await state.api.clipStatus(id: submit.clipId)
+                if status.status == "failed" {
+                    problem = status.error.map(APIError.sentenceCase) ?? T("This shot could not be made. Nothing was charged.")
+                    return
+                }
+                if status.status == "done" {
+                    await refresh()
+                    Haptics.success()
+                    note = T("Shot made. It is the chosen clip now, and the other clips are still underneath.")
+                    onUndoable(nil)
+                    return
+                }
+            }
+            note = T("Making the shot is taking longer than usual. Look again in a minute.")
+        } catch is CancellationError {
+            return
+        } catch {
+            problem = state.report(error)
+        }
     }
 
     private func setLength(from old: Double) async {
