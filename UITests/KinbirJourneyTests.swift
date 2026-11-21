@@ -400,18 +400,20 @@ final class KinbirJourneyTests: XCTestCase {
         waitForLabel("saveRulesButton", contains: "Saved")
     }
 
-    /// One tap from a voiceover to a finished video, with captions and music by default.
-    func testOneTapVideo() {
+    /// From a voiceover to a finished video: the shots first, then the render, as on
+    /// the website (one-tap "Make my video" is gone, Geni 2026-11-21).
+    func testVideoFromShots() {
         launch()
         signIn()
         makeVoiceover()
         waitFor("makeVideoLink").tap()
         waitFor("videoSetupHeading")
         waitFor("shape-landscape").tap()
-        waitFor("autoVideoButton").tap()
+        XCTAssertFalse(el("source-own").exists, "Only mine is gone, as on the website")
+        planShotsMyself()
+        waitFor("shotsHeading", timeout: 40)
+        waitFor("makeVideoButton").tap()
         waitFor("videoReadyHeading", timeout: 40)
-        waitFor("editShotsButton").tap()
-        waitFor("shotsHeading")
     }
 
     /// A video with the presenter, delivered as a separate clip.
@@ -465,32 +467,9 @@ final class KinbirJourneyTests: XCTestCase {
         waitFor("makeVideoLink").tap()
         waitFor("videoLockedHeading")
         XCTAssertFalse(el("planButton").exists, "the setup must not show while video is locked")
-        XCTAssertFalse(el("autoVideoButton").exists, "the main button must not show while video is locked")
         XCTAssertTrue(el("lockedPlansButton").exists)
         waitFor("lockedEarnButton").tap()
         waitFor("promoHeading")
-    }
-
-    /// "Only mine" with no clips yet still makes the shot list; clips are added on it.
-    func testOwnFootageShotListWithoutClips() {
-        launch([])
-        signIn()
-        makeVoiceover()
-
-        waitFor("makeVideoLink").tap()
-        waitFor("videoSetupHeading")
-        waitFor("source-own").tap()
-        app.swipeUp()
-        XCTAssertTrue(waitFor("planButton").isEnabled, "the shot list must not wait for clips")
-        el("planButton").tap()
-        waitFor("ownEmptyCard", timeout: 30)
-        XCTAssertFalse(el("makeVideoButton").isEnabled, "empty shots must block the video")
-
-        waitFor("addSampleClipButton").tap()
-        let predicate = NSPredicate(format: "isEnabled == true")
-        let ready = XCTNSPredicateExpectation(predicate: predicate, object: el("makeVideoButton"))
-        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 20), .completed,
-                       "own clips must fill the empty shots")
     }
 
     /// When stock footage is unavailable the app says so and own clips fill the shots.

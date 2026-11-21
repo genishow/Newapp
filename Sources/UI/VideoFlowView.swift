@@ -687,7 +687,8 @@ struct VideoFlowView: View {
             HStack(spacing: 10) {
                 sourceTile(.stock, icon: "film", title: T("Stock"))
                 sourceTile(.mix, icon: "square.stack", title: T("Stock + mine"))
-                sourceTile(.own, icon: "iphone", title: T("Only mine"))
+                // "Only mine" is gone, as on the website (Geni, 2026-11-20 and
+                // 2026-11-21). An older plan made that way still opens as it was.
             }
             NoteText(text: sourceNote)
             if source != .stock {
@@ -719,18 +720,6 @@ struct VideoFlowView: View {
                 .tint(Theme.black)
                 .accessibilityIdentifier("setupMusicPicker")
             }
-
-            Button {
-                auto = false
-                Task { await startPlan() }
-            } label: {
-                BusyLabel(title: T("See the shots first"), busy: starting && !auto)
-            }
-            .buttonStyle(QuietButtonStyle())
-            // "Only mine" with no clips yet is allowed here: the shot list is made
-            // empty and each shot takes a clip on the next page (Geni, 2026-11-18).
-            .disabled(starting || working != nil)
-            .accessibilityIdentifier("planButton")
         }
     }
 
@@ -797,26 +786,24 @@ struct VideoFlowView: View {
         .accessibilityIdentifier("shape-" + value.rawValue)
     }
 
-    /// The setup screen's one main button, with what it will cost in total.
+    /// The setup screen's one main button: plan the shots, with what planning costs.
+    /// One-tap "Make my video" is gone, as on the website (Geni, 2026-11-20 and
+    /// 2026-11-21): the customer always sees the shots before paying for the render.
     private var setupTitle: String {
-        guard let estimate else { return T("Make my video") }
-        let price: String = Fmt.credits(estimate + render.credits(durationSec: audioSec) + presenterCredits)
-        return T("Make my video") + " · ≈ " + price + " " + T("credits")
+        guard let estimate else { return T("See the shots") }
+        return T("See the shots") + " · ≈ " + Fmt.credits(estimate) + " " + T("credits")
     }
 
     @ViewBuilder private var setupBar: some View {
         Button {
-            auto = true
+            auto = false
             Task { await startPlan() }
         } label: {
-            BusyLabel(title: setupTitle, busy: starting && auto)
+            BusyLabel(title: setupTitle, busy: starting)
         }
         .buttonStyle(PrimaryButtonStyle())
-        .disabled(starting || working != nil || (source == .own && uploads.isEmpty) || presenterBlocked)
-        .accessibilityIdentifier("autoVideoButton")
-        if source == .own && uploads.isEmpty {
-            NoteText(text: T("Add your clips above, or tap See the shots first and add a clip to each shot."))
-        }
+        .disabled(starting || working != nil || presenterBlocked)
+        .accessibilityIdentifier("planButton")
         if let presenterNote {
             Text(presenterNote).font(Theme.small).foregroundStyle(Theme.black)
                 .fixedSize(horizontal: false, vertical: true)
