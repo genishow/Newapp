@@ -2218,6 +2218,14 @@ struct ShotSheet: View {
         }
     }
 
+    /// Not enough credits on this shot (an AI-made shot): Buy credits opens on the
+    /// Account tab and this sheet closes; the shot list stays as it is.
+    private func openBuyCredits() {
+        state.selectedTab = 2
+        state.pendingAccountRoute = .buyCredits
+        onClose()
+    }
+
     private func setLength(from old: Double) async {
         busy = true
         settingLength = true
